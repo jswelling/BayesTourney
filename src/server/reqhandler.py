@@ -8,6 +8,8 @@ Created on Jun 4, 2013
 
 import sys,os.path,time,json,math,random
 import bottle
+import numpy as np
+import pandas as pd
 #import bottle_sqlite
 
 from beaker.middleware import SessionMiddleware
@@ -164,7 +166,7 @@ def handleAjax(path):
     elif path=='bouts':
         return bottle.template("bouts.tpl")
     elif path=='horserace':
-        return bottle.template("horserace.tpl")
+        return bottle.template("horserace.tpl", session=session, Tourney=Tourney)
     elif path=='help':
         return bottle.template("info.tpl")
     else:
@@ -348,22 +350,43 @@ def handleJSON(path):
                   }
         logMessage("returning %s"%result)
     elif path == 'horserace.json':
-        playerList = [(p.id,p) for p in session.query(LogitPlayer)]
+        paramList = ['%s:%s'%(str(k),str(v)) for k,v in bottle.request.params.items()]
+        playerList = session.query(LogitPlayer)
+        playerList = [(p.id, p) for p in playerList]
         playerList.sort()
         playerList = [p for _,p in playerList]
+        print 'playerList follows'
+        print playerList
+        tourneyId = int(bottle.request.params['tourney'])
         boutList = session.query(Bout)
-        fitInfo = lordbayes_interactive.estimate(playerList,boutList)
-        for p,w in fitInfo: p.weight = w
-        pList = [p for p,_ in fitInfo]
+        boutDF = pd.read_sql_table('bouts', engine, coerce_float=False)
+        print boutDF
+        if tourneyId >= 0:
+            boutList = boutList.filter_by(tourneyId=tourneyId)
+            playerS = set([b.leftPlayerId for b in boutList] + [b.rightPlayerId for b in boutList])
+            playerList = [p for p in playerList if p.id in playerS]
+        print 'boutList follows'
+        print boutList
+        print 'trimmed playerList follows'
+        print playerList
+        try:
+            fitInfo = lordbayes_interactive.estimate(playerList,boutList)
+            for p,w in fitInfo: p.weight = w
+            pList = [p for p,_ in fitInfo]
+        except bottle.BottleException as e:
+            logMessage('horseRace exception: %s' % str(e))
+            for p in playerList:
+                p.weight = np.nan
+                pList = [p for p in playerList]
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage(pList,
                                                              {'id':'id', 'name':'name', 'notes':'note',
-                                                              'estimate':'weight'},
+                                                              'estimate':'weight', 'bearpit':'bearpit'},
                                                              bottle.request)
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
                   "records":totRecs,  # total records
-                  "rows": [ {"id":p.id, "cell":[p.id, p.name, str(p.weight), p.note]} 
+                  "rows": [ {"id":p.id, "cell":[p.id, p.name, 0, str(p.weight), p.note]} 
                            for i,p in enumerate(pList) ]
                   }
     else:
