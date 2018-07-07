@@ -6,13 +6,17 @@ Created on Jun 4, 2013
 @author: welling
 '''
 
-import sys,os.path,time,json,math,random
+import sys, os.path, time, json, math, random
+
 import bottle
 import numpy as np
 import pandas as pd
 #import bottle_sqlite
 
-from beaker.middleware import SessionMiddleware
+#from beaker.middleware import SessionMiddleware
+#from bottle_sqlalchemy import Plugin as SQLAlchemyPlugin
+import session_support
+#from bottle_beaker import BeakerPlugin
 
 import lordbayes_interactive
 
@@ -69,18 +73,21 @@ class Bout(Base):
     leftPlayerId = Column(Integer, ForeignKey('players.id'))
     rightPlayerId = Column(Integer, ForeignKey('players.id'))
     rightWins = Column(Integer)
+    draws = Column(Integer)
     note = Column(String)
-    def __init__(self,tourneyId,lWins,leftId,rightId,rWins,note=""):
+    def __init__(self, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
         self.tourneyId = tourneyId
         self.leftWins = lWins
         self.leftPlayerId = leftId
+        self.draws = draws
         self.rightPlayerId = rightId
         self.rightWins = rWins
         self.note = note
     def __str__(self):
-        return '<Bout(tourney=%s, results %s %d / %s %d>'%(self.tourneyName,
-                                                           self.lName, self.leftWins, 
-                                                           self.rName, self.rightWins)
+        return '<Bout(tourney=%s, results %s %d / %d / %s %d>'%(self.tourneyName,
+                                                                self.lName, self.leftWins,
+                                                                self.draws,
+                                                                self.rName, self.rightWins)
     @property
     def lName(self):
         global session
@@ -260,6 +267,8 @@ def handleEdit(path):
                 b.rWins = int(bottle.request.params['rwins'])
             if 'lwins' in bottle.request.params:
                 b.lWins = int(bottle.request.params['lwins'])
+            if 'draws' in bottle.request.params:
+                b.draws = int(bottle.request.params['draws'])
             if 'notes' in bottle.request.params:
                 b.note = bottle.request.params['notes']
             session.commit()
@@ -270,6 +279,7 @@ def handleEdit(path):
             rPlayerId = int(bottle.request.params['rightplayer'])
             lWins = int(bottle.request.params['lwins'])
             rWins = int(bottle.request.params['rwins'])
+            draws = int(bottle.request.params['draws'])
             note = bottle.request.params['notes']
             b = Bout(tourneyId,lWins,lPlayerId,rPlayerId,rWins,note)
             session.add(b)
@@ -305,7 +315,10 @@ def handleEdit(path):
         raise bottle.BottleException("Bad path /edit/%s"%path)
 
 @bottle.route('/json/<path>')
-def handleJSON(path):
+def handleJSON(db, uiSession, path, **kwargs):
+    print 'kwargs were %s' % kwargs
+    print 'db: ', db
+    print 'uiSession: ', uiSession
     logMessage("Request for /json/%s"%path)
     if path=='tourneys.json':
         tourneyList = session.query(Tourney)
@@ -338,6 +351,7 @@ def handleJSON(path):
                                                                  'rwins':'rightWins',
                                                                  'leftplayer':'lName',
                                                                  'rightplayer':'rName',
+                                                                 'draws':'draws',
                                                                  'notes':'note'},
                                                                 bottle.request)
         result = {
@@ -345,13 +359,13 @@ def handleJSON(path):
                   "page":thisPageNum,     # which page is this
                   "records":totRecs,  # total records
                   "rows": [ {"id":p.boutId, "cell":[p.tourneyName, 
-                                                    p.leftWins, p.lName, p.rName, p.rightWins, p.note] } 
+                                                    p.leftWins, p.lName, p.draws, p.rName, p.rightWins, p.note] } 
                            for p in boutList ]
                   }
         logMessage("returning %s"%result)
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in bottle.request.params.items()]
-        playerList = session.query(LogitPlayer)
+        playerList = db.query(LogitPlayer)
         playerList = [(p.id, p) for p in playerList]
         playerList.sort()
         playerList = [p for _,p in playerList]
@@ -403,12 +417,15 @@ def handleJSON(path):
 #    s.save()
 #    return 'Test counter: %d' % s['test']
 
-sessionOpts = {
-               'session.type':'ext:database',
-               'session.url':'sqlite:///%s/%s.db'%(sessionScratchDir,'tourney'),
-               'session.lock_dir':'/tmp'
-               }
+# sessionOpts = {
+#                'session.type':'ext:database',
+#                'session.url':'sqlite:///%s/%s.db'%(sessionScratchDir,'tourney'),
+#                'session.lock_dir':'/tmp'
+#                }
+# 
+# sessionOpts = { 'session.cookie_expires':True}
+# application= SessionMiddleware(bottle.app(), sessionOpts)
 
-sessionOpts = { 'session.cookie_expires':True}
-application= SessionMiddleware(bottle.app(), sessionOpts)
+application = session_support.wrapBottleApp(bottle.app(), engine, Session)
+
 

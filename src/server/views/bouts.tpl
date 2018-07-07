@@ -10,7 +10,7 @@ var lastsel_bouts
 jQuery("#bouts_table").jqGrid({
    	url:'json/bouts.json',
 	datatype: "json",
-   	colNames:['Tourney','Wins', 'Player 1','Player 2','Wins','Notes'],
+   	colNames:['Tourney','Wins', 'Player 1','Draws', 'Player 2','Wins','Notes'],
    	colModel:[
    	    {name:'tourney','index':'tourney',width:100, align:'center',
    	    	editable:true, edittype:'select', editoptions:{dataUrl:'list/select_tourney'}},
@@ -18,6 +18,8 @@ jQuery("#bouts_table").jqGrid({
    			editable:true, edittype:'text', editrules: { number:true }},
    		{name:'leftplayer',index:'leftplayer', width:100, align:'left',
    				editable:true, edittype:'select', editoptions:{dataUrl:'list/select_entrant'}},
+   		{name:'draws',index:'draws', width:90, align:'left',
+   	    	editable:true, edittype:'text', editrules: { number:true }},
    		{name:'rightplayer',index:'rightplayer', width:100, align:'right',
    	   			editable:true, edittype:'select', editoptions:{dataUrl:'list/select_entrant'}},
    		{name:'rwins',index:'rwins', width:90, align:'left',
