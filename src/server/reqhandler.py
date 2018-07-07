@@ -164,7 +164,7 @@ def notimplPage():
     return bottle.static_file('notimpl.html', root='../../www/static/')
 
 @bottle.route('/ajax/<path>')
-def handleAjax(path):
+def handleAjax(db, uiSession, path):
     logMessage("Request for /ajax/%s"%path)
     if path=='tourneys':
         return bottle.template("tourneys.tpl")
@@ -173,7 +173,7 @@ def handleAjax(path):
     elif path=='bouts':
         return bottle.template("bouts.tpl")
     elif path=='horserace':
-        return bottle.template("horserace.tpl", session=session, Tourney=Tourney)
+        return bottle.template("horserace.tpl", db=db, Tourney=Tourney)
     elif path=='help':
         return bottle.template("info.tpl")
     else:
@@ -206,12 +206,12 @@ def _orderAndChopPage(pList,fieldMap,bottleRequest):
         raise bottle.BottleException("Sort index %s not in field map"%sortIndex)
 
 @bottle.route('/list/<path>')
-def handleList(path):
+def handleList(db, uiSession, path):
     logMessage("Request for /list/%s"%path)
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in bottle.request.params.items()]
     logMessage("param list: %s"%paramList)
     if path=='select_entrant':
-        playerList = session.query(LogitPlayer)
+        playerList = db.query(LogitPlayer)
         pairs = [(p.id,p.name) for p in playerList]
         pairs.sort()
         s = "<select>\n"
@@ -219,7 +219,7 @@ def handleList(path):
         s += "</select>\n"
         return s
     elif path=='select_tourney':
-        tourneyList = session.query(Tourney)
+        tourneyList = db.query(Tourney)
         pairs = [((t.tourneyId,t.name)) for t in tourneyList]
         pairs.sort()
         s = "<select>\n"
@@ -230,33 +230,32 @@ def handleList(path):
         raise bottle.BottleException("Bad path /list/%s"%path)
     
 @bottle.route('/edit/<path>', method='POST')
-def handleEdit(path):
-    global session
+def handleEdit(db, uiSession, path):
     logMessage("Request for /edit/%s"%path)
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in bottle.request.params.items()]
     logMessage("param list: %s"%paramList)
     if path=='edit_tourneys.json':
         if bottle.request.params['oper']=='edit':
-            t = session.query(Tourney).filter_by(tourneyId=int(bottle.request.params['id'])).one()
+            t = db.query(Tourney).filter_by(tourneyId=int(bottle.request.params['id'])).one()
             if 'name' in bottle.request.params:
                 t.name = bottle.request.params['name']
             if 'notes' in bottle.request.params:
                 t.note = bottle.request.params['notes']
-            session.commit()
+            db.commit()
             return {}
         elif bottle.request.params['oper']=='add':
             name = bottle.request.params['name']
             notes = bottle.request.params['notes']
-            if session.query(Tourney).filter_by(name=name).count() != 0:
+            if db.query(Tourney).filter_by(name=name).count() != 0:
                 raise bottle.BottleException('There is already a tourney named %s'%name)
             t = Tourney(name,notes)
-            session.add(t)
-            session.commit()
+            db.add(t)
+            db.commit()
             logMessage("Just added %s"%t)
             return {}
     elif path=='edit_bouts.json':
         if bottle.request.params['oper']=='edit':
-            b = session.query(Bout).filter_by(boutId=int(bottle.request.params['id'])).one()
+            b = db.query(Bout).filter_by(boutId=int(bottle.request.params['id'])).one()
             if 'tourney' in bottle.request.params:
                 b.tourneyId = int(bottle.request.params['tourney'])
             if 'rightplayer' in bottle.request.params:
@@ -271,7 +270,7 @@ def handleEdit(path):
                 b.draws = int(bottle.request.params['draws'])
             if 'notes' in bottle.request.params:
                 b.note = bottle.request.params['notes']
-            session.commit()
+            db.commit()
             return {}
         elif bottle.request.params['oper']=='add':
             tourneyId = int(bottle.request.params['tourney'])
@@ -282,33 +281,33 @@ def handleEdit(path):
             draws = int(bottle.request.params['draws'])
             note = bottle.request.params['notes']
             b = Bout(tourneyId,lWins,lPlayerId,rPlayerId,rWins,note)
-            session.add(b)
-            session.commit()
+            db.add(b)
+            db.commit()
             logMessage("Just added %s"%b)
             return {}
         elif bottle.request.params['oper']=='del':
-            b = session.query(Bout).filter_by(boutId=int(bottle.request.params['id'])).one()
+            b = db.query(Bout).filter_by(boutId=int(bottle.request.params['id'])).one()
             logMessage("Deleting %s"%b)
-            session.delete(b)
-            session.commit()
+            db.delete(b)
+            db.commit()
             return {}
     elif path=='edit_entrants.json':
         if bottle.request.params['oper']=='edit':
-            p = session.query(LogitPlayer).filter_by(id=int(bottle.request.params['id'])).one()
+            p = db.query(LogitPlayer).filter_by(id=int(bottle.request.params['id'])).one()
             if 'name' in bottle.request.params:
                 p.name = bottle.request.params['name']
             if 'notes' in bottle.request.params:
                 p.note = bottle.request.params['notes']
-            session.commit()
+            db.commit()
             return {}
         elif bottle.request.params['oper']=='add':
             name = bottle.request.params['name']
             notes = bottle.request.params['notes']
-            if session.query(LogitPlayer).filter_by(name=name).count() != 0:
+            if db.query(LogitPlayer).filter_by(name=name).count() != 0:
                 raise bottle.BottleException('There is already an entrant named %s'%name)
             p = LogitPlayer(name,-1.0,notes)
-            session.add(p)
-            session.commit()
+            db.add(p)
+            db.commit()
             logMessage("Just added %s"%p)
             return {}
     else:
@@ -321,7 +320,7 @@ def handleJSON(db, uiSession, path, **kwargs):
     print 'uiSession: ', uiSession
     logMessage("Request for /json/%s"%path)
     if path=='tourneys.json':
-        tourneyList = session.query(Tourney)
+        tourneyList = db.query(Tourney)
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage([t for t in tourneyList],
                                                              {'id':'tourneyId', 'name':'name', 'notes':'note'},
                                                              bottle.request)
@@ -333,7 +332,7 @@ def handleJSON(db, uiSession, path, **kwargs):
                            for t in tourneyList ]
                   }
     elif path=='entrants.json':
-        playerList = session.query(LogitPlayer)
+        playerList = db.query(LogitPlayer)
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
                                                              {'id':'id', 'name':'name', 'notes':'note'},
                                                              bottle.request)
@@ -344,7 +343,7 @@ def handleJSON(db, uiSession, path, **kwargs):
                   "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in pList ]
                   }
     elif path =='bouts.json':
-        boutList = [b for b in session.query(Bout)]
+        boutList = [b for b in db.query(Bout)]
         nPages,thisPageNum,totRecs,boutList = _orderAndChopPage(boutList,
                                                                 {'tourney':'tourneyId',
                                                                  'lwins':'leftWins', 
@@ -372,7 +371,7 @@ def handleJSON(db, uiSession, path, **kwargs):
         print 'playerList follows'
         print playerList
         tourneyId = int(bottle.request.params['tourney'])
-        boutList = session.query(Bout)
+        boutList = db.query(Bout)
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=False)
         print boutDF
         if tourneyId >= 0:
