@@ -30,6 +30,7 @@
         });
       }
     });
+    $("#tabs").tabs({active: 2});
   });
   </script>
 </head>

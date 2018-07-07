@@ -3,7 +3,7 @@
 <label for="sel_horserace_tournament">Which Tournament?</label>
 <select id="sel_horserace_tournament">
 <option value=-1>All</option>
-%	tourneyList = session.query(Tourney)
+%	tourneyList = db.query(Tourney)
 %    pairs = [((t.tourneyId,t.name)) for t in tourneyList]
 %    pairs.sort()
 %    for thisId,name in pairs:

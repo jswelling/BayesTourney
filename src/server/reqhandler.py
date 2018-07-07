@@ -28,12 +28,11 @@ sessionScratchDir = '/tmp'
 dbURI = 'sqlite:///../../data/mydb.db'
 
 from sqlalchemy import create_engine, Column, Integer, Float, String, ForeignKey
+from sqlalchemy import select, func
 engine= create_engine(dbURI, echo=True)
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
-from sqlalchemy.orm import sessionmaker
-Session = sessionmaker(bind=engine)
-session = Session()
+from sqlalchemy.orm import sessionmaker, column_property
 
 class Tourney(Base):
     __tablename__ = 'tourneys'
@@ -75,6 +74,9 @@ class Bout(Base):
     rightWins = Column(Integer)
     draws = Column(Integer)
     note = Column(String)
+    lName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==leftPlayerId))
+    rName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==rightPlayerId))
+    tourneyName = column_property(select([Tourney.name]).where(Tourney.tourneyId==tourneyId))
     def __init__(self, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
         self.tourneyId = tourneyId
         self.leftWins = lWins
@@ -88,24 +90,6 @@ class Bout(Base):
                                                                 self.lName, self.leftWins,
                                                                 self.draws,
                                                                 self.rName, self.rightWins)
-    @property
-    def lName(self):
-        global session
-        p = session.query(LogitPlayer).filter_by(id=self.leftPlayerId).one()
-        return p.name
-    @property
-    def rName(self):
-        global session
-        p = session.query(LogitPlayer).filter_by(id=self.rightPlayerId).one()
-        return p.name
-    @property
-    def tourneyName(self):
-        global session
-        try:
-            t = session.query(Tourney).filter_by(tourneyId=self.tourneyId).one()
-        except Exception,e:
-            return str(e)
-        return t.name
 
 Base.metadata.create_all(engine)
 
@@ -318,6 +302,7 @@ def handleJSON(db, uiSession, path, **kwargs):
     print 'kwargs were %s' % kwargs
     print 'db: ', db
     print 'uiSession: ', uiSession
+    print 'session dict: %s' % repr(uiSession)
     logMessage("Request for /json/%s"%path)
     if path=='tourneys.json':
         tourneyList = db.query(Tourney)
@@ -342,6 +327,7 @@ def handleJSON(db, uiSession, path, **kwargs):
                   "records":totRecs,  # total records
                   "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in pList ]
                   }
+        uiSession['hello'] = 'world'
     elif path =='bouts.json':
         boutList = [b for b in db.query(Bout)]
         nPages,thisPageNum,totRecs,boutList = _orderAndChopPage(boutList,
@@ -425,6 +411,6 @@ def handleJSON(db, uiSession, path, **kwargs):
 # sessionOpts = { 'session.cookie_expires':True}
 # application= SessionMiddleware(bottle.app(), sessionOpts)
 
-application = session_support.wrapBottleApp(bottle.app(), engine, Session)
+application = session_support.wrapBottleApp(bottle.app(), engine, sessionmaker(bind=engine))
 
 

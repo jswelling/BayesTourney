@@ -241,8 +241,6 @@ class UISession(Base):
 
     @classmethod
     def getFromRequest(cls,bottleRequest):
-        import pdb
-        pdb.Pdb().set_trace()
         sessionId = bottleRequest.get_cookie("sessionId")
         if sessionId:
             try:
