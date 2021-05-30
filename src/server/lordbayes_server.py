@@ -8,130 +8,21 @@ Created on Jun 4, 2013
 
 import sys, os.path, time, json, math, random
 
-from flask import Flask, session, render_template
-#from flask_sqlalchemy import SQLAlchemy
+from flask import render_template, session
 import numpy as np
 import pandas as pd
 from pathlib import Path
-#import flask_sqlite
 
-#from beaker.middleware import SessionMiddleware
-#from flask_sqlalchemy import Plugin as SQLAlchemyPlugin
-#import session_support
-#from flask_beaker import BeakerPlugin
-
-import lordbayes_interactive
-
-#sqlite = flask_sqlite.SQLitePlugin(dbfile='/tmp/test.db')
-#flask.install(sqlite)
+import stat_utils
+from database import db_session
+from app import app
 
 logFileName = '/tmp/tourneyserver.log'
 sessionScratchDir = '/tmp'
-dbURI = f"sqlite:///{Path(__file__).parent.parent.parent / 'data' / 'mydb.db'}"
-print(f'##### DBURI: {dbURI}')
-#dbURI = 'sqlite:///../../data/mydb.db'
-
-from sqlalchemy import create_engine, Column, Integer, Float, String, ForeignKey
-from sqlalchemy import select, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, column_property, scoped_session
-
-engine= create_engine(dbURI, echo=True)
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
-                                         bind=engine))
-Base = declarative_base()
-Base.query = db_session.query_property()
-
-#app = session_support.wrapFlaskApp(Flask(__name__), engine, sessionmaker(bind=engine))
-app = Flask(__name__, template_folder='views')
-#session = sessionmaker(bind=engine)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()
-
-class Tourney(Base):
-    __tablename__ = 'tourneys'
-    tourneyId = Column(Integer, primary_key=True)
-    name = Column(String)
-    note = Column(String)
-    
-    def __init__(self,name,note=''):
-        self.name = name
-        self.note = note
-        
-    def __str__(self):
-        return "<Tourney(%s)>"%self.name
-
-class LogitPlayer(Base):
-    __tablename__ = 'players'
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    weight = Column(Float)
-    note = Column(String)
-    
-    def __init__(self,name,weight,note):
-        self.name = name
-        self.weight = weight
-        self.note = note
-    def __str__(self): return self.name
-    def fight(self,otherPlayer):
-        assert isinstance(otherPlayer,LogitPlayer), "%s can only fight LogitPlayers"%self.name
-        if random.random() < self.weight/(self.weight+otherPlayer.weight): return 0
-        else: return 1
-        
-class Bout(Base):
-    __tablename__ = 'bouts'
-    boutId = Column(Integer, primary_key=True)
-    tourneyId = Column(Integer, ForeignKey('tourneys.tourneyId'))
-    leftWins = Column(Integer)
-    leftPlayerId = Column(Integer, ForeignKey('players.id'))
-    rightPlayerId = Column(Integer, ForeignKey('players.id'))
-    rightWins = Column(Integer)
-    draws = Column(Integer)
-    note = Column(String)
-    lName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==leftPlayerId))
-    rName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==rightPlayerId))
-    tourneyName = column_property(select([Tourney.name]).where(Tourney.tourneyId==tourneyId))
-    def __init__(self, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
-        self.tourneyId = tourneyId
-        self.leftWins = lWins
-        self.leftPlayerId = leftId
-        self.draws = draws
-        self.rightPlayerId = rightId
-        self.rightWins = rWins
-        self.note = note
-    def __str__(self):
-        return '<Bout(tourney=%s, results %s %d / %d / %s %d>'%(self.tourneyName,
-                                                                self.lName, self.leftWins,
-                                                                self.draws,
-                                                                self.rName, self.rightWins)
-
-Base.metadata.create_all(bind=engine)
-
-###############################
-## This bit fakes some data
-#activePlayerNames = ['Andy', 'Bob', 'Carl', 'Donna', 'Erin', 'Fran']
-#hiddenScores = { 'Andy':1.0, 'Bob':2.0, 'Carl':3.0, 'Donna': 4.0, 'Erin': 5.0, 'Fran':6.0}
-#
-#def genRandomBouts(activePlayerNames, nTrials):
-#    result = []
-#    for _ in xrange(nTrials):
-#        pair = random.sample(activePlayerNames,2)
-#        lP = session.query(LogitPlayer).filter_by(name=pair[0]).one()
-#        rP = session.query(LogitPlayer).filter_by(name=pair[1]).one()
-#        lWins = lP.fight(rP)
-#        rWins = 1 - Wins
-#        result.append( Bout(lWins,lP.id,rP.id,rWins,"random") )     
-#    return resultd
-#
-#for name,score in hiddenScores.items():
-#    thisPlayer = LogitPlayer(name,score,"")
-#    session.add(thisPlayer)
-#for i,b in enumerate(genRandomBouts(activePlayerNames,100)): 
-#    session.add(b)
-##############################
 
 
 def logMessage(txt):
@@ -167,32 +58,34 @@ def notimplPage():
     return flask.static_file('notimpl.html', root='../../www/static/')
 
 @app.route('/ajax/<path>')
-def handleAjax(db, uiSession, path):
+def handleAjax(path):
+    uiSession = session
+    db = db_session
     logMessage("Request for /ajax/%s"%path)
     if path=='tourneys':
         uiSession['curTab'] = 0
-        uiSession.changed()
-        return flask.template("tourneys.tpl")
+        #uiSession.changed()
+        return render_template("tourneys.tpl")
     elif path=='entrants':
         uiSession['curTab'] = 1
-        uiSession.changed()
-        return flask.template("entrants.tpl")
+        #uiSession.changed()
+        return render_template("entrants.tpl")
     elif path=='bouts':
         uiSession['curTab'] = 2
-        uiSession.changed()
-        return flask.template("bouts.tpl")
+        #uiSession.changed()
+        return render_template("bouts.tpl")
     elif path=='horserace':
         uiSession['curTab'] = 3
-        uiSession.changed()
-        return flask.template("horserace.tpl", db=db, Tourney=Tourney)
+        #uiSession.changed()
+        return render_template("horserace.tpl", db=db, Tourney=Tourney)
     elif path=='misc':
         uiSession['curTab'] = 4
-        uiSession.changed()
-        return flask.template("misc.tpl", db=db, Tourney=Tourney)
+        #uiSession.changed()
+        return render_template("misc.tpl", db=db, Tourney=Tourney)
     elif path=='help':
         uiSession['curTab'] = 5
-        uiSession.changed()
-        return flask.template("info.tpl")
+        #uiSession.changed()
+        return render_template("info.tpl")
     else:
         raise flask.FlaskException("Unknown path /ajax/%s"%path)
 
@@ -338,7 +231,9 @@ def handleDownloadReq(db, uiSession, **kwargs):
 
 @app.route('/json/<path>')
 def handleJSON(db, uiSession, path, **kwargs):
-    print('kwargs were %s' % kwargs)
+    db = db_session
+    uiSession = session
+    print(f'kwargs: {kwargs}')
     print('db: ', db)
     print('uiSession: ', uiSession)
     print('session dict: %s' % repr(uiSession))

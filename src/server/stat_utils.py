@@ -2,9 +2,6 @@
 
 import sys, types
 import numpy
-#from fiasco_numpy import *
-import flask
-import reqhandler
 
 def fit(nPlayers, obs, factors, counts):
     regressor = create_logistic_regressor()
@@ -127,7 +124,7 @@ def estimate(orderedPlayerList, boutList):
         for p,s in zip(orderedPlayerList,params): result.append((p,s))
         return result
     except Exception as e:
-        raise flask.FlaskException("Fit did not converge: %s"%e)
+        raise RuntimeError("Fit did not converge: %s"%e)
     #params = fit2(nPlayers, obs, factors, counts)
     #print 'params by praxis: %s'%params
 #    for i in xrange(obs.shape[0]):

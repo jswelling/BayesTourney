@@ -11,7 +11,7 @@ import reqhandler
 
 rootPath = '/tourney/'
 
-root= flask.Flask(catchall=True)
+root= reqhandler.app
 root.mount(rootPath, reqhandler.application)
 
 flask.debug(True)
