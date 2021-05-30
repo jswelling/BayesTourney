@@ -13,7 +13,7 @@ class Player:
         
 class LogitPlayer(Player):
     def __init__(self,name,weight):
-        assert isinstance(weight,types.FloatType), "weight must be a float"
+        assert isinstance(weight,float), "weight must be a float"
         Player.__init__(self,name)
         self.weight = weight
     def fight(self,otherPlayer):

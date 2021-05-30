@@ -2,7 +2,7 @@
 
 import sys, types
 import numpy
-from fiasco_numpy import *
+#from fiasco_numpy import *
 import playermodel
 
 def estimateDummy(playersByName, orderedPlayerList, trialList):
@@ -36,7 +36,7 @@ def chisqr(est, hook):
     nObs = factors.shape[0]
     assert nObs==obs.shape[0], 'Dimension mismatch'
     sum = 0.0
-    for i in xrange(nObs):
+    for i in range(nObs):
         count = counts[i]
         if count>0.0:
             ratio = obs[i]/count
@@ -74,17 +74,17 @@ def estimate(playersByName, orderedPlayerList, trialList):
     colCount = 0
     colLut = {}
     orderedCols = []
-    for i in xrange(nPlayers):
-        for j in xrange(nPlayers-(i+1)):
+    for i in range(nPlayers):
+        for j in range(nPlayers-(i+1)):
             pair = (i,i+j+1)
             colLut[pair] = colCount
             colCount += 1
             orderedCols.append(pair)
     #print colLut
     nFactors = colCount
-    print "nFactors: %d"%nFactors
+    print("nFactors: %d"%nFactors)
     trialDict = {}
-    if isinstance(trialList[0],types.TupleType):
+    if isinstance(trialList[0],tuple):
         tupleTrialList = trialList
     else: 
         tupleTrialList = [(str(b.getWinner()), str(b.getLoser()), 0) for b in trialList]
@@ -114,10 +114,10 @@ def estimate(playersByName, orderedPlayerList, trialList):
             if won: wins = 1
             else: wins = 0
             trialDict[key] = (count, wins)
-    for k,v in trialDict.items():
+    for k,v in list(trialDict.items()):
         l,r = k
         count,wins = v
-        print "%s %s : %d of %d"%(orderedPlayerList[l],orderedPlayerList[r],wins,count)
+        print("%s %s : %d of %d"%(orderedPlayerList[l],orderedPlayerList[r],wins,count))
     obsList = []
     countsList = []
     for key in orderedCols:
@@ -132,26 +132,26 @@ def estimate(playersByName, orderedPlayerList, trialList):
     counts = numpy.array(countsList,dtype=numpy.float)
     counts = counts.transpose()
     betas = numpy.zeros(nPlayers)
-    print 'obs: %s'%obs
-    print 'counts: %s'%counts
-    print 'ratios: %s'%(obs/counts)
+    print('obs: %s'%obs)
+    print('counts: %s'%counts)
+    print('ratios: %s'%(obs/counts))
     factors = numpy.zeros([nFactors,nPlayers])
     for key in orderedCols:
         i,j = key
         offset = colLut[key]
         factors[offset,i] = 1.0
         factors[offset,j] = -1.0
-    print 'factors: \n%s'%factors
+    print('factors: \n%s'%factors)
     params = fit(nPlayers, obs, factors, counts)
-    print 'params by lr: %s'%params
+    print('params by lr: %s'%params)
     #params = fit2(nPlayers, obs, factors, counts)
     #print 'params by praxis: %s'%params
-    for i in xrange(obs.shape[0]):
+    for i in range(obs.shape[0]):
         cObs = obs.copy()
         if cObs[i] == counts[i] : cObs[i] -= 1
         else: cObs[i] += 1
         params = fit(nPlayers, cObs, factors, counts)
-        print 'params tweaking %d: %s'%(i,params)
+        print('params tweaking %d: %s'%(i,params))
     #print ratios[:nPlayers]/ratios[0]
 #    with open('/tmp/stuff.gnuplot','a') as f:
 #        for i,v in enumerate(numpy.exp(beta)):

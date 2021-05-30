@@ -9,7 +9,7 @@ hiddenScores = { 'Andy':1.0, 'Bob':2.0, 'Carl':3.0, 'Donna': 4.0, 'Erin': 5.0, '
 
 def genRandomOutcomes(scoreEstDict, nTrials):
     bouts = []
-    for _ in xrange(nTrials):
+    for _ in range(nTrials):
         pair = random.sample(players,2)
         bouts.append((pair[0],pair[1]))
     result = []
@@ -26,4 +26,4 @@ counts = {}
 trials = genRandomOutcomes(hiddenScores,10000)
 #print trials
 estDict = lordbayes.estimate(players,trials)
-print estDict
+print(estDict)

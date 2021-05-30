@@ -2,8 +2,8 @@
 
 import sys, types
 import numpy
-from fiasco_numpy import *
-import bottle
+#from fiasco_numpy import *
+import flask
 import reqhandler
 
 def fit(nPlayers, obs, factors, counts):
@@ -26,7 +26,7 @@ def chisqr(est, hook):
     nObs = factors.shape[0]
     assert nObs==obs.shape[0], 'Dimension mismatch'
     sum = 0.0
-    for i in xrange(nObs):
+    for i in range(nObs):
         count = counts[i]
         if count>0.0:
             ratio = obs[i]/count
@@ -64,15 +64,15 @@ def estimate(orderedPlayerList, boutList):
     colCount = 0
     colLut = {}
     orderedCols = []
-    for i in xrange(nPlayers):
-        for j in xrange(nPlayers-(i+1)):
+    for i in range(nPlayers):
+        for j in range(nPlayers-(i+1)):
             pair = (i,i+j+1)
             colLut[pair] = colCount
             colCount += 1
             orderedCols.append(pair)
     #print colLut
     nFactors = colCount
-    print "nFactors: %d"%nFactors
+    print("nFactors: %d"%nFactors)
     trialDict = {}
     for b in boutList:
         l = playerLut[b.leftPlayerId]
@@ -92,10 +92,10 @@ def estimate(orderedPlayerList, boutList):
             trialDict[key] = count+lWins+rWins, wins+lWins
         else:
             trialDict[key] = lWins+rWins, lWins
-    for k,v in trialDict.items():
+    for k,v in list(trialDict.items()):
         l,r = k
         count,wins = v
-        print "%s %s : %d of %d"%(orderedPlayerList[l],orderedPlayerList[r],wins,count)
+        print("%s %s : %d of %d"%(orderedPlayerList[l],orderedPlayerList[r],wins,count))
     obsList = []
     countsList = []
     for key in orderedCols:
@@ -110,24 +110,24 @@ def estimate(orderedPlayerList, boutList):
     counts = numpy.array(countsList,dtype=numpy.float)
     counts = counts.transpose()
     betas = numpy.zeros(nPlayers)
-    print 'obs: %s'%obs
-    print 'counts: %s'%counts
-    print 'ratios: %s'%(obs/counts)
+    print('obs: %s'%obs)
+    print('counts: %s'%counts)
+    print('ratios: %s'%(obs/counts))
     factors = numpy.zeros([nFactors,nPlayers])
     for key in orderedCols:
         i,j = key
         offset = colLut[key]
         factors[offset,i] = 1.0
         factors[offset,j] = -1.0
-    print 'factors: \n%s'%factors
+    print('factors: \n%s'%factors)
     try:
         params = fit(nPlayers, obs, factors, counts)
-        print 'params by lr: %s'%params
+        print('params by lr: %s'%params)
         result = []
         for p,s in zip(orderedPlayerList,params): result.append((p,s))
         return result
-    except Exception,e:
-        raise bottle.BottleException("Fit did not converge: %s"%e)
+    except Exception as e:
+        raise flask.FlaskException("Fit did not converge: %s"%e)
     #params = fit2(nPlayers, obs, factors, counts)
     #print 'params by praxis: %s'%params
 #    for i in xrange(obs.shape[0]):

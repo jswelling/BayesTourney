@@ -17,9 +17,9 @@
 
 _hermes_svn_id_="$Id$"
 
-import sys,os.path,thread,time,inspect
-import bottle
-import bottle_sqlalchemy
+import sys,os.path,_thread,time,inspect
+import flask
+#import flask_sqlalchemy
 
 # import i18n
 # import gettext
@@ -129,9 +129,9 @@ class UISession(Base):
     sessionDict = Column(MutableDict.as_mutable(PickleType))
 
     
-    def __init__(self, sessionId):
+    def __init__(self, sessionId, sessionDict):
         self.sessionId = sessionId
-        self.sessionDict = {"notes":"just created", "models":[], "userId":2}
+        self.sessionDict = sessionDict
 
     def __len__(self):
         return len(self.sessionDict)
@@ -146,15 +146,18 @@ class UISession(Base):
         return self.sessionDict.__delitem__(key)
     
     def __iter__(self):
-        return self.sessionDict.iterkeys()
+        return iter(self.sessionDict.keys())
     
     def __contains__(self, item):
         return item in self.sessionDict
-    
+
+    def save(self):
+        SESSION.commit()
+
     @staticmethod
     def _getDictSummaryFromDict(dd):
         d = {}
-        for k,v in dd.items():
+        for k,v in list(dd.items()):
             try:
                 if isinstance(v,HermesUserFS):
                     d[k] = v.getJSONSafeSummary()
@@ -166,7 +169,7 @@ class UISession(Base):
                     d[k] = UISession._getDictSummaryFromDict(v)
                 else:
                     d[k] = v
-            except Exception,e:
+            except Exception as e:
                 d[k] = "Exception '%s' while summarizing this term" % str(e)
         return d
 ### Rewrote this to now be recursive   
@@ -227,36 +230,38 @@ class UISession(Base):
         if not hasattr(crumbTrack,'changeListener') or crumbTrack.changeListener is None:
             # This is always going to be true, because the changeListener will have been lost when the session was pickled
             crumbTrack.setChangeListener(self.changed)
-        if 'crmb' in bottle.request.params:
-            if bottle.request.params['crmb']=='clear':
+        if 'crmb' in flask.request.params:
+            if flask.request.params['crmb']=='clear':
                 crumbTrack.clear()
             else:
                 raise RuntimeError("The only crmb note should be 'clear'")
-            del bottle.request.params['crmb']
-            print bottle.request.query_string
-            print [(k,v) for k,v in bottle.request.params.items()]
+            del flask.request.params['crmb']
+            print(flask.request.query_string)
+            print([(k,v) for k,v in list(flask.request.params.items())])
 #         print 'getCrumbs returning the following crumbTrack:'
 #         crumbTrack._dump()
         return  crumbTrack
 
     @classmethod
-    def getFromRequest(cls,bottleRequest):
-        sessionId = bottleRequest.get_cookie("sessionId")
+    def getFromRequest(cls,flaskRequest):
+        sessionId = flaskRequest.get_cookie("sessionId")
+        defaultSessionDictContents = {"notes":"just created", "models":[], "userId":2}
+        sess = SESSION
         if sessionId:
             try:
-                uiSession = SESSION().query(UISession).filter_by(sessionId=sessionId).one()
+                uiSession = sess.query(UISession).filter_by(sessionId=sessionId).one()
             except NoResultFound:
-                uiSession = UISession(sessionId)
-                SESSION().add(uiSession)
-                SESSION().commit()
-                # raise bottle.HTTPResponse('Previous session information is not available',410)
+                uiSession = UISession(sessionId, defaultSessionDictContents)
+                sess.add(uiSession)
+                sess.commit()
+                # raise flask.HTTPResponse('Previous session information is not available',410)
         else:
-            sessionId= "%013d_%06d_%015d"%(int(1000*time.time()),os.getpid(),thread.get_ident())
-            rootPath = bottleRequest.fullpath[:-len(bottleRequest.path)]
-            bottle.response.set_cookie("sessionId", sessionId, path=rootPath)
-            uiSession = UISession(sessionId)
-            SESSION().add(uiSession)
-            SESSION().commit()
+            sessionId= "%013d_%06d_%015d"%(int(1000*time.time()),os.getpid(),_thread.get_ident())
+            rootPath = flaskRequest.fullpath[:-len(flaskRequest.path)]
+            flask.response.set_cookie("sessionId", sessionId, path=rootPath)
+            uiSession = UISession(sessionId, defaultSessionDictContents)
+            sess.add(uiSession)
+            sess.commit()
 #         if 'locale' in uiSession:
 #             inlizer.selectLocale(uiSession['locale'])
 #         else:
@@ -268,40 +273,45 @@ class UISessionPlugin(object):
     api = 2
     def __init__(self, keyword='uiSession'):
         self.keyword = keyword
+        self.sqlAlchemyKeywords = []
     def setup(self, app):
         for other in app.plugins:
-            if not isinstance(other, UISessionPlugin): continue
-            if other.keyword == self.keyword:
-                raise bottle.PluginError("Found another UISessionPlugin plugin with "\
-                                  "conflicting settings (non-unique keyword).")
-    def apply(self, callback, context):
-        print 'context: ', context
-        print 'context.config: ', context.config
+            if (not isinstance(other, UISessionPlugin)
+                    and not isinstance(other, flask_sqlalchemy.SQLAlchemyPlugin)):
+                continue
+            if isinstance(other, UISessionPlugin):
+                if other.keyword == self.keyword:
+                    raise flask.PluginError("Found another UISessionPlugin plugin with "
+                                             "conflicting settings (non-unique keyword).")
+            elif isinstance(other, flask_sqlalchemy.SQLAlchemyPlugin):
+                self.sqlAlchemyKeywords.append(other.keyword)
+    def apply(self, callback, route):
         # Override global configuration with route-specific values.
-        conf = context.config.get('uiSession') or {}
+        conf = route.config.get('uiSession') or {}
         keyword = conf.get('keyword', self.keyword)
+        # print 'conf: ', conf
+        # print 'keyword: ', keyword
         
-        # Note that the following trick fails if plugins are installed in the wrong order!
-        #managedBySQLAlchemyPlugin = context.config.get('_wrapped_sqlalchemy') or False
-        managedBySQLAlchemyPlugin = True
-
         # Test if the original callback accepts the keyword.
         # Ignore it if it does not need a handle.
-        args = inspect.getargspec(context.callback)[0]
+        args = inspect.getargspec(route.callback)[0]
         if keyword not in args:
             return callback
+        # If the callback invokes the SQLAlchemy plugin we do not need to do commits
+        managedBySQLAlchemyPlugin = any([sAKwd in args for sAKwd in self.sqlAlchemyKeywords])
+
 
         def wrapper(*args, **kwargs):
             # Add the session handle as a keyword argument.
             #print '####### Applying uiSession wrapper'
-            kwargs[keyword] = session = UISession.getFromRequest(bottle.request)
+            kwargs[keyword] = session = UISession.getFromRequest(flask.request)
 
             try:
                 rv = callback(*args, **kwargs)
                 if not managedBySQLAlchemyPlugin: session.save()
-            except UISessionException,e:
-                raise bottle.BottleException('uiSession says '+str(e))
-            except bottle.HTTPResponse:
+            except UISessionException as e:
+                raise flask.FlaskException('uiSession says '+str(e))
+            except flask.HTTPResponse:
                 if not managedBySQLAlchemyPlugin: session.save()
                 raise
             finally:
@@ -313,12 +323,12 @@ class UISessionPlugin(object):
         return wrapper
 
 
-def wrapBottleApp(bottleApp, engine, Session):
+def wrapFlaskApp(flaskApp, engine, Session):
     global SESSION
-    SESSION = Session
+    SESSION = Session()
     plugin = UISessionPlugin()
-    bottleApp.install(plugin)
-    plugin = bottle_sqlalchemy.Plugin(
+    flaskApp.install(plugin)
+    plugin = flask_sqlalchemy.Plugin(
         engine, # SQLAlchemy engine created with create_engine function.
         #Base.metadata, # SQLAlchemy metadata, required only if create=True.
         keyword='db', # Keyword used to inject session database in a route (default 'db').
@@ -327,6 +337,5 @@ def wrapBottleApp(bottleApp, engine, Session):
         use_kwargs=False, # If it is true and keyword is not defined, plugin uses **kwargs argument to inject session database (default False).
         create_session=Session
     )
-    bottleApp.install(plugin)
-    print 'config: ', bottleApp.config
-    return bottleApp
+    flaskApp.install(plugin)
+    return flaskApp

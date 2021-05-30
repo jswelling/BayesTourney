@@ -7,7 +7,6 @@
 %    pairs = [((t.tourneyId,t.name)) for t in tourneyList]
 %    pairs.sort()
 %    for thisId,name in pairs:
-%        print '<%s><%s>' % (thisId, name)
 <option value={{thisId}}>{{name}}</option>
 %    end
 </select>
