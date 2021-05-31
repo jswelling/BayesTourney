@@ -62,7 +62,6 @@ def logMessage(txt):
 
 @app.route('/top')
 def topPage():
-#def topPage(db, uiSession):
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
 
 @app.route('/notimpl')
@@ -104,16 +103,14 @@ def handleAjax(path):
         raise RuntimeError("Unknown path /ajax/%s"%path)
 
 def _orderAndChopPage(pList,fieldMap):
-    sortIndex = request.args['sidx']
-    sortOrder = request.args['sord']
-    thisPageNum = int(request.args['page'])
-    rowsPerPage = int(request.args['rows'])
+    sortIndex = request.values['sidx']
+    sortOrder = request.values['sord']
+    thisPageNum = int(request.values['page'])
+    rowsPerPage = int(request.values['rows'])
     if sortIndex in fieldMap:
         field = fieldMap[sortIndex]
         pDict = {(getattr(p, field), idx) : p for idx, p in enumerate(pList)}
         sortMe = [tpl for tpl in pDict]
-        print(f'field: {field}')
-        pprint(sortMe)
         if sortOrder == 'asc':
             sortMe.sort()
         else:
@@ -133,16 +130,20 @@ def _orderAndChopPage(pList,fieldMap):
         raise RuntimeError("Sort index %s not in field map"%sortIndex)
 
 @app.route('/list/<path>')
-def handleList(db, uiSession, path):
+def handleList(path):
+    db = db_session
+    uiSession = session
     logMessage("Request for /list/%s"%path)
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
+    paramList = ['%s:%s'%(str(k),str(v))
+                 for k,v in list(request.values.items())]
     logMessage("param list: %s"%paramList)
     if path=='select_entrant':
         playerList = db.query(LogitPlayer)
         pairs = [(p.id,p.name) for p in playerList]
         pairs.sort()
         s = "<select>\n"
-        for thisId,name in pairs: s += "<option value=%d>%s<option>\n"%(thisId,name)
+        for thisId,name in pairs:
+            s += "<option value=%d>%s<option>\n"%(thisId,name)
         s += "</select>\n"
         return s
     elif path=='select_tourney':
@@ -161,21 +162,21 @@ def handleEdit(path):
     db = db_session
     uiSession = session
     logMessage("Request for /edit/%s"%path)
-    pprint(request.args)
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
+    pprint(request.values)
+    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
     logMessage("param list: %s"%paramList)
     if path=='edit_tourneys.json':
-        if request.args['oper']=='edit':
-            t = db.query(Tourney).filter_by(tourneyId=int(request.args['id'])).one()
-            if 'name' in request.args:
-                t.name = request.args['name']
-            if 'notes' in request.args:
-                t.note = request.args['notes']
+        if request.values['oper']=='edit':
+            t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
+            if 'name' in request.values:
+                t.name = request.values['name']
+            if 'notes' in request.values:
+                t.note = request.values['notes']
             db.commit()
             return {}
-        elif request.args['oper']=='add':
-            name = request.args['name']
-            notes = request.args['notes']
+        elif request.values['oper']=='add':
+            name = request.values['name']
+            notes = request.values['notes']
             if db.query(Tourney).filter_by(name=name).count() != 0:
                 raise RuntimeError('There is already a tourney named %s'%name)
             t = Tourney(name,notes)
@@ -184,55 +185,55 @@ def handleEdit(path):
             logMessage("Just added %s"%t)
             return {}
     elif path=='edit_bouts.json':
-        if request.args['oper']=='edit':
-            b = db.query(Bout).filter_by(boutId=int(request.args['id'])).one()
-            if 'tourney' in request.args:
-                b.tourneyId = int(request.args['tourney'])
-            if 'rightplayer' in request.args:
-                b.rightPlayerId = int(request.args['rightplayer'])
-            if 'leftplayer' in request.args:
-                b.leftPlayerId = int(request.args['leftplayer'])
-            if 'rwins' in request.args:
-                b.rWins = int(request.args['rwins'])
-            if 'lwins' in request.args:
-                b.lWins = int(request.args['lwins'])
-            if 'draws' in request.args:
-                b.draws = int(request.args['draws'])
-            if 'notes' in request.args:
-                b.note = request.args['notes']
+        if request.values['oper']=='edit':
+            b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
+            if 'tourney' in request.values:
+                b.tourneyId = int(request.values['tourney'])
+            if 'rightplayer' in request.values:
+                b.rightPlayerId = int(request.values['rightplayer'])
+            if 'leftplayer' in request.values:
+                b.leftPlayerId = int(request.values['leftplayer'])
+            if 'rwins' in request.values:
+                b.rWins = int(request.values['rwins'])
+            if 'lwins' in request.values:
+                b.lWins = int(request.values['lwins'])
+            if 'draws' in request.values:
+                b.draws = int(request.values['draws'])
+            if 'notes' in request.values:
+                b.note = request.values['notes']
             db.commit()
             return {}
-        elif request.args['oper']=='add':
-            tourneyId = int(request.args['tourney'])
-            lPlayerId = int(request.args['leftplayer'])
-            rPlayerId = int(request.args['rightplayer'])
-            lWins = int(request.args['lwins'])
-            rWins = int(request.args['rwins'])
-            draws = int(request.args['draws'])
-            note = request.args['notes']
-            b = Bout(tourneyId,lWins,lPlayerId,rPlayerId,rWins,note)
+        elif request.values['oper']=='add':
+            tourneyId = int(request.values['tourney'])
+            lPlayerId = int(request.values['leftplayer'])
+            rPlayerId = int(request.values['rightplayer'])
+            lWins = int(request.values['lwins'])
+            rWins = int(request.values['rwins'])
+            draws = int(request.values['draws'])
+            note = request.values['notes']
+            b = Bout(tourneyId,lWins,lPlayerId,draws,rPlayerId,rWins,note)
             db.add(b)
             db.commit()
             logMessage("Just added %s"%b)
             return {}
-        elif request.args['oper']=='del':
-            b = db.query(Bout).filter_by(boutId=int(request.args['id'])).one()
+        elif request.values['oper']=='del':
+            b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
             logMessage("Deleting %s"%b)
             db.delete(b)
             db.commit()
             return {}
     elif path=='edit_entrants.json':
-        if request.args['oper']=='edit':
-            p = db.query(LogitPlayer).filter_by(id=int(request.args['id'])).one()
-            if 'name' in request.args:
-                p.name = request.args['name']
-            if 'notes' in request.args:
-                p.note = request.args['notes']
+        if request.values['oper']=='edit':
+            p = db.query(LogitPlayer).filter_by(id=int(request.values['id'])).one()
+            if 'name' in request.values:
+                p.name = request.values['name']
+            if 'notes' in request.values:
+                p.note = request.values['notes']
             db.commit()
             return {}
-        elif request.args['oper']=='add':
-            name = request.args['name']
-            notes = request.args['notes']
+        elif request.values['oper']=='add':
+            name = request.values['name']
+            notes = request.values['notes']
             if db.query(LogitPlayer).filter_by(name=name).count() != 0:
                 raise RuntimeError('There is already an entrant named %s'%name)
             p = LogitPlayer(name,-1.0,notes)
@@ -301,14 +302,14 @@ def handleJSON(path, **kwargs):
                   }
         logMessage("returning %s"%result)
     elif path == 'horserace.json':
-        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
+        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         playerList = db.query(LogitPlayer)
         playerList = [(p.id, p) for p in playerList]
         playerList.sort()
         playerList = [p for _,p in playerList]
         print('playerList follows')
         print(playerList)
-        tourneyId = int(request.args['tourney'])
+        tourneyId = int(request.values['tourney'])
         boutList = db.query(Bout)
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=False)
         print(boutDF)
