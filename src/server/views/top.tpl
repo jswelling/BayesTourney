@@ -4,12 +4,12 @@
 <head>
   <meta charset="utf-8" />
   <title>Tourney Helper</title>
-  <link rel="stylesheet" href="/tourney/static/jquery-ui-1.10.2/themes/base/jquery-ui.css" />
-  <link rel="stylesheet" href="/tourney/static/jqGrid-4.5.2/css/ui.jqgrid.css" />
-  <script src="/tourney/static/jquery-1.10.1.min.js"></script>
-  <script src="/tourney/static/jquery-ui-1.10.2/ui/jquery-ui.js"></script>
-  <script type="text/javascript" src="/tourney/static/jqGrid-4.5.2/js/grid.locale-en.js"></script>
-  <script type="text/javascript" src="/tourney/static/jqGrid-4.5.2/js/jquery.jqGrid.min.js"></script>
+  <link rel="stylesheet" href="/static/jquery-ui-1.10.2/themes/base/jquery-ui.css" />
+  <link rel="stylesheet" href="/static/jqGrid-4.5.2/css/ui.jqgrid.css" />
+  <script src="/static/jquery-1.10.1.min.js"></script>
+  <script src="/static/jquery-ui-1.10.2/ui/jquery-ui.js"></script>
+  <script type="text/javascript" src="/static/jqGrid-4.5.2/js/grid.locale-en.js"></script>
+  <script type="text/javascript" src="/static/jqGrid-4.5.2/js/jquery.jqGrid.min.js"></script>
 
   <script>
   /*
@@ -30,9 +30,9 @@
         });
       }
     });
-% if curTab is not None:
+{% if curTab is not none %}
     $("#tabs").tabs({ active: {{curTab}} });
-% end
+{% endif %}
   });
   </script>
 </head>

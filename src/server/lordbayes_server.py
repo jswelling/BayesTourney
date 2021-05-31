@@ -8,14 +8,16 @@ Created on Jun 4, 2013
 
 import sys, os.path, time, json, math, random
 
-from flask import render_template, session
+from flask import render_template, session, send_from_directory, request
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from pprint import pprint
 
 import stat_utils
 from database import db_session
 from app import app
+from models import Tourney, LogitPlayer, Bout
 
 logFileName = '/tmp/tourneyserver.log'
 sessionScratchDir = '/tmp'
@@ -33,14 +35,26 @@ def logMessage(txt):
         print('exception %s on %s'%(e,txt))
         pass
 
-@app.route('/static/<path:filepath>')
-def server_static(filepath):
-    logMessage("static get of %s"%filepath)
-    try:
-        return flask.static_file(filepath, root='../../www/static/')
-    except Exception as e:
-        logMessage("Static get failed: %s"%e)
-        raise e
+# @app.route('/converters/')
+# @app.route('/converters/<path:urlpath>')
+# def convertersexample(urlpath):
+#     print('########## PONG!')
+#     logMessage(f"test of {urlpath}")
+#     try:
+#         return render_template("converterexample.html", urlpath=urlpath)
+#     except Exception as e:
+#         return(str(e))  
+
+# @app.route('/static/')
+# @app.route('/static/<path:urlpath>')
+# def server_static(urlpath):
+#     print('######## PING!')
+#     logMessage("static get of %s"%urlpath)
+#     try:
+#         return send_from_directory('../../www/static/', path)
+#     except Exception as e:
+#         logMessage("Static get failed: %s"%e)
+#         raise e
 
 #@app.route('/hello/:name')
 #def index(name='World'):
@@ -49,7 +63,6 @@ def server_static(filepath):
 @app.route('/top')
 def topPage():
 #def topPage(db, uiSession):
-    print('!!!! top session %s' % repr(session))
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
 
 @app.route('/notimpl')
@@ -64,6 +77,7 @@ def handleAjax(path):
     logMessage("Request for /ajax/%s"%path)
     if path=='tourneys':
         uiSession['curTab'] = 0
+        pprint(uiSession)
         #uiSession.changed()
         return render_template("tourneys.tpl")
     elif path=='entrants':
@@ -87,21 +101,24 @@ def handleAjax(path):
         #uiSession.changed()
         return render_template("info.tpl")
     else:
-        raise flask.FlaskException("Unknown path /ajax/%s"%path)
+        raise RuntimeError("Unknown path /ajax/%s"%path)
 
-def _orderAndChopPage(pList,fieldMap,flaskRequest):
-    sortIndex = flaskRequest.params['sidx']
-    sortOrder = flaskRequest.params['sord']
-    thisPageNum = int(flaskRequest.params['page'])
-    rowsPerPage = int(flaskRequest.params['rows'])
+def _orderAndChopPage(pList,fieldMap):
+    sortIndex = request.args['sidx']
+    sortOrder = request.args['sord']
+    thisPageNum = int(request.args['page'])
+    rowsPerPage = int(request.args['rows'])
     if sortIndex in fieldMap:
         field = fieldMap[sortIndex]
-        pList = [(getattr(p,field),p) for p in pList]
+        pDict = {(getattr(p, field), idx) : p for idx, p in enumerate(pList)}
+        sortMe = [tpl for tpl in pDict]
+        print(f'field: {field}')
+        pprint(sortMe)
         if sortOrder == 'asc':
-            pList.sort()
+            sortMe.sort()
         else:
-            pList.sort(reverse=True)
-        pList = [p for _,p in pList]
+            sortMe.sort(reverse=True)
+        pList = [pDict[tpl] for tpl in sortMe]
         nPages = int(math.ceil(float(len(pList))/(rowsPerPage-1)))
         totRecs = len(pList)
         if thisPageNum == nPages:
@@ -113,12 +130,12 @@ def _orderAndChopPage(pList,fieldMap,flaskRequest):
         pList = pList[sR:eR]
         return (nPages,thisPageNum,totRecs,pList)
     else:
-        raise flask.FlaskException("Sort index %s not in field map"%sortIndex)
+        raise RuntimeError("Sort index %s not in field map"%sortIndex)
 
 @app.route('/list/<path>')
 def handleList(db, uiSession, path):
     logMessage("Request for /list/%s"%path)
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(flask.request.params.items())]
+    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
     logMessage("param list: %s"%paramList)
     if path=='select_entrant':
         playerList = db.query(LogitPlayer)
@@ -137,100 +154,105 @@ def handleList(db, uiSession, path):
         s += "</select>\n"
         return s
     else:
-        raise flask.FlaskException("Bad path /list/%s"%path)
+        raise RuntimeError("Bad path /list/%s"%path)
     
 @app.route('/edit/<path>', methods=['POST'])
-def handleEdit(db, uiSession, path):
+def handleEdit(path):
+    db = db_session
+    uiSession = session
     logMessage("Request for /edit/%s"%path)
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(flask.request.params.items())]
+    pprint(request.args)
+    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
     logMessage("param list: %s"%paramList)
     if path=='edit_tourneys.json':
-        if flask.request.params['oper']=='edit':
-            t = db.query(Tourney).filter_by(tourneyId=int(flask.request.params['id'])).one()
-            if 'name' in flask.request.params:
-                t.name = flask.request.params['name']
-            if 'notes' in flask.request.params:
-                t.note = flask.request.params['notes']
+        if request.args['oper']=='edit':
+            t = db.query(Tourney).filter_by(tourneyId=int(request.args['id'])).one()
+            if 'name' in request.args:
+                t.name = request.args['name']
+            if 'notes' in request.args:
+                t.note = request.args['notes']
             db.commit()
             return {}
-        elif flask.request.params['oper']=='add':
-            name = flask.request.params['name']
-            notes = flask.request.params['notes']
+        elif request.args['oper']=='add':
+            name = request.args['name']
+            notes = request.args['notes']
             if db.query(Tourney).filter_by(name=name).count() != 0:
-                raise flask.FlaskException('There is already a tourney named %s'%name)
+                raise RuntimeError('There is already a tourney named %s'%name)
             t = Tourney(name,notes)
             db.add(t)
             db.commit()
             logMessage("Just added %s"%t)
             return {}
     elif path=='edit_bouts.json':
-        if flask.request.params['oper']=='edit':
-            b = db.query(Bout).filter_by(boutId=int(flask.request.params['id'])).one()
-            if 'tourney' in flask.request.params:
-                b.tourneyId = int(flask.request.params['tourney'])
-            if 'rightplayer' in flask.request.params:
-                b.rightPlayerId = int(flask.request.params['rightplayer'])
-            if 'leftplayer' in flask.request.params:
-                b.leftPlayerId = int(flask.request.params['leftplayer'])
-            if 'rwins' in flask.request.params:
-                b.rWins = int(flask.request.params['rwins'])
-            if 'lwins' in flask.request.params:
-                b.lWins = int(flask.request.params['lwins'])
-            if 'draws' in flask.request.params:
-                b.draws = int(flask.request.params['draws'])
-            if 'notes' in flask.request.params:
-                b.note = flask.request.params['notes']
+        if request.args['oper']=='edit':
+            b = db.query(Bout).filter_by(boutId=int(request.args['id'])).one()
+            if 'tourney' in request.args:
+                b.tourneyId = int(request.args['tourney'])
+            if 'rightplayer' in request.args:
+                b.rightPlayerId = int(request.args['rightplayer'])
+            if 'leftplayer' in request.args:
+                b.leftPlayerId = int(request.args['leftplayer'])
+            if 'rwins' in request.args:
+                b.rWins = int(request.args['rwins'])
+            if 'lwins' in request.args:
+                b.lWins = int(request.args['lwins'])
+            if 'draws' in request.args:
+                b.draws = int(request.args['draws'])
+            if 'notes' in request.args:
+                b.note = request.args['notes']
             db.commit()
             return {}
-        elif flask.request.params['oper']=='add':
-            tourneyId = int(flask.request.params['tourney'])
-            lPlayerId = int(flask.request.params['leftplayer'])
-            rPlayerId = int(flask.request.params['rightplayer'])
-            lWins = int(flask.request.params['lwins'])
-            rWins = int(flask.request.params['rwins'])
-            draws = int(flask.request.params['draws'])
-            note = flask.request.params['notes']
+        elif request.args['oper']=='add':
+            tourneyId = int(request.args['tourney'])
+            lPlayerId = int(request.args['leftplayer'])
+            rPlayerId = int(request.args['rightplayer'])
+            lWins = int(request.args['lwins'])
+            rWins = int(request.args['rwins'])
+            draws = int(request.args['draws'])
+            note = request.args['notes']
             b = Bout(tourneyId,lWins,lPlayerId,rPlayerId,rWins,note)
             db.add(b)
             db.commit()
             logMessage("Just added %s"%b)
             return {}
-        elif flask.request.params['oper']=='del':
-            b = db.query(Bout).filter_by(boutId=int(flask.request.params['id'])).one()
+        elif request.args['oper']=='del':
+            b = db.query(Bout).filter_by(boutId=int(request.args['id'])).one()
             logMessage("Deleting %s"%b)
             db.delete(b)
             db.commit()
             return {}
     elif path=='edit_entrants.json':
-        if flask.request.params['oper']=='edit':
-            p = db.query(LogitPlayer).filter_by(id=int(flask.request.params['id'])).one()
-            if 'name' in flask.request.params:
-                p.name = flask.request.params['name']
-            if 'notes' in flask.request.params:
-                p.note = flask.request.params['notes']
+        if request.args['oper']=='edit':
+            p = db.query(LogitPlayer).filter_by(id=int(request.args['id'])).one()
+            if 'name' in request.args:
+                p.name = request.args['name']
+            if 'notes' in request.args:
+                p.note = request.args['notes']
             db.commit()
             return {}
-        elif flask.request.params['oper']=='add':
-            name = flask.request.params['name']
-            notes = flask.request.params['notes']
+        elif request.args['oper']=='add':
+            name = request.args['name']
+            notes = request.args['notes']
             if db.query(LogitPlayer).filter_by(name=name).count() != 0:
-                raise flask.FlaskException('There is already an entrant named %s'%name)
+                raise RuntimeError('There is already an entrant named %s'%name)
             p = LogitPlayer(name,-1.0,notes)
             db.add(p)
             db.commit()
             logMessage("Just added %s"%p)
             return {}
     else:
-        raise flask.FlaskException("Bad path /edit/%s"%path)
+        raise RuntimeError("Bad path /edit/%s"%path)
 
 @app.route('/ajax/misc_download')
-def handleDownloadReq(db, uiSession, **kwargs):
+def handleDownloadReq(**kwargs):
+    db = db_session
+    uiSession = session
     with open(os.path.join(sessionScratchDir, 'downloadme.txt'), 'w') as f:
         f.write('hello world!\n')
     return flask.static_file('downloadme.txt', root=sessionScratchDir, download=True)
 
 @app.route('/json/<path>')
-def handleJSON(db, uiSession, path, **kwargs):
+def handleJSON(path, **kwargs):
     db = db_session
     uiSession = session
     print(f'kwargs: {kwargs}')
@@ -241,8 +263,7 @@ def handleJSON(db, uiSession, path, **kwargs):
     if path=='tourneys.json':
         tourneyList = db.query(Tourney)
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage([t for t in tourneyList],
-                                                             {'id':'tourneyId', 'name':'name', 'notes':'note'},
-                                                             flask.request)
+                                                             {'id':'tourneyId', 'name':'name', 'notes':'note'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
@@ -253,8 +274,7 @@ def handleJSON(db, uiSession, path, **kwargs):
     elif path=='entrants.json':
         playerList = db.query(LogitPlayer)
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
-                                                             {'id':'id', 'name':'name', 'notes':'note'},
-                                                             flask.request)
+                                                             {'id':'id', 'name':'name', 'notes':'note'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
@@ -270,8 +290,7 @@ def handleJSON(db, uiSession, path, **kwargs):
                                                                  'leftplayer':'lName',
                                                                  'rightplayer':'rName',
                                                                  'draws':'draws',
-                                                                 'notes':'note'},
-                                                                flask.request)
+                                                                 'notes':'note'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
@@ -282,14 +301,14 @@ def handleJSON(db, uiSession, path, **kwargs):
                   }
         logMessage("returning %s"%result)
     elif path == 'horserace.json':
-        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(flask.request.params.items())]
+        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.args.items())]
         playerList = db.query(LogitPlayer)
         playerList = [(p.id, p) for p in playerList]
         playerList.sort()
         playerList = [p for _,p in playerList]
         print('playerList follows')
         print(playerList)
-        tourneyId = int(flask.request.params['tourney'])
+        tourneyId = int(request.args['tourney'])
         boutList = db.query(Bout)
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=False)
         print(boutDF)
@@ -305,15 +324,14 @@ def handleJSON(db, uiSession, path, **kwargs):
             fitInfo = lordbayes_interactive.estimate(playerList,boutList)
             for p,w in fitInfo: p.weight = w
             pList = [p for p,_ in fitInfo]
-        except flask.FlaskException as e:
+        except RuntimeError as e:
             logMessage('horseRace exception: %s' % str(e))
             for p in playerList:
                 p.weight = np.nan
                 pList = [p for p in playerList]
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage(pList,
                                                              {'id':'id', 'name':'name', 'notes':'note',
-                                                              'estimate':'weight', 'bearpit':'bearpit'},
-                                                             flask.request)
+                                                              'estimate':'weight', 'bearpit':'bearpit'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
@@ -322,12 +340,12 @@ def handleJSON(db, uiSession, path, **kwargs):
                            for i,p in enumerate(pList) ]
                   }
     else:
-        raise flask.FlaskException("Request for unknown AJAX element %s"%path)
+        raise RuntimeError("Request for unknown AJAX element %s"%path)
     return result
 
 #@app.route('/test')
 #def test():
-#    s = flask.request.environ['beaker.session']
+#    s = request.environ['beaker.session']
 #    if 'test' in s:
 #        s['test'] += 1
 #    else:
