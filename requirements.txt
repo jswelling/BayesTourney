@@ -3,3 +3,4 @@ Flask-SQLAlchemy==2.5.1
 pandas==1.2.4
 SQLAlchemy @ file:///tmp/build/80754af9/sqlalchemy_1620708155358/work
 Werkzeug==2.0.1
+python-dotenv
