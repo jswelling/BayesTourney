@@ -8,16 +8,18 @@ Created on Jun 4, 2013
 
 import sys, os.path, time, json, math, random
 
-from flask import render_template, session, send_from_directory, request
+from flask import (render_template, session, send_from_directory,
+                   request, send_file)
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from pprint import pprint
 
 import stat_utils
-from database import db_session
+from database import db_session, engine
 from app import app
 from models import Tourney, LogitPlayer, Bout
+import stat_utils
 
 logFileName = '/tmp/tourneyserver.log'
 sessionScratchDir = '/tmp'
@@ -90,11 +92,15 @@ def handleAjax(path):
     elif path=='horserace':
         uiSession['curTab'] = 3
         #uiSession.changed()
-        return render_template("horserace.tpl", db=db, Tourney=Tourney)
+        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+        return render_template("horserace.tpl",
+                               tourneyDict=tourneyDict)
     elif path=='misc':
         uiSession['curTab'] = 4
         #uiSession.changed()
-        return render_template("misc.tpl", db=db, Tourney=Tourney)
+        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+        return render_template("misc.tpl",
+                               tourneyDict=tourneyDict)
     elif path=='help':
         uiSession['curTab'] = 5
         #uiSession.changed()
@@ -248,9 +254,25 @@ def handleEdit(path):
 def handleDownloadReq(**kwargs):
     db = db_session
     uiSession = session
-    with open(os.path.join(sessionScratchDir, 'downloadme.txt'), 'w') as f:
-        f.write('hello world!\n')
-    return flask.static_file('downloadme.txt', root=sessionScratchDir, download=True)
+
+    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
+    tourneyId = int(request.values.get('tourney', '-1'))
+
+    if tourneyId >= 0:
+        boutDF = pd.read_sql(f'select * from bouts where tourneyId={tourneyId}',
+                             engine, coerce_float=True)
+    else:
+        boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
+    print(boutDF.columns)
+    print(boutDF)
+    
+    full_path =  Path(sessionScratchDir) / 'bouts.tsv'
+    boutDF.to_csv(full_path, sep='\t', index=False)
+    logMessage(f"Download requested; sending {full_path}")
+    return send_file(full_path,
+                     as_attachment=True,
+                     download_name='bouts.tsv',
+                     cache_timeout=0)
 
 @app.route('/json/<path>')
 def handleJSON(path, **kwargs):
@@ -301,6 +323,10 @@ def handleJSON(path, **kwargs):
                            for p in boutList ]
                   }
         logMessage("returning %s"%result)
+    elif path == 'horserace_go.json':
+        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
+        logMessage(f"horserace_go! {paramList}")
+        result = {}
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         playerList = db.query(LogitPlayer)
@@ -322,7 +348,7 @@ def handleJSON(path, **kwargs):
         print('trimmed playerList follows')
         print(playerList)
         try:
-            fitInfo = lordbayes_interactive.estimate(playerList,boutList)
+            fitInfo = stat_utils.estimate(playerList,boutList)
             for p,w in fitInfo: p.weight = w
             pList = [p for p,_ in fitInfo]
         except RuntimeError as e:

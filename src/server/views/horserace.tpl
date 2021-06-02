@@ -3,12 +3,9 @@
 <label for="sel_horserace_tournament">Which Tournament?</label>
 <select id="sel_horserace_tournament">
 <option value=-1>All</option>
-%	tourneyList = db.query(Tourney)
-%    pairs = [((t.tourneyId,t.name)) for t in tourneyList]
-%    pairs.sort()
-%    for thisId,name in pairs:
-<option value={{thisId}}>{{name}}</option>
-%    end
+{% for id, name in tourneyDict | dictsort %}
+<option value={{id}}>{{name}}</option>
+{% endfor %}
 </select>
 
 <table id="horserace_table"></table>
@@ -35,7 +32,6 @@ goBtn.button().click( function()
   });
 });
 
-var lastsel_horserace;
 jQuery("#horserace_table").jqGrid({
    	url:'json/horserace.json',
 	datatype: "json",
