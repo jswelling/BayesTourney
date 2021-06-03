@@ -8,20 +8,12 @@
 {% endfor %}
 </select>
 
-<button id="misc_download_btn">Download!</button>
-
+<a id="download_bouts_link" href="/ajax/misc_download?tourney=-1">Download bouts as .tsv</a>
 <script>
 var selMiscTourney = $('#sel_misc_tournament');
-selMiscTourney.select();
-var dLBtn = $('#misc_download_btn');
-dLBtn.button().click( function()
+selMiscTourney.select().change( function()
 {
-  $.get('ajax/misc_download', {tourney: selMiscTourney.val()})
-  .done( function(data) {
-  })
-  .fail(function(jqxhr, textStatus, error) {
-		alert('Error: '+jqxhr.responseText);
-  });
+  $('#download_bouts_link').attr('href', '/ajax/misc_download?tourney=' + selMiscTourney.val());
 });
 
 </script>
