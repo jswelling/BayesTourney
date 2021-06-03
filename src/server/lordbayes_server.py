@@ -275,13 +275,6 @@ def handleDownloadReq(**kwargs):
                      #cache_timeout=0
     )
 
-@app.route('/ajax/misc_download')
-def downloadFile():
-    #For windows you need to use drive name [ex: F:/Example.pdf]
-    print('I AM HERE I AM HERE I AM HERE')
-    path = "/tmp/junk2.png"
-    return send_file(path, as_attachment=True)
-#
 @app.route('/json/<path>')
 def handleJSON(path, **kwargs):
     db = db_session
