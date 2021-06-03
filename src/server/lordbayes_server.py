@@ -88,7 +88,9 @@ def handleAjax(path):
     elif path=='bouts':
         uiSession['curTab'] = 2
         #uiSession.changed()
-        return render_template("bouts.tpl")
+        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+        return render_template("bouts.tpl",
+                               tourneyDict=tourneyDict)
     elif path=='horserace':
         uiSession['curTab'] = 3
         #uiSession.changed()
@@ -279,11 +281,9 @@ def handleDownloadReq(**kwargs):
 def handleJSON(path, **kwargs):
     db = db_session
     uiSession = session
-    print(f'kwargs: {kwargs}')
-    print('db: ', db)
-    print('uiSession: ', uiSession)
     print('session dict: %s' % repr(uiSession))
     logMessage("Request for /json/%s"%path)
+    logMessage(f"params: {[(k,request.values[k]) for k in request.values]}")
     if path=='tourneys.json':
         tourneyList = db.query(Tourney)
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage([t for t in tourneyList],
@@ -306,7 +306,11 @@ def handleJSON(path, **kwargs):
                   "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in pList ]
                   }
     elif path =='bouts.json':
-        boutList = [b for b in db.query(Bout)]
+        tourneyId = int(request.values.get('tourneyId', -1))
+        if tourneyId >= 0:
+            boutList = [b for b in db.query(Bout).filter_by(tourneyId=tourneyId)]
+        else:
+            boutList = [b for b in db.query(Bout)]
         nPages,thisPageNum,totRecs,boutList = _orderAndChopPage(boutList,
                                                                 {'tourney':'tourneyId',
                                                                  'lwins':'leftWins', 
