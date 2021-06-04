@@ -298,19 +298,17 @@ def handleJSON(path, **kwargs):
         tourneyId = int(request.values.get('tourneyId', -1))
         if tourneyId >= 0:
             with engine.connect() as conn:
-                playerList = conn.execute('select distinct players.*'
-                                          'from players inner join bouts'
-                                          ' on ( bouts.leftPlayerId = players.id'
-                                          ' or bouts.rightPlayerId = players.id )'
-                                          f' where bouts.tourneyId={tourneyId}')
-                nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
-                                                                     {'id':'id', 'name':'name',
-                                                                      'notes':'note'})
+                rs = conn.execute('select distinct players.*'
+                                  'from players inner join bouts'
+                                  ' on ( bouts.leftPlayerId = players.id'
+                                  ' or bouts.rightPlayerId = players.id )'
+                                  f' where bouts.tourneyId={tourneyId}')
+                playerList = [val for val in rs]
         else:
             playerList = [val for val in db.query(LogitPlayer)]
-            nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
-                                                                 {'id':'id', 'name':'name',
-                                                                  'notes':'note'})
+        nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
+                                                             {'id':'id', 'name':'name',
+                                                              'notes':'note'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
