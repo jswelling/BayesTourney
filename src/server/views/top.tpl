@@ -46,7 +46,6 @@
     <li><a href="ajax/entrants">Entrants</a></li>
     <li><a href="ajax/bouts">Bouts</a></li>
     <li><a href="ajax/horserace">Horse Race</a></li>
-    <li><a href="ajax/misc">Misc</a></li>
     <li><a href="ajax/help">Help</a></li>
   </ul>
 </div>
