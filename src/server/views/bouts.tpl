@@ -11,13 +11,13 @@
 <div id="bouts_pager"></div>
 <input type="BUTTON" id="add_bout_button" value="New Bout">
 <input type="BUTTON" id="del_bout_button" value="Delete Selected Bout">
-<a id="download_bouts_link" href="/ajax/misc_download?tourney=-1">Download these bouts as .tsv</a>
+<a id="download_bouts_link" href="/ajax/bouts_download?tourney=-1">Download these bouts as .tsv</a>
 
 <script>
 var selBoutsTourney = $('#sel_bouts_tournament');
 selBoutsTourney.select().change( function()
 {
-  $('#download_bouts_link').attr('href', '/ajax/misc_download?tourney=' + selBoutsTourney.val());
+  $('#download_bouts_link').attr('href', '/ajax/bouts_download?tourney=' + selBoutsTourney.val());
   $('#bouts_table').trigger('reloadGrid');
 });
 

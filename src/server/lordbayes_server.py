@@ -37,31 +37,6 @@ def logMessage(txt):
         print('exception %s on %s'%(e,txt))
         pass
 
-# @app.route('/converters/')
-# @app.route('/converters/<path:urlpath>')
-# def convertersexample(urlpath):
-#     print('########## PONG!')
-#     logMessage(f"test of {urlpath}")
-#     try:
-#         return render_template("converterexample.html", urlpath=urlpath)
-#     except Exception as e:
-#         return(str(e))  
-
-# @app.route('/static/')
-# @app.route('/static/<path:urlpath>')
-# def server_static(urlpath):
-#     print('######## PING!')
-#     logMessage("static get of %s"%urlpath)
-#     try:
-#         return send_from_directory('../../www/static/', path)
-#     except Exception as e:
-#         logMessage("Static get failed: %s"%e)
-#         raise e
-
-#@app.route('/hello/:name')
-#def index(name='World'):
-#    return flask.template('<b>Hello {{name}}</b>!',name=name)
-
 @app.route('/top')
 def topPage():
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
@@ -84,7 +59,9 @@ def handleAjax(path):
     elif path=='entrants':
         uiSession['curTab'] = 1
         #uiSession.changed()
-        return render_template("entrants.tpl")
+        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+        return render_template("entrants.tpl",
+                               tourneyDict=tourneyDict)
     elif path=='bouts':
         uiSession['curTab'] = 2
         #uiSession.changed()
@@ -252,7 +229,7 @@ def handleEdit(path):
     else:
         raise RuntimeError("Bad path /edit/%s"%path)
 
-@app.route('/ajax/misc_download')
+@app.route('/ajax/bouts_download')
 def handleDownloadReq(**kwargs):
     db = db_session
     uiSession = session
@@ -270,11 +247,33 @@ def handleDownloadReq(**kwargs):
     
     full_path =  Path(sessionScratchDir) / 'bouts.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
-    logMessage(f"Download requested; generated and sent sending {full_path}")
+    logMessage(f"Download bouts requested; generated and sent sending {full_path}")
     return send_file(full_path,
                      as_attachment=True,
-                     #download_name='bouts.tsv',
-                     #cache_timeout=0
+    )
+
+@app.route('/ajax/entrants_download')
+def handleEntrantsDownloadReq(**kwargs):
+    db = db_session
+    uiSession = session
+
+    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
+    tourneyId = int(request.values.get('tourney', '-1'))
+
+    if tourneyId >= 0:
+        entrantDF = pd.read_sql('select distinct players.*'
+                                'from players inner join bouts'
+                                ' on ( bouts.leftPlayerId = players.id or bouts.rightPlayerId = players.id )'
+                                f' where bouts.tourneyId={tourneyId}',
+                                engine, coerce_float=True)
+    else:
+        entrantDF = pd.read_sql_table('players', engine, coerce_float=True)
+    
+    full_path =  Path(sessionScratchDir) / 'entrants.tsv'
+    entrantDF.to_csv(full_path, sep='\t', index=False)
+    logMessage(f"Download entrants requested; generated and sent sending {full_path}")
+    return send_file(full_path,
+                     as_attachment=True,
     )
 
 @app.route('/json/<path>')
@@ -296,9 +295,22 @@ def handleJSON(path, **kwargs):
                            for t in tourneyList ]
                   }
     elif path=='entrants.json':
-        playerList = db.query(LogitPlayer)
-        nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
-                                                             {'id':'id', 'name':'name', 'notes':'note'})
+        tourneyId = int(request.values.get('tourneyId', -1))
+        if tourneyId >= 0:
+            with engine.connect() as conn:
+                playerList = conn.execute('select distinct players.*'
+                                          'from players inner join bouts'
+                                          ' on ( bouts.leftPlayerId = players.id'
+                                          ' or bouts.rightPlayerId = players.id )'
+                                          f' where bouts.tourneyId={tourneyId}')
+                nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
+                                                                     {'id':'id', 'name':'name',
+                                                                      'notes':'note'})
+        else:
+            playerList = [val for val in db.query(LogitPlayer)]
+            nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
+                                                                 {'id':'id', 'name':'name',
+                                                                  'notes':'note'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
@@ -375,24 +387,6 @@ def handleJSON(path, **kwargs):
         raise RuntimeError("Request for unknown AJAX element %s"%path)
     return result
 
-#@app.route('/test')
-#def test():
-#    s = request.environ['beaker.session']
-#    if 'test' in s:
-#        s['test'] += 1
-#    else:
-#        s['test'] = 1
-#    s.save()
-#    return 'Test counter: %d' % s['test']
-
-# sessionOpts = {
-#                'session.type':'ext:database',
-#                'session.url':'sqlite:///%s/%s.db'%(sessionScratchDir,'tourney'),
-#                'session.lock_dir':'/tmp'
-#                }
-# 
-# sessionOpts = { 'session.cookie_expires':True}
-# application= SessionMiddleware(flask.app(), sessionOpts)
 
 
 

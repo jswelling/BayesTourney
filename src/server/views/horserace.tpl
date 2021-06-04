@@ -21,7 +21,6 @@ selTourney.select().change( function()
 var goBtn = $('#horserace_go_btn');
 goBtn.button().click( function()
 { 
-  alert(selTourney.val());
   $.getJSON('json/horserace_go.json', {tourney: selTourney.val()})
   .done( function(data) {
     alert('done');
