@@ -25,11 +25,22 @@ def generate_random_bouts(n_players, n_pairs, player_wts):
 
 
 def restructure_df(raw_df):
-    merge_df_a = raw_df.rename(columns={'l_player':'player', 'r_player':'opponent', 'l_wins':'wins', 'r_wins':'losses'})
+    """
+    We are excluding draws from the bouts totals at this point.
+    """
+    merge_df_a = raw_df.rename(columns={'l_player':'player', 'r_player':'opponent', 'l_wins':'wins', 'r_wins':'losses',
+                                        'leftPlayerId':'player', 'rightPlayerId':'opponent', 'leftWins':'wins',
+                                        'rightWins':'losses'})
     merge_df_a['bouts'] = merge_df_a['wins'] + merge_df_a['losses']
-    merge_df_b = raw_df.rename(columns={'r_player':'player', 'l_player':'opponent', 'r_wins':'wins', 'l_wins':'losses'})
+    merge_df_b = raw_df.rename(columns={'r_player':'player', 'l_player':'opponent', 'r_wins':'wins', 'l_wins':'losses',
+                                        'rightPlayerId':'player', 'leftPlayerId':'opponent', 'rightWins':'wins',
+                                        'leftWins':'losses'})
     merge_df_b['bouts'] = merge_df_b['wins'] + merge_df_b['losses']
-    return pd.concat([merge_df_a, merge_df_b], axis=0).groupby(['player','opponent']).sum().reset_index()
+    rslt = pd.concat([merge_df_a, merge_df_b], axis=0).groupby(['player','opponent']).sum().reset_index()
+    rslt = rslt.drop(columns=[col for col in ['draws', 'note'] if col in rslt.columns])
+    print('restructured df:')
+    print(rslt)
+    return rslt
 
 
 def initialize_weights(n_players, n_chains=1):
@@ -45,7 +56,7 @@ def mutate(w_vec, idx, rng, sigma=1.0):
     return rslt
 
 
-def calc_p_ratio(idx, old_wts, new_wts, samples_df):
+def calc_p_ratio(idx, player, old_wts, new_wts, samples_df):
     n_chains, n_players = old_wts.shape
     col_d = {nm:idx for idx, nm in enumerate(samples_df.columns)}
     player_col = col_d['player']
@@ -53,26 +64,32 @@ def calc_p_ratio(idx, old_wts, new_wts, samples_df):
     wins_col = col_d['wins']
     bouts_col = col_d['bouts']
     df_mtx = samples_df.values
-    mask = df_mtx[:, player_col] == idx
+    mask = df_mtx[:, player_col] == player
     sub_df_mtx = df_mtx[mask, :]
+    #print(f'idx = {idx}; player = {player}; sub_df_mtx follows')
+    #print(sub_df_mtx)
     n_opp = sub_df_mtx.shape[0]
-    
+
     w = old_wts[:, idx]
+    #print(f'w: {w}')
     wprime = new_wts[:, idx]
     log_w_ratio = np.log(wprime/w)
-    op_idx = sub_df_mtx[:, opp_col]
-    w_op = old_wts[:, op_idx]
-    p1 = np.log((w[:, None] + w_op)/(wprime[:, None] + w_op))
+    opp_idx = np.arange(sub_df_mtx.shape[0])
+    w_opp = old_wts[:, opp_idx]
+    p1 = np.log((w[:, None] + w_opp)/(wprime[:, None] + w_opp))
     p2 = sub_df_mtx[:, bouts_col]
     tot = np.outer(log_w_ratio, sub_df_mtx[:, wins_col]) + np.einsum('ij,j -> ij', p1, p2)
     return np.exp(np.sum(tot, axis=1))
 
 
-def sweep(w_vec, win_loss_df, rng, sigma):
+def sweep(player_id_list, w_vec, win_loss_df, rng, sigma):
     n_chains, n_players = w_vec.shape
-    for idx in range(n_players):
+    assert len(player_id_list) == n_players, "Weight vector length does not match players"
+    #print(f'player_id_list: {player_id_list}')
+    #for idx in player_id_list:
+    for idx, player in enumerate(player_id_list):
         mutated_w_vec = mutate(w_vec, idx, rng, sigma=sigma)
-        p_ratio = calc_p_ratio(idx, w_vec, mutated_w_vec, win_loss_df)
+        p_ratio = calc_p_ratio(idx, player, w_vec, mutated_w_vec, win_loss_df)
         choice_vec = (np.random.random(n_chains) <= p_ratio)
         w_vec = np.where(choice_vec[:, None], mutated_w_vec, w_vec)
     return w_vec
@@ -87,27 +104,26 @@ def sample_list_to_array(samp_l):
     return samp_array
 
 
-def metropolis(n_players, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp):
-    print('N_PLAYERS IS REDUNDANT!')
+def metropolis(player_id_list, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp):
+    print('player_id_list IS REDUNDANT!')
+    n_players = len(player_id_list)
     rng = np.random.default_rng()
     w_vec = initialize_weights(n_players, n_chains)
     # burn-in
     for iter in range(burnin_sweeps):
-        w_vec = sweep(w_vec, restructured_df, rng, sigma=0.1)
+        w_vec = sweep(player_id_list, w_vec, restructured_df, rng, sigma=0.1)
         w_vec /= w_vec[:, 0, None]  # rescale
     print('burn-in complete')
     samp_l = []
     for samp in range(n_samp):
         for iter in range(sweeps_per_samp):
-            w_vec = sweep(w_vec, restructured_df, rng, sigma=0.1)
+            w_vec = sweep(player_id_list, w_vec, restructured_df, rng, sigma=0.1)
             w_vec /= w_vec[:, 0, None]  # rescale
         samp_l.append(w_vec.copy())
         print(samp)
 
     samp_array= sample_list_to_array(samp_l)
     return samp_array
-
-
 
 
 def estimate(player_df, bouts_df):
@@ -123,11 +139,13 @@ def estimate(player_df, bouts_df):
     n_samp = 5
     sweeps_per_samp = 100
     n_chains = 20
-    samp_array = metropolis(n_players, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
+    player_id_list = [elt for elt in restructured_df['player'].unique()]
+    print(player_id_list)
+    samp_array = metropolis(player_id_list, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
 
     fig, axes = plt.subplots(ncols=1, nrows=1)
     axes.violinplot(samp_array)
-    fig.show()
+    plt.show(block=True)
 
     return {}
 
@@ -230,11 +248,19 @@ def main():
     n_samp = 5
     sweeps_per_samp = 100
     n_chains = 20
-    samp_array = metropolis(n_players, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
 
-    fig, axes = plt.subplots(ncols=1, nrows=1)
-    axes.violinplot(samp_array)
-    fig.show()
+    trimmed_df = restructured_df[restructured_df['player'] != 3]
+    trimmed_df = trimmed_df[trimmed_df['opponent'] != 3]
+    print(trimmed_df)
+    samp_array = metropolis([n for n in range(n_players)],
+                            restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
+    trimmed_samp_array = metropolis([n for n in range(n_players) if n != 3],
+                                    trimmed_df,
+                                    n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
+    fig, axes = plt.subplots(ncols=2, nrows=1)
+    axes[0].violinplot(samp_array)
+    axes[1].violinplot(trimmed_samp_array)
+    plt.show(block=True)
 
 
 if __name__ == '__main__':
