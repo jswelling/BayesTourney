@@ -341,39 +341,48 @@ def handleJSON(path, **kwargs):
     elif path == 'horserace_go.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         logMessage(f"horserace_go! {paramList}")
+        tourneyId = int(request.values['tourney'])
+        if tourneyId >= 0:
+            boutDF = pd.read_sql(f'select * from bouts'
+                                 f' where tourneyId={tourneyId}',
+                                 engine, coerce_float=True)
+            playerDF = pd.read_sql('select distinct players.*'
+                                   ' from players inner join bouts'
+                                   ' on ( bouts.leftPlayerId = players.id'
+                                   ' or bouts.rightPlayerId = players.id )'
+                                   f' where bouts.tourneyId={tourneyId}',
+                                   engine, coerce_float=True)
+        else:
+            boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
+            playerDF = pd.read_sql_table('players', engine, coerce_float=True)
+        try:
+            fitInfo = stat_utils.estimate(playerDF, boutDF)
+        except RuntimeError as e:
+            logMessage('horseRace_go exception: %s' % str(e))
         result = {}
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
-        playerList = db.query(LogitPlayer)
+        logMessage(f"horserace {paramList}")
+        tourneyId = int(request.values['tourney'])
+        if tourneyId >= 0:
+            with engine.connect() as conn:
+                rs = conn.execute('select distinct players.*'
+                                  'from players inner join bouts'
+                                  ' on ( bouts.leftPlayerId = players.id'
+                                  ' or bouts.rightPlayerId = players.id )'
+                                  f' where bouts.tourneyId={tourneyId}')
+                playerList = [val for val in rs]
+        else:
+            playerList = [val for val in db.query(LogitPlayer)]
         playerList = [(p.id, p) for p in playerList]
         playerList.sort()
-        playerList = [p for _,p in playerList]
+        playerList = [p for _, p in playerList]
         print('playerList follows')
         print(playerList)
-        tourneyId = int(request.values['tourney'])
-        boutList = db.query(Bout)
-        boutDF = pd.read_sql_table('bouts', engine, coerce_float=False)
-        print(boutDF)
-        if tourneyId >= 0:
-            boutList = boutList.filter_by(tourneyId=tourneyId)
-            playerS = set([b.leftPlayerId for b in boutList] + [b.rightPlayerId for b in boutList])
-            playerList = [p for p in playerList if p.id in playerS]
-        print('boutList follows')
-        print(boutList)
-        print('trimmed playerList follows')
-        print(playerList)
-        try:
-            fitInfo = stat_utils.estimate(playerList,boutList)
-            for p,w in fitInfo: p.weight = w
-            pList = [p for p,_ in fitInfo]
-        except RuntimeError as e:
-            logMessage('horseRace exception: %s' % str(e))
-            for p in playerList:
-                p.weight = np.nan
-                pList = [p for p in playerList]
+        pList = [p for p in playerList]
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage(pList,
                                                              {'id':'id', 'name':'name', 'notes':'note',
-                                                              'estimate':'weight', 'bearpit':'bearpit'})
+                                                              'estimate':'0.0', 'bearpit':'bearpit'})
         result = {
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
