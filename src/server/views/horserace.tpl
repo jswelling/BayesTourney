@@ -8,10 +8,12 @@
 {% endfor %}
 </select>
 
+<div>
 <table id="horserace_table"></table>
 <div id="horserace_pager"></div>
-<button id="horserace_go_btn">Go!</button>
-
+  <button id="horserace_go_btn">Go!</button>
+</div>
+  <img id="horseraceImage" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" width="640" height="480" alt="" />
 <script>
 var selTourney = $('#sel_horserace_tournament');
 selTourney.select().change( function()
@@ -22,9 +24,8 @@ var goBtn = $('#horserace_go_btn');
 goBtn.button().click( function()
 { 
   $.getJSON('json/horserace_go.json', {tourney: selTourney.val()})
-  .done( function(data) {
-    alert('done');
-    alert(data);
+    .done( function(data) {
+      $('#horseraceImage').attr('src', data['image']);
   })
   .fail(function(jqxhr, textStatus, error) {
 		alert('Error: '+jqxhr.responseText);

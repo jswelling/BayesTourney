@@ -4,6 +4,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+"""Number of sweeps used in Metropolis burn-in"""
+BURNIN_SWEEPS = 300
+
+"""Number of Metropolis samples to generate, per chain"""
+N_SAMP = 5
+
+"""Number of sweeps between samples, to minimize correlation"""
+SWEEPS_PER_SAMP = 100
+
+"""Number of independent Metropolis Markov Chains run simultaneously per thread"""
+N_CHAINS = 20
 
 def generate_random_bouts(n_players, n_pairs, player_wts):
     outcomes = []
@@ -38,8 +49,6 @@ def restructure_df(raw_df):
     merge_df_b['bouts'] = merge_df_b['wins'] + merge_df_b['losses']
     rslt = pd.concat([merge_df_a, merge_df_b], axis=0).groupby(['player','opponent']).sum().reset_index()
     rslt = rslt.drop(columns=[col for col in ['draws', 'note'] if col in rslt.columns])
-    print('restructured df:')
-    print(rslt)
     return rslt
 
 
@@ -58,7 +67,7 @@ def mutate(w_vec, idx, rng, sigma=1.0):
 
 def calc_p_ratio(idx, player, old_wts, new_wts, samples_df):
     n_chains, n_players = old_wts.shape
-    col_d = {nm:idx for idx, nm in enumerate(samples_df.columns)}
+    col_d = {nm:counter for counter, nm in enumerate(samples_df.columns)}
     player_col = col_d['player']
     opp_col = col_d['opponent']
     wins_col = col_d['wins']
@@ -105,7 +114,6 @@ def sample_list_to_array(samp_l):
 
 
 def metropolis(player_id_list, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp):
-    print('player_id_list IS REDUNDANT!')
     n_players = len(player_id_list)
     rng = np.random.default_rng()
     w_vec = initialize_weights(n_players, n_chains)
@@ -126,28 +134,34 @@ def metropolis(player_id_list, restructured_df, n_samp, n_chains, burnin_sweeps,
     return samp_array
 
 
+class ModelFit(object):
+    def __init__(self, player_df, bout_df):
+        self.player_df = player_df
+        self.bouts_df = bout_df  # in restructured form
+        self.samp_array = None
+        self.player_id_list = None
+        self.player_name_dict = None
+    def gen_samples(self):
+        self.player_id_list = [elt for elt in self.bouts_df['player'].unique()]
+        self.player_name_dict = {row['id']: row['name']
+                                 for idx, row in self.player_df.iterrows()}
+        print(self.player_name_dict)
+        self.samp_array = metropolis(self.player_id_list, self.bouts_df,
+                                     N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
+    def gen_graph(self, fig, axis, graph_type):
+        if graph_type == 'violin':
+            axis.violinplot(self.samp_array)
+        else:
+            raise RuntimeError(f'Unknown graph type {graph_type}')
+        
+
+
 def estimate(player_df, bouts_df):
-    print('player_df follows')
-    print(player_df)
-    print('bouts_df follows')
-    print(bouts_df)
-    n_players = len(player_df)
-
     restructured_df = restructure_df(bouts_df)
+    m_f = ModelFit(player_df, restructured_df)
+    m_f.gen_samples()
+    return m_f
 
-    burnin_sweeps = 300
-    n_samp = 5
-    sweeps_per_samp = 100
-    n_chains = 20
-    player_id_list = [elt for elt in restructured_df['player'].unique()]
-    print(player_id_list)
-    samp_array = metropolis(player_id_list, restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
-
-    fig, axes = plt.subplots(ncols=1, nrows=1)
-    axes.violinplot(samp_array)
-    plt.show(block=True)
-
-    return {}
 
 #     playerLut = {}
 #     nPlayers = len(orderedPlayerList)
@@ -236,27 +250,21 @@ def estimate(player_df, bouts_df):
 
 def main():
     n_players = 10
+    n_bouts = 4000
     player_wts = np.zeros(n_players, dtype=float)
     for i in range(n_players):
         player_wts[i] = i+1
-
-    n_bouts = 4000
     totals_df = generate_random_bouts(n_players, n_bouts, player_wts)
     restructured_df = restructure_df(totals_df)
-
-    burnin_sweeps = 300
-    n_samp = 5
-    sweeps_per_samp = 100
-    n_chains = 20
 
     trimmed_df = restructured_df[restructured_df['player'] != 3]
     trimmed_df = trimmed_df[trimmed_df['opponent'] != 3]
     print(trimmed_df)
     samp_array = metropolis([n for n in range(n_players)],
-                            restructured_df, n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
+                            restructured_df, N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
     trimmed_samp_array = metropolis([n for n in range(n_players) if n != 3],
                                     trimmed_df,
-                                    n_samp, n_chains, burnin_sweeps, sweeps_per_samp)
+                                    N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
     fig, axes = plt.subplots(ncols=2, nrows=1)
     axes[0].violinplot(samp_array)
     axes[1].violinplot(trimmed_samp_array)

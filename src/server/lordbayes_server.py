@@ -6,12 +6,19 @@ Created on Jun 4, 2013
 @author: welling
 '''
 
-import sys, os.path, time, json, math, random
+import base64
+import io
+import time
+import json
+from math import ceil
 
 from flask import (render_template, session, send_from_directory,
                    request, send_file)
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
 from pathlib import Path
 from pprint import pprint
 
@@ -101,7 +108,7 @@ def _orderAndChopPage(pList,fieldMap):
         else:
             sortMe.sort(reverse=True)
         pList = [pDict[tpl] for tpl in sortMe]
-        nPages = int(math.ceil(float(len(pList))/(rowsPerPage-1)))
+        nPages = int(ceil(float(len(pList))/(rowsPerPage-1)))
         totRecs = len(pList)
         if thisPageNum == nPages:
             eR = totRecs
@@ -355,11 +362,16 @@ def handleJSON(path, **kwargs):
         else:
             boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
             playerDF = pd.read_sql_table('players', engine, coerce_float=True)
+        output = io.BytesIO()
         try:
             fitInfo = stat_utils.estimate(playerDF, boutDF)
+            fig, axes = plt.subplots(ncols=1, nrows=1)
+            fitInfo.gen_graph(fig, axes, 'violin')
+            FigureCanvas(fig).print_png(output)
+            
         except RuntimeError as e:
             logMessage('horseRace_go exception: %s' % str(e))
-        result = {}
+        result = {'image': 'data:image/png;base64,' + base64.b64encode(output.getvalue()).decode("ascii")}
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         logMessage(f"horserace {paramList}")
