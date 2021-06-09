@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 BURNIN_SWEEPS = 300
 
 """Number of Metropolis samples to generate, per chain"""
-N_SAMP = 5
+N_SAMP = 50
 
 """Number of sweeps between samples, to minimize correlation"""
 SWEEPS_PER_SAMP = 100
@@ -145,11 +145,25 @@ class ModelFit(object):
         self.player_id_list = [elt for elt in self.bouts_df['player'].unique()]
         self.player_name_dict = {row['id']: row['name']
                                  for idx, row in self.player_df.iterrows()}
-        print(self.player_name_dict)
+        #print(self.player_name_dict)
         self.samp_array = metropolis(self.player_id_list, self.bouts_df,
                                      N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
+    @staticmethod
+    def set_axis_style(ax, labels):
+        ax.xaxis.set_tick_params(direction='out')
+        ax.xaxis.set_ticks_position('bottom')
+        ax.set_xticks(np.arange(1, len(labels)+1))
+        ax.tick_params(axis='x', labelsize='small', labelrotation=45.0)
+        ax.set_xticklabels(labels)
+        ax.set_xlim(0.25, len(labels) + 0.75)
+        ax.set_xlabel('Player name')
+                      
     def gen_graph(self, fig, axis, graph_type):
+        if self.samp_array is None:
+            self.gen_samples()
         if graph_type == 'violin':
+            labels = [self.player_name_dict[id] for id in self.player_id_list]
+            self.set_axis_style(axis, labels)
             axis.violinplot(self.samp_array)
         else:
             raise RuntimeError(f'Unknown graph type {graph_type}')
@@ -250,24 +264,30 @@ def estimate(player_df, bouts_df):
 
 def main():
     n_players = 10
+    player_names = ['andy', 'bob', 'carl', 'doug', 'ellen', 'fran', 'grace',
+                    'hugh', 'inez', 'john']
     n_bouts = 4000
     player_wts = np.zeros(n_players, dtype=float)
     for i in range(n_players):
         player_wts[i] = i+1
+    player_df = pd.DataFrame([{'id':id, 'name':nm, 'weight':wt, 'note':''}
+                              for id, nm, wt in zip(range(n_players),
+                                                    player_names,
+                                                    player_wts)])
+    print('player_df follows')
+    print(player_df)
     totals_df = generate_random_bouts(n_players, n_bouts, player_wts)
     restructured_df = restructure_df(totals_df)
 
     trimmed_df = restructured_df[restructured_df['player'] != 3]
     trimmed_df = trimmed_df[trimmed_df['opponent'] != 3]
+    print('trimmed_df follows')
     print(trimmed_df)
-    samp_array = metropolis([n for n in range(n_players)],
-                            restructured_df, N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
-    trimmed_samp_array = metropolis([n for n in range(n_players) if n != 3],
-                                    trimmed_df,
-                                    N_SAMP, N_CHAINS, BURNIN_SWEEPS, SWEEPS_PER_SAMP)
+    m_f_1 = ModelFit(player_df, restructured_df)
+    m_f_2 = ModelFit(player_df, trimmed_df)
     fig, axes = plt.subplots(ncols=2, nrows=1)
-    axes[0].violinplot(samp_array)
-    axes[1].violinplot(trimmed_samp_array)
+    m_f_1.gen_graph(fig, axes[0], 'violin')
+    m_f_2.gen_graph(fig, axes[1], 'violin')
     plt.show(block=True)
 
 
