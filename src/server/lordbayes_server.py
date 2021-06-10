@@ -366,7 +366,7 @@ def handleJSON(path, **kwargs):
         try:
             fitInfo = stat_utils.estimate(playerDF, boutDF)
             fig, axes = plt.subplots(ncols=1, nrows=1)
-            fitInfo.gen_graph(fig, axes, 'violin')
+            fitInfo.gen_graph(fig, axes, 'boxplot')
             FigureCanvas(fig).print_png(output)
             
         except RuntimeError as e:
