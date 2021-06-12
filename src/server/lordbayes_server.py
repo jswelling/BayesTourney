@@ -60,7 +60,6 @@ def handleAjax(path):
     logMessage("Request for /ajax/%s"%path)
     if path=='tourneys':
         uiSession['curTab'] = 0
-        pprint(uiSession)
         #uiSession.changed()
         return render_template("tourneys.tpl")
     elif path=='entrants':
@@ -154,7 +153,6 @@ def handleEdit(path):
     db = db_session
     uiSession = session
     logMessage("Request for /edit/%s"%path)
-    pprint(request.values)
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
     logMessage("param list: %s"%paramList)
     if path=='edit_tourneys.json':
@@ -249,8 +247,6 @@ def handleDownloadReq(**kwargs):
                              engine, coerce_float=True)
     else:
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
-    print(boutDF.columns)
-    print(boutDF)
     
     full_path =  Path(sessionScratchDir) / 'bouts.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
@@ -283,11 +279,57 @@ def handleEntrantsDownloadReq(**kwargs):
                      as_attachment=True,
     )
 
+
+def _include_fun(row, keycols, checkbox_dict):
+    flags = [checkbox_dict.get(row[keycol], False) for keycol in keycols]
+    return all(flags)
+
+
+@app.route('/horserace_go', methods=['POST'])
+def horserace_go(**kwargs):
+    db = db_session
+    uiSession = session
+    logMessage("Request for /json/horserace_go")
+    data = request.get_json()
+    logMessage(f"data: {data}")
+    tourneyId = int(data['tourney'])
+    if tourneyId >= 0:
+        boutDF = pd.read_sql(f'select * from bouts'
+                             f' where tourneyId={tourneyId}',
+                             engine, coerce_float=True)
+        playerDF = pd.read_sql('select distinct players.*'
+                               ' from players inner join bouts'
+                               ' on ( bouts.leftPlayerId = players.id'
+                               ' or bouts.rightPlayerId = players.id )'
+                               f' where bouts.tourneyId={tourneyId}',
+                               engine, coerce_float=True)
+    else:
+        boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
+        playerDF = pd.read_sql_table('players', engine, coerce_float=True)
+    checkbox_dict = {int(k): v for k, v in data['checkboxes'].items()}
+    playerDF = playerDF[playerDF.apply(_include_fun, axis=1,
+                                       keycols=['id'], checkbox_dict=checkbox_dict)]
+    boutDF = boutDF[boutDF.apply(_include_fun, axis=1,
+                                 keycols=['leftPlayerId', 'rightPlayerId'],
+                                 checkbox_dict=checkbox_dict)]
+    output = io.BytesIO()
+    try:
+        fitInfo = stat_utils.estimate(playerDF, boutDF)
+        fig, axes = plt.subplots(ncols=1, nrows=1)
+        fitInfo.gen_graph(fig, axes, 'boxplot')
+        FigureCanvas(fig).print_png(output)
+
+    except RuntimeError as e:
+        logMessage('horseRace_go exception: %s' % str(e))
+    result = {'image': 'data:image/png;base64,' + base64.b64encode(output.getvalue()).decode("ascii")}
+
+    return result
+    
+
 @app.route('/json/<path>')
 def handleJSON(path, **kwargs):
     db = db_session
     uiSession = session
-    print('session dict: %s' % repr(uiSession))
     logMessage("Request for /json/%s"%path)
     logMessage(f"params: {[(k,request.values[k]) for k in request.values]}")
     if path=='tourneys.json':
@@ -345,33 +387,6 @@ def handleJSON(path, **kwargs):
                            for p in boutList ]
                   }
         logMessage("returning %s"%result)
-    elif path == 'horserace_go.json':
-        paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
-        logMessage(f"horserace_go! {paramList}")
-        tourneyId = int(request.values['tourney'])
-        if tourneyId >= 0:
-            boutDF = pd.read_sql(f'select * from bouts'
-                                 f' where tourneyId={tourneyId}',
-                                 engine, coerce_float=True)
-            playerDF = pd.read_sql('select distinct players.*'
-                                   ' from players inner join bouts'
-                                   ' on ( bouts.leftPlayerId = players.id'
-                                   ' or bouts.rightPlayerId = players.id )'
-                                   f' where bouts.tourneyId={tourneyId}',
-                                   engine, coerce_float=True)
-        else:
-            boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
-            playerDF = pd.read_sql_table('players', engine, coerce_float=True)
-        output = io.BytesIO()
-        try:
-            fitInfo = stat_utils.estimate(playerDF, boutDF)
-            fig, axes = plt.subplots(ncols=1, nrows=1)
-            fitInfo.gen_graph(fig, axes, 'boxplot')
-            FigureCanvas(fig).print_png(output)
-            
-        except RuntimeError as e:
-            logMessage('horseRace_go exception: %s' % str(e))
-        result = {'image': 'data:image/png;base64,' + base64.b64encode(output.getvalue()).decode("ascii")}
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         logMessage(f"horserace {paramList}")
@@ -389,8 +404,6 @@ def handleJSON(path, **kwargs):
         playerList = [(p.id, p) for p in playerList]
         playerList.sort()
         playerList = [p for _, p in playerList]
-        print('playerList follows')
-        print(playerList)
         pList = [p for p in playerList]
         nPages,thisPageNum,totRecs,pList = _orderAndChopPage(pList,
                                                              {'id':'id', 'name':'name', 'notes':'note',
@@ -399,7 +412,7 @@ def handleJSON(path, **kwargs):
                   "total":nPages,    # total pages
                   "page":thisPageNum,     # which page is this
                   "records":totRecs,  # total records
-                  "rows": [ {"id":p.id, "cell":[p.id, p.name, 0, str(p.weight), p.note]} 
+                  "rows": [ {"id":p.id, "cell":[p.id, p.name, 0, str(p.weight), p.note, p.id]} 
                            for i,p in enumerate(pList) ]
                   }
     else:
