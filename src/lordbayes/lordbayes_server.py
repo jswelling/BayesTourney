@@ -18,7 +18,6 @@ from flask import (
 )
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import abort
-from .database import get_db
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,6 +26,8 @@ from matplotlib.figure import Figure
 from pathlib import Path
 from pprint import pprint
 
+from .database import get_db
+from .auth import login_required
 from .models import Tourney, LogitPlayer, Bout
 from . import stat_utils
 
@@ -59,10 +60,12 @@ def logMessage(txt):
 #     print(links)
 
 @bp.route('/')
+@login_required
 def index():
     return redirect(url_for('topPage'))
 
 @bp.route('/top')
+@login_required
 def topPage():
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
 

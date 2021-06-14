@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html lang=en>
 
   <meta charset="utf-8" />
   <script src="/static/jquery-1.10.1.min.js"></script>
@@ -15,29 +15,16 @@
            withCredentials: true
        };
    });
-  $(function() {
-    $( "#tabs" ).tabs({
-      beforeLoad: function( event, ui ) {
-        ui.jqXHR.error(function() {
-          ui.panel.html(
-            "Couldn't load this tab. We'll try to fix this as soon as possible. " +
-            "If this wouldn't be a demo." );
-        });
-      }
-    });
-{% if curTab is not none %}
-    $("#tabs").tabs({ active: {{curTab}} });
-{% endif %}
-  });
   </script>
-
+{% block pagescripts %}{% endblock %}
+  
 <title>{% block title %}{% endblock %} - Tourney Helper</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="/static/jquery-ui-1.10.2/themes/base/jquery-ui.css" />
   <link rel="stylesheet" href="/static/jqGrid-4.5.2/css/ui.jqgrid.css" />
 <nav>
-  <h1>Tourney Helper Title From Base</h1>
-{#  <ul>
+  <h1>{% block heading %}{% endblock %} - Tourney Helper</h1>
+ <ul>
     {% if g.user %}
       <li><span>{{ g.user['username'] }}</span>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a>
@@ -46,7 +33,6 @@
       <li><a href="{{ url_for('auth.login') }}">Log In</a>
     {% endif %}
   </ul>
-#}
 </nav>
 <section class="content">
   <header>

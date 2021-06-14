@@ -4,9 +4,11 @@ This is straight from the tutorial
 import functools
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
+    Blueprint, flash, g, redirect, render_template, request, session,
+    url_for, current_app
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from sqlalchemy.exc import NoResultFound
 
 from .models import User
 from .database import get_db
@@ -18,7 +20,6 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        print(f'######## username={username}')
         db = get_db()
         error = None
 
@@ -28,17 +29,13 @@ def register():
             error = 'Password is required.'
         elif (db.query(User).filter_by(username=username).first()
               is not None):
-#        elif db.execute(
-#                'SELECT id FROM user WHERE username = ?', (username,)
-#        ).fetchone() is not None:
             error = f"User {username} is already registered."
 
         if error is None:
-            db.execute(
-                'INSERT INTO user (username, password) VALUES (?, ?)',
-                (username, generate_password_hash(password))
-            )
+            db.add(User(username, generate_password_hash(password)))
             db.commit()
+            current_app.logger.info("Just added new user %s",
+                                    username)
             return redirect(url_for('auth.login'))
 
         flash(error)
@@ -53,34 +50,27 @@ def login():
         password = request.form['password']
         db = get_db()
         error = None
-        user = db.execute(
-            'SELECT * FROM user WHERE username = ?', (username,)
-        ).fetchone()
-
-        if user is None:
-            error = 'Incorrect username.'
-        elif not check_password_hash(user['password'], password):
-            error = 'Incorrect password.'
-
-        if error is None:
-            session.clear()
-            session['user_id'] = user['id']
-            return redirect(url_for('index'))
+        try:
+            user = db.query(User).filter_by(username=username).one()
+            if check_password_hash(user.password, password):
+                session.clear()
+                session['user_id'] = user.id
+                current_app.logger.info("Successful login by %s",
+                                        username)
+                return redirect(url_for('index'))
+            else:
+                error = 'Incorrect password.'
+        except NoResultFound:
+            error = 'Incorrect username'
 
         flash(error)
 
     return render_template('auth/login.tpl')
 
-@bp.before_app_request
-def load_logged_in_user():
-    user_id = session.get('user_id')
-
-    if user_id is None:
-        g.user = None
-    else:
-        g.user = get_db().execute(
-            'SELECT * FROM user WHERE id = ?', (user_id,)
-        ).fetchone()
+@bp.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
 @bp.before_app_request
 def load_logged_in_user():
@@ -89,9 +79,7 @@ def load_logged_in_user():
     if user_id is None:
         g.user = None
     else:
-        g.user = get_db().execute(
-            'SELECT * FROM user WHERE id = ?', (user_id,)
-        ).fetchone()
+        g.user = get_db().query(User).filter_by(id=user_id).one()
 
 def login_required(view):
     @functools.wraps(view)
