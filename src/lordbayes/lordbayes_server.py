@@ -12,8 +12,13 @@ import time
 import json
 from math import ceil
 
-from flask import (render_template, session, send_from_directory,
-                   request, send_file)
+from flask import (
+    Blueprint, flash, g, render_template, request, url_for,
+    send_from_directory, send_file, session, redirect, current_app
+)
+from werkzeug.routing import BuildError
+from werkzeug.exceptions import abort
+from .database import get_db
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,19 +27,13 @@ from matplotlib.figure import Figure
 from pathlib import Path
 from pprint import pprint
 
-import stat_utils
-from database import db_session, engine
-from app import app
-from models import Tourney, LogitPlayer, Bout
-import stat_utils
+from .models import Tourney, LogitPlayer, Bout
+from . import stat_utils
 
 logFileName = '/tmp/tourneyserver.log'
 sessionScratchDir = '/tmp'
 
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    db_session.remove()
-
+bp = Blueprint('', __name__)
 
 def logMessage(txt):
     try:
@@ -43,20 +42,39 @@ def logMessage(txt):
     except Exception as e:
         print('exception %s on %s'%(e,txt))
         pass
+    
+# @bp.route("/site-map")
+# def site_map():
+#     links = []
+#     for rule in current_app.url_map.iter_rules():
+#         # Filter out rules we can't navigate to in a browser
+#         # and rules that require parameters
+#         if "GET" in rule.methods or 'POST' in rule.methods:
+#             try:
+#                 url = url_for(rule.endpoint, **(rule.defaults or {}))
+#             except BuildError as e:
+#                 url = f'BuildError {e}'
+#             links.append((url, rule.endpoint))
+#     # links is now a list of url, endpoint tuples
+#     print(links)
 
-@app.route('/top')
+@bp.route('/')
+def index():
+    return redirect(url_for('topPage'))
+
+@bp.route('/top')
 def topPage():
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
 
-@app.route('/notimpl')
+@bp.route('/notimpl')
 def notimplPage():
     logMessage("request for unimplemented page")
     return flask.static_file('notimpl.html', root='../../www/static/')
 
-@app.route('/ajax/<path>')
+@bp.route('/ajax/<path>')
 def handleAjax(path):
     uiSession = session
-    db = db_session
+    db = get_db()
     logMessage("Request for /ajax/%s"%path)
     if path=='tourneys':
         uiSession['curTab'] = 0
@@ -120,9 +138,9 @@ def _orderAndChopPage(pList,fieldMap):
     else:
         raise RuntimeError("Sort index %s not in field map"%sortIndex)
 
-@app.route('/list/<path>')
+@bp.route('/list/<path>')
 def handleList(path):
-    db = db_session
+    db = get_db()
     uiSession = session
     logMessage("Request for /list/%s"%path)
     paramList = ['%s:%s'%(str(k),str(v))
@@ -148,9 +166,9 @@ def handleList(path):
     else:
         raise RuntimeError("Bad path /list/%s"%path)
     
-@app.route('/edit/<path>', methods=['POST'])
+@bp.route('/edit/<path>', methods=['POST'])
 def handleEdit(path):
-    db = db_session
+    db = get_db()
     uiSession = session
     logMessage("Request for /edit/%s"%path)
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
@@ -234,9 +252,10 @@ def handleEdit(path):
     else:
         raise RuntimeError("Bad path /edit/%s"%path)
 
-@app.route('/ajax/bouts_download')
+@bp.route('/ajax/bouts_download')
 def handleDownloadReq(**kwargs):
-    db = db_session
+    db = get_db()
+    engine = db.get_bind()
     uiSession = session
 
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
@@ -255,9 +274,10 @@ def handleDownloadReq(**kwargs):
                      as_attachment=True,
     )
 
-@app.route('/ajax/entrants_download')
+@bp.route('/ajax/entrants_download')
 def handleEntrantsDownloadReq(**kwargs):
-    db = db_session
+    db = get_db()
+    engine = db.get_bind()
     uiSession = session
 
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
@@ -285,9 +305,10 @@ def _include_fun(row, keycols, checkbox_dict):
     return all(flags)
 
 
-@app.route('/horserace_go', methods=['POST'])
+@bp.route('/horserace_go', methods=['POST'])
 def horserace_go(**kwargs):
-    db = db_session
+    db = get_db()
+    engine = db.get_bind()
     uiSession = session
     logMessage("Request for /json/horserace_go")
     data = request.get_json()
@@ -326,9 +347,10 @@ def horserace_go(**kwargs):
     return result
     
 
-@app.route('/json/<path>')
+@bp.route('/json/<path>')
 def handleJSON(path, **kwargs):
-    db = db_session
+    db = get_db()
+    engine = db.get_bind()
     uiSession = session
     logMessage("Request for /json/%s"%path)
     logMessage(f"params: {[(k,request.values[k]) for k in request.values]}")

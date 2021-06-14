@@ -1,8 +1,21 @@
-from database import Base
+from .database import Base
 
 from sqlalchemy import Column, Integer, Float, String, ForeignKey
 from sqlalchemy import select
 from sqlalchemy.orm import column_property
+
+class User(Base):
+    __tablename__ = 'user'
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def __str__(self):
+        return "<User(%s)>"%self.username
 
 class Tourney(Base):
     __tablename__ = 'tourneys'
