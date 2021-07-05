@@ -43,7 +43,7 @@ def logMessage(txt):
     except Exception as e:
         print('exception %s on %s'%(e,txt))
         pass
-    
+     
 # @bp.route("/site-map")
 # def site_map():
 #     links = []
@@ -68,6 +68,11 @@ def index():
 @login_required
 def topPage():
     return render_template("top.tpl", curTab=(session.get('curTab', None)))
+
+@bp.route('/test')
+@login_required
+def testPage():
+    return render_template("test.tpl")
 
 @bp.route('/notimpl')
 def notimplPage():
@@ -101,11 +106,11 @@ def handleAjax(path):
         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
         return render_template("horserace.tpl",
                                tourneyDict=tourneyDict)
-    elif path=='misc':
+    elif path=='test':
         uiSession['curTab'] = 4
         #uiSession.changed()
         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-        return render_template("misc.tpl",
+        return render_template("test.tpl",
                                tourneyDict=tourneyDict)
     elif path=='help':
         uiSession['curTab'] = 5
@@ -345,7 +350,10 @@ def horserace_go(**kwargs):
 
     except RuntimeError as e:
         logMessage('horseRace_go exception: %s' % str(e))
-    result = {'image': 'data:image/png;base64,' + base64.b64encode(output.getvalue()).decode("ascii")}
+    result = {'image': ('data:image/png;base64,'
+                        + base64.b64encode(output.getvalue()).decode("ascii")),
+              'announce_html': '<p>I <em>just</em> made this up.</p>'
+              }
 
     return result
     
