@@ -1,3 +1,14 @@
+{% extends 'base.tpl' %}
+
+{% block pagescripts %}
+<script>
+  $(function() {
+    $( "#help_accordion" ).accordion();
+  })
+</script>
+{% endblock %}
+
+{% block content %}
 <h1>About TourneyHelper</h1>
 
 <div id="help_accordion">
@@ -33,6 +44,4 @@
 </div>
 </div>
 
-<script>
-$( "#help_accordion" ).accordion();
-</script>
+{% endblock %}

@@ -62,24 +62,65 @@ def logMessage(txt):
 @bp.route('/')
 @login_required
 def index():
-    return redirect(url_for('topPage'))
+    return redirect(url_for('tourneys'))
 
-@bp.route('/top')
-@login_required
-def topPage():
-    return render_template("top.tpl", curTab=(session.get('curTab', None)))
+# @bp.route('/top')
+# @login_required
+# def topPage():
+#     return render_template("top.tpl", curTab=(session.get('curTab', None)))
 
 @bp.route('/test')
 @login_required
-def testPage():
+def test():
     return render_template("test.tpl")
+
+@bp.route('/tourneys')
+@login_required
+def tourneys():
+    logMessage(f"Request for {request.endpoint}")
+    return render_template("tourneys.tpl")
+
+
+@bp.route('/entrants')
+@login_required
+def entrants():
+    logMessage(f"Request for {request.endpoint}")
+    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    return render_template("entrants.tpl",
+                           tourneyDict=tourneyDict)
+
+
+@bp.route('/bouts')
+@login_required
+def bouts():
+    logMessage(f"Request for {request.endpoint}")
+    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    return render_template("bouts.tpl",
+                           tourneyDict=tourneyDict)
+
+
+@bp.route('/horserace')
+@login_required
+def horserace():
+    logMessage(f"Request for {request.endpoint}")
+    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    return render_template("horserace.tpl",
+                           tourneyDict=tourneyDict)
+
+@bp.route('/help')
+def help():
+    logMessage(f"Request for {request.endpoint}")
+    return render_template("info.tpl")    
+
 
 @bp.route('/notimpl')
 def notimplPage():
     logMessage("request for unimplemented page")
     return flask.static_file('notimpl.html', root='../../www/static/')
 
+
 @bp.route('/ajax/<path>')
+@bp.route('/<path>')
 def handleAjax(path):
     uiSession = session
     db = get_db()
