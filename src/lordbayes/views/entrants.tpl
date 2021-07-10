@@ -2,15 +2,11 @@
 
 {% block pagescripts %}
 <script>
-var selEntrantsTourney = $('#sel_entrants_tournament');
-selEntrantsTourney.select().change( function()
-{
-  $('#download_entrants_link').attr('href', '/ajax/entrants_download?tourney=' + selEntrantsTourney.val());
-  $('#entrants_table').trigger('reloadGrid');
-});
+var selEntrantsTourney;
 var lastsel_entrants;
 $(function() {
   "use strict";
+  selEntrantsTourney = $('#sel_entrants_tournament');
   jQuery("#entrants_table").jqGrid({
     url:'json/entrants.json',
     postData: {'tourneyId': function() { return selEntrantsTourney.val() || -1; } },
@@ -51,10 +47,15 @@ $(function() {
       bExit : "Cancel",
     }
   });
-});
   //jQuery("entrants_table").jqGrid('navGrid','#entrants_pager',{edit:false,add:false,del:false});
-jQuery("#add_entrant_button").click( function() {
-	jQuery("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
+  jQuery("#add_entrant_button").click( function() {
+    jQuery("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
+  });
+  selEntrantsTourney.select().change( function() {
+    $('#download_entrants_link').attr('href',
+				      '/ajax/entrants_download?tourney=' + selEntrantsTourney.val());
+    $('#entrants_table').trigger('reloadGrid');
+  });
 });
 </script>
 {% endblock %}

@@ -119,53 +119,55 @@ def notimplPage():
     return flask.static_file('notimpl.html', root='../../www/static/')
 
 
-@bp.route('/ajax/<path>')
-@bp.route('/<path>')
-def handleAjax(path):
-    uiSession = session
-    db = get_db()
-    logMessage("Request for /ajax/%s"%path)
-    if path=='tourneys':
-        uiSession['curTab'] = 0
-        #uiSession.changed()
-        return render_template("tourneys.tpl")
-    elif path=='entrants':
-        uiSession['curTab'] = 1
-        #uiSession.changed()
-        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-        return render_template("entrants.tpl",
-                               tourneyDict=tourneyDict)
-    elif path=='bouts':
-        uiSession['curTab'] = 2
-        #uiSession.changed()
-        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-        return render_template("bouts.tpl",
-                               tourneyDict=tourneyDict)
-    elif path=='horserace':
-        uiSession['curTab'] = 3
-        #uiSession.changed()
-        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-        return render_template("horserace.tpl",
-                               tourneyDict=tourneyDict)
-    elif path=='test':
-        uiSession['curTab'] = 4
-        #uiSession.changed()
-        tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-        return render_template("test.tpl",
-                               tourneyDict=tourneyDict)
-    elif path=='help':
-        uiSession['curTab'] = 5
-        #uiSession.changed()
-        return render_template("info.tpl")
-    else:
-        raise RuntimeError("Unknown path /ajax/%s"%path)
+# @bp.route('/ajax/<path>')
+# @bp.route('/<path>')
+# def handleAjax(path):
+#     uiSession = session
+#     db = get_db()
+#     logMessage("Request for /ajax/%s"%path)
+#     if path=='tourneys':
+#         uiSession['curTab'] = 0
+#         #uiSession.changed()
+#         return render_template("tourneys.tpl")
+#     elif path=='entrants':
+#         uiSession['curTab'] = 1
+#         #uiSession.changed()
+#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+#         return render_template("entrants.tpl",
+#                                tourneyDict=tourneyDict)
+#     elif path=='bouts':
+#         uiSession['curTab'] = 2
+#         #uiSession.changed()
+#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+#         return render_template("bouts.tpl",
+#                                tourneyDict=tourneyDict)
+#     elif path=='horserace':
+#         uiSession['curTab'] = 3
+#         #uiSession.changed()
+#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+#         return render_template("horserace.tpl",
+#                                tourneyDict=tourneyDict)
+#     elif path=='test':
+#         uiSession['curTab'] = 4
+#         #uiSession.changed()
+#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
+#         return render_template("test.tpl",
+#                                tourneyDict=tourneyDict)
+#     elif path=='help':
+#         uiSession['curTab'] = 5
+#         #uiSession.changed()
+#         return render_template("info.tpl")
+#     else:
+#         raise RuntimeError("Unknown path /ajax/%s"%path)
 
 def _orderAndChopPage(pList,fieldMap):
     sortIndex = request.values['sidx']
     sortOrder = request.values['sord']
     thisPageNum = int(request.values['page'])
     rowsPerPage = int(request.values['rows'])
+    print(f'point 1: {sortIndex} {sortOrder} {thisPageNum} {rowsPerPage}')
     if sortIndex in fieldMap:
+        print('point 2')
         field = fieldMap[sortIndex]
         pDict = {(getattr(p, field), idx) : p for idx, p in enumerate(pList)}
         sortMe = [tpl for tpl in pDict]
@@ -173,6 +175,7 @@ def _orderAndChopPage(pList,fieldMap):
             sortMe.sort()
         else:
             sortMe.sort(reverse=True)
+        print('point 3')
         pList = [pDict[tpl] for tpl in sortMe]
         nPages = int(ceil(float(len(pList))/(rowsPerPage-1)))
         totRecs = len(pList)
@@ -183,6 +186,8 @@ def _orderAndChopPage(pList,fieldMap):
             sR = (thisPageNum-1)*(rowsPerPage-1)
             eR = sR + rowsPerPage
         pList = pList[sR:eR]
+        print(f'point 4: {nPages} {thisPageNum} {totRecs} {pList}')
+        print([p.note for p in pList])
         return (nPages,thisPageNum,totRecs,pList)
     else:
         raise RuntimeError("Sort index %s not in field map"%sortIndex)
@@ -239,8 +244,16 @@ def handleEdit(path):
             t = Tourney(name,notes)
             db.add(t)
             db.commit()
-            logMessage("Just added %s"%t)
+            logMessage(f"Just added Tourney({t.tourneyId}, {t.name}, {t.note})")
+            return {'id':t.tourneyId, 'name':t.name, 'notes': t.note}
+        elif request.values['oper']=='del':
+            b = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
+            logMessage("Deleting %s"%b)
+            db.delete(b)
+            db.commit()
             return {}
+        else:
+            raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     elif path=='edit_bouts.json':
         if request.values['oper']=='edit':
             b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
@@ -279,6 +292,8 @@ def handleEdit(path):
             db.delete(b)
             db.commit()
             return {}
+        else:
+            raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     elif path=='edit_entrants.json':
         if request.values['oper']=='edit':
             p = db.query(LogitPlayer).filter_by(id=int(request.values['id'])).one()
@@ -298,6 +313,8 @@ def handleEdit(path):
             db.commit()
             logMessage("Just added %s"%p)
             return {}
+        else:
+            raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:
         raise RuntimeError("Bad path /edit/%s"%path)
 

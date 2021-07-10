@@ -2,16 +2,11 @@
 
 {% block pagescripts %}
 <script>
-var selBoutsTourney = $('#sel_bouts_tournament');
-selBoutsTourney.select().change( function()
-{
-  $('#download_bouts_link').attr('href', '/ajax/bouts_download?tourney=' + selBoutsTourney.val());
-  $('#bouts_table').trigger('reloadGrid');
-});
-
-var lastsel_bouts
+var lastsel_bouts;
+var selBoutsTourney;
 $(function() {
   "use strict";
+  selBoutsTourney = $('#sel_bouts_tournament');
   jQuery("#bouts_table").jqGrid({
     url:'json/bouts.json',
     postData: {'tourneyId': function() { return selBoutsTourney.val() || -1; } },
@@ -62,14 +57,18 @@ $(function() {
     guiStyle: "bootstrap",
     iconSet: "fontAwesome"  
   });
-});
-// jQuery("bouts_table").jqGrid('navGrid','#bouts_pager',{edit:false,add:false,del:false});
-jQuery("#add_bout_button").click( function() {
-	jQuery("#bouts_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
-});
-jQuery("#del_bout_button").click( function() {
-	jQuery("#bouts_table").jqGrid('delGridRow',lastsel_bouts,{});
-	lastsel_bouts=null;
+  // jQuery("bouts_table").jqGrid('navGrid','#bouts_pager',{edit:false,add:false,del:false});
+  jQuery("#add_bout_button").click( function() {
+    jQuery("#bouts_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
+  });
+  jQuery("#del_bout_button").click( function() {
+    jQuery("#bouts_table").jqGrid('delGridRow',lastsel_bouts,{});
+    lastsel_bouts=null;
+  });
+  selBoutsTourney.select().change( function() {
+    $('#download_bouts_link').attr('href', '/ajax/bouts_download?tourney=' + selBoutsTourney.val());
+    $('#bouts_table').trigger('reloadGrid');
+  });
 });
 </script>
 {% endblock %}
