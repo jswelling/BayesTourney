@@ -14,22 +14,19 @@
       $.jgrid = $.jgrid || {};
       $.jgrid.no_legacy_api = true;
     </script>
-<!--
     <script crossorigin="anonymous"
             src="https://cdnjs.cloudflare.com/ajax/libs/free-jqgrid/4.15.5/jquery.jqgrid.min.js"
             integrity="sha256-ELi2cs17gL2MqNzkRkogxZsVLmL+oWfeVOwZQLcp8ek=">
     </script>
--->
-<script src="//rawgit.com/free-jqgrid/jqGrid/master/js/jquery.jqgrid.src.js"></script>
 
     <script>
       /*
       * Magic to make AJAX ops like $.getJSON send the same cookies as normal fetches
       */
       $(document).ajaxSend(function (event, xhr, settings) {
-      settings.xhrFields = {
-      withCredentials: true
-      };
+	settings.xhrFields = {
+	  withCredentials: true
+	};
       });
     </script>
 

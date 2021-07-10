@@ -24,7 +24,6 @@ $(function () {
     rowNum:10,
     rowList:[10,20,30],
     sortname: 'id',
-    ////viewrecords: true,
     sortorder: "desc",
     caption:"Tourneys",
     editurl:'edit/edit_tourneys.json',
@@ -36,39 +35,10 @@ $(function () {
     autoresizeOnLoad: true,
     loadonce: true,
     reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },    
-    // navOptions: { reloadGridOptions: { fromServer: true, reloadAfterSubmit: true }},
-    // loadComplete: function(data) { alert('loadComplete!'); console.log(data); },
-    // gridComplete: function(data) {
-    //   alert('gridComplete!');
-    //   $("#tourneys_table").trigger('reloadGrid',{ fromServer: true });
-    // },
-    // edit: true,
-    // editTitle: "Edit this", width:500,
-    // edit : {
-    //   addCaption: "Add Record",
-    //   editCaption: "Edit Record",
-    //   bSubmit: "Submit",
-    //   bCancel: "Cancel",
-    //   bClose: "Close",
-    //   saveData: "Data has been changed! Save changes?",
-    //   bYes : "Yes",
-    //   bNo : "No",
-    //   bExit : "Cancel",
-    // }    	
   });
-  // $('#tourneys_table').jqGrid("navGrid",
-  // 			     {addtext: "Add", edittext: "Edit", deltext: "Delete",
-  // 			      refreshtext: "Reload"},
-  // 			      {},
-  // 			      {closeAfterAdd: true, reloadAfterSubmit: true}
-  // 			     );
   jQuery("#add_tourney_button").click( function() {
     $("#tourneys_table").jqGrid('editGridRow', "new",
 				{closeAfterAdd: true, reloadAfterSubmit: true});
-    // jQuery("#tourneys_table").jqGrid('editGridRow',"new",{closeAfterAdd:true}).trigger('reloadGrid', { fromServer: true });
-    // alert('about to trigger');
-    // jQuery("#tourneys_table").jqGrid('reloadGrid', { fromServer: true });
-    //$("#tourneys_table").setGridParam({datatype:'json'}).trigger('reloadGrid', {fromServer:true, page:1});
   });
   jQuery("#del_tourney_button").click( function() {
     jQuery("#tourneys_table").jqGrid('delGridRow',lastsel_tourneys,{});
@@ -79,7 +49,6 @@ $(function () {
     lastsel_tourneys=null;
   });
 
-  //jQuery("tourneys_table").jqGrid('navGrid','#tourneys_pager',{edit:false,add:false,del:false});
 });
 </script>
 {% endblock %}
