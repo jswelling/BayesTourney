@@ -10,6 +10,7 @@ import base64
 import io
 import time
 import json
+import logging
 from math import ceil
 
 from flask import (
@@ -31,19 +32,19 @@ from .auth import login_required
 from .models import Tourney, LogitPlayer, Bout
 from . import stat_utils
 
-logFileName = '/tmp/tourneyserver.log'
-sessionScratchDir = '/tmp'
+SESSION_SCRATCH_DIR = '/tmp'
+
+logging.basicConfig()
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 bp = Blueprint('', __name__)
 
+
 def logMessage(txt):
-    try:
-        with open(logFileName,'a+') as f:
-            f.write("%s %s\n"%(time.strftime('%Y/%m/%d %H:%M:%S'),txt))
-    except Exception as e:
-        print('exception %s on %s'%(e,txt))
-        pass
-     
+    LOGGER.info(txt)
+
+
 # @bp.route("/site-map")
 # def site_map():
 #     links = []
@@ -293,7 +294,7 @@ def handleDownloadReq(**kwargs):
     else:
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
     
-    full_path =  Path(sessionScratchDir) / 'bouts.tsv'
+    full_path =  Path(SESSION_SCRATCH_DIR) / 'bouts.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
     logMessage(f"Download bouts requested; generated and sent sending {full_path}")
     return send_file(full_path,
@@ -318,7 +319,7 @@ def handleEntrantsDownloadReq(**kwargs):
     else:
         entrantDF = pd.read_sql_table('players', engine, coerce_float=True)
     
-    full_path =  Path(sessionScratchDir) / 'entrants.tsv'
+    full_path =  Path(SESSION_SCRATCH_DIR) / 'entrants.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
     logMessage(f"Download entrants requested; generated and sent sending {full_path}")
     return send_file(full_path,
