@@ -17,7 +17,6 @@ $(function() {
 				});
     goBtn.button().click( function()
 			  {
-			    alert('click!');
 			    checkboxData = {};
 			    $('#horserace_table').jqGrid('getRowData')
 			      .forEach(element => {

@@ -11,6 +11,7 @@ import io
 import time
 import json
 import logging
+import functools
 from math import ceil
 
 from flask import (
@@ -45,6 +46,29 @@ def logMessage(txt):
     LOGGER.info(txt)
 
 
+def debug_wrapper(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        LOGGER.debug(f'{request.method} Request for {request.endpoint}'
+                     f' kwargs {kwargs}'
+                     f' params {[(k,request.values[k]) for k in request.values]}')
+        rslt = view(**kwargs)
+        LOGGER.debug(f'Returning {rslt}')
+        return rslt
+    return wrapped_view
+
+    
+def debug_page_wrapper(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        LOGGER.debug(f'{request.method} Request for {request.endpoint}'
+                     f' kwargs {kwargs}'
+                     f' params {[(k,request.values[k]) for k in request.values]}')
+        rslt = view(**kwargs)
+        return rslt
+    return wrapped_view
+
+    
 # @bp.route("/site-map")
 # def site_map():
 #     links = []
@@ -65,27 +89,17 @@ def logMessage(txt):
 def index():
     return redirect(url_for('tourneys'))
 
-# @bp.route('/top')
-# @login_required
-# def topPage():
-#     return render_template("top.tpl", curTab=(session.get('curTab', None)))
-
-@bp.route('/test')
-@login_required
-def test():
-    return render_template("test.tpl")
-
 @bp.route('/tourneys')
 @login_required
+@debug_page_wrapper
 def tourneys():
-    logMessage(f"Request for {request.endpoint}")
     return render_template("tourneys.tpl")
 
 
 @bp.route('/entrants')
 @login_required
+@debug_page_wrapper
 def entrants():
-    logMessage(f"Request for {request.endpoint}")
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("entrants.tpl",
                            tourneyDict=tourneyDict)
@@ -93,8 +107,8 @@ def entrants():
 
 @bp.route('/bouts')
 @login_required
+@debug_page_wrapper
 def bouts():
-    logMessage(f"Request for {request.endpoint}")
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("bouts.tpl",
                            tourneyDict=tourneyDict)
@@ -102,21 +116,21 @@ def bouts():
 
 @bp.route('/horserace')
 @login_required
+@debug_page_wrapper
 def horserace():
-    logMessage(f"Request for {request.endpoint}")
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("horserace.tpl",
                            tourneyDict=tourneyDict)
 
 @bp.route('/help')
+@debug_page_wrapper
 def help():
-    logMessage(f"Request for {request.endpoint}")
     return render_template("info.tpl")    
 
 
 @bp.route('/notimpl')
+@debug_page_wrapper
 def notimplPage():
-    logMessage("request for unimplemented page")
     return flask.static_file('notimpl.html', root='../../www/static/')
 
 
@@ -151,13 +165,10 @@ def _orderAndChopPage(pList,fieldMap):
         raise RuntimeError("Sort index %s not in field map"%sortIndex)
 
 @bp.route('/list/<path>')
+@debug_page_wrapper
 def handleList(path):
     db = get_db()
     uiSession = session
-    logMessage("Request for /list/%s"%path)
-    paramList = ['%s:%s'%(str(k),str(v))
-                 for k,v in list(request.values.items())]
-    logMessage("param list: %s"%paramList)
     if path=='select_entrant':
         playerList = db.query(LogitPlayer)
         pairs = [(p.id,p.name) for p in playerList]
@@ -178,13 +189,13 @@ def handleList(path):
     else:
         raise RuntimeError("Bad path /list/%s"%path)
     
+
 @bp.route('/edit/<path>', methods=['POST'])
+@debug_wrapper
 def handleEdit(path):
     db = get_db()
     uiSession = session
-    logMessage("Request for /edit/%s"%path)
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
-    logMessage("param list: %s"%paramList)
     if path=='edit_tourneys.json':
         if request.values['oper']=='edit':
             t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
@@ -202,11 +213,9 @@ def handleEdit(path):
             t = Tourney(name,notes)
             db.add(t)
             db.commit()
-            logMessage(f"Just added Tourney({t.tourneyId}, {t.name}, {t.note})")
-            return {'id':t.tourneyId, 'name':t.name, 'notes': t.note}
+            return {}
         elif request.values['oper']=='del':
             b = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
-            logMessage("Deleting %s"%b)
             db.delete(b)
             db.commit()
             return {}
@@ -242,11 +251,9 @@ def handleEdit(path):
             b = Bout(tourneyId,lWins,lPlayerId,draws,rPlayerId,rWins,note)
             db.add(b)
             db.commit()
-            logMessage("Just added %s"%b)
             return {}
         elif request.values['oper']=='del':
             b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
-            logMessage("Deleting %s"%b)
             db.delete(b)
             db.commit()
             return {}
@@ -269,23 +276,22 @@ def handleEdit(path):
             p = LogitPlayer(name,-1.0,notes)
             db.add(p)
             db.commit()
-            logMessage("Just added %s"%p)
             return {}
         elif request.values['oper'] == 'del':
-            logMessage("delete entrant was requested but is not supported")
             return {'msg': 'that did not work'}
         else:
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:
         raise RuntimeError("Bad path /edit/%s"%path)
 
+
 @bp.route('/ajax/bouts_download')
-def handleDownloadReq(**kwargs):
+@debug_page_wrapper
+def handleBoutsDownloadReq(**kwargs):
     db = get_db()
     engine = db.get_bind()
     uiSession = session
 
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
     tourneyId = int(request.values.get('tourney', '-1'))
 
     if tourneyId >= 0:
@@ -296,23 +302,21 @@ def handleDownloadReq(**kwargs):
     
     full_path =  Path(SESSION_SCRATCH_DIR) / 'bouts.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
-    logMessage(f"Download bouts requested; generated and sent sending {full_path}")
-    return send_file(full_path,
-                     as_attachment=True,
-    )
+    return send_file(full_path, as_attachment=True)
+
 
 @bp.route('/ajax/entrants_download')
+@debug_page_wrapper
 def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
     engine = db.get_bind()
     uiSession = session
 
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
     tourneyId = int(request.values.get('tourney', '-1'))
 
     if tourneyId >= 0:
         entrantDF = pd.read_sql('select distinct players.*'
-                                'from players inner join bouts'
+                                ' from players inner join bouts'
                                 ' on ( bouts.leftPlayerId = players.id or bouts.rightPlayerId = players.id )'
                                 f' where bouts.tourneyId={tourneyId}',
                                 engine, coerce_float=True)
@@ -321,10 +325,7 @@ def handleEntrantsDownloadReq(**kwargs):
     
     full_path =  Path(SESSION_SCRATCH_DIR) / 'entrants.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
-    logMessage(f"Download entrants requested; generated and sent sending {full_path}")
-    return send_file(full_path,
-                     as_attachment=True,
-    )
+    return send_file(full_path, as_attachment=True)
 
 
 def _include_fun(row, keycols, checkbox_dict):
@@ -333,13 +334,13 @@ def _include_fun(row, keycols, checkbox_dict):
 
 
 @bp.route('/horserace_go', methods=['POST'])
+@debug_page_wrapper
 def horserace_go(**kwargs):
     db = get_db()
     engine = db.get_bind()
     uiSession = session
-    logMessage("Request for /json/horserace_go")
     data = request.get_json()
-    logMessage(f"data: {data}")
+    #logMessage(f"data: {data}")
     tourneyId = int(data['tourney'])
     if tourneyId >= 0:
         boutDF = pd.read_sql(f'select * from bouts'
@@ -378,12 +379,11 @@ def horserace_go(**kwargs):
     
 
 @bp.route('/json/<path>')
+@debug_wrapper
 def handleJSON(path, **kwargs):
     db = get_db()
     engine = db.get_bind()
     uiSession = session
-    logMessage("Request for /json/%s"%path)
-    logMessage(f"params: {[(k,request.values[k]) for k in request.values]}")
     if path=='tourneys.json':
         tourneyList = [val for val in db.query(Tourney)]
         result = {
@@ -391,7 +391,6 @@ def handleJSON(path, **kwargs):
                   "rows": [ {"id":t.tourneyId, "cell":[t.tourneyId, t.name, t.note]} 
                            for t in tourneyList ]
                   }
-        logMessage("returning %s"%result)
     elif path=='entrants.json':
         tourneyId = int(request.values.get('tourneyId', -1))
         if tourneyId >= 0:
@@ -408,7 +407,6 @@ def handleJSON(path, **kwargs):
                   "records":len(playerList),  # total records
                   "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in playerList ]
                   }
-        logMessage("returning %s"%result)
     elif path =='bouts.json':
         tourneyId = int(request.values.get('tourneyId', -1))
         if tourneyId >= 0:
@@ -422,10 +420,8 @@ def handleJSON(path, **kwargs):
                                                     p.rName, p.rightWins, p.note] } 
                            for p in boutList ]
                   }
-        logMessage("returning %s"%result)
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
-        logMessage(f"horserace {paramList}")
         tourneyId = int(request.values['tourney'])
         if tourneyId >= 0:
             with engine.connect() as conn:
