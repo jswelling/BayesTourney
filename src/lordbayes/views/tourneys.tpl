@@ -21,8 +21,8 @@ $(function () {
 	lastsel_tourneys=id;
       }
     },
-    rowNum:10,
-    rowList:[10,20,30],
+    rowNum:5,
+    rowList:[5,10,20,30],
     sortname: 'id',
     sortorder: "desc",
     caption:"Tourneys",

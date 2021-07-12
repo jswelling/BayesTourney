@@ -13,7 +13,7 @@ $(function() {
     datatype: "json",
     colNames:['Id','Name','Notes'],
     colModel:[
-      {name:'id',index:'id', width:55},
+      {name:'id',index:'id', width:55, sorttype:'integer'},
       {name:'name',index:'name', width:100, editable:true, edittype:'text'},
       {name:'notes',index:'notes', width:100, editable:true, edittype:'textarea'}
     ],
@@ -24,32 +24,34 @@ $(function() {
 	lastsel_entrants=id;
       }
     },
-    rowNum:10,
-    rowList:[10,20,30],
+    beforeProcessing: function(data, status, xhr) {
+      console.log(data, status, xhr);
+    },
+    rowNum:5,
+    rowList:[5,10,20,30],
     pager: '#entrants_pager',
     sortname: 'id',
-    viewrecords: true,
     sortorder: "desc",
     caption:"Entrants",
     pager: true,
     guiStyle: "bootstrap",
     iconSet: "fontAwesome",
     editurl:'edit/edit_entrants.json',
-    edit : {
-      addCaption: "Add Record",
-      editCaption: "Edit Record",
-      bSubmit: "Submit",
-      bCancel: "Cancel",
-      bClose: "Close",
-      saveData: "Data has been changed! Save changes?",
-      bYes : "Yes",
-      bNo : "No",
-      bExit : "Cancel",
-    }
+    cmTemplate: { autoResizable: true },
+    autoresizeOnLoad: true,
+    loadonce: true,
+    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },    
   });
-  //jQuery("entrants_table").jqGrid('navGrid','#entrants_pager',{edit:false,add:false,del:false});
   jQuery("#add_entrant_button").click( function() {
     jQuery("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
+  });
+  jQuery("#del_entrant_button").click( function() {
+    jQuery("#entrants_table").jqGrid('delGridRow',lastsel_entrants,{});
+    lastsel_entrants=null;
+  });
+  jQuery("#reload_entrant_button").click( function() {
+    $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
+    lastsel_entrants=null;
   });
   selEntrantsTourney.select().change( function() {
     $('#download_entrants_link').attr('href',
@@ -71,8 +73,9 @@ $(function() {
 {% endfor %}
 </select>
 <table id="entrants_table"></table>
-<div id="entrants_pager"></div>
 <input type="BUTTON" id="add_entrant_button" value="New Entrant">
+<input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
+<input type="BUTTON" id="reload_entrant_button" value="Reload">
 <a id="download_entrants_link" href="/ajax/entrants_download?tourney=-1">Download these entrants as .tsv</a>
 
 {% endblock %}

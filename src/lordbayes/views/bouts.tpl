@@ -35,35 +35,33 @@ $(function() {
 	lastsel_bouts=id;
       }
     },
-    edit : {
-      addCaption: "Add Record",
-      editCaption: "Edit Record",
-      bSubmit: "Submit",
-      bCancel: "Cancel",
-      bClose: "Close",
-      saveData: "Data has been changed! Save changes?",
-      bYes : "Yes",
-      bNo : "No",
-      bExit : "Cancel",
+    beforeProcessing: function(data, status, xhr) {
+      console.log(data, status, xhr);
     },
-    rowNum:10,
-    rowList:[10,20,30],
-    pager: '#bouts_pager',
+    rowNum:5,
+    rowList:[5,10,20,30],
+    pager: true,
+    cmTemplate: { autoResizable: true },
+    autoresizeOnLoad: true,
+    loadonce: true,
+    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },
     sortname: 'leftplayer',
-    viewrecords: true,
     sortorder: "desc",
     caption:"Bouts",
     editurl:'edit/edit_bouts.json',
     guiStyle: "bootstrap",
     iconSet: "fontAwesome"  
   });
-  // jQuery("bouts_table").jqGrid('navGrid','#bouts_pager',{edit:false,add:false,del:false});
   jQuery("#add_bout_button").click( function() {
     jQuery("#bouts_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
   });
   jQuery("#del_bout_button").click( function() {
     jQuery("#bouts_table").jqGrid('delGridRow',lastsel_bouts,{});
     lastsel_bouts=null;
+  });
+  jQuery("#reload_bout_button").click( function() {
+    $("#bouts_table").trigger('reloadGrid',{ fromServer: true });
+    lastsel_entrants=null;
   });
   selBoutsTourney.select().change( function() {
     $('#download_bouts_link').attr('href', '/ajax/bouts_download?tourney=' + selBoutsTourney.val());
@@ -87,6 +85,7 @@ $(function() {
 <!-- <div id="bouts_pager"></div> -->
 <input type="BUTTON" id="add_bout_button" value="New Bout">
 <input type="BUTTON" id="del_bout_button" value="Delete Selected Bout">
+<input type="BUTTON" id="reload_bout_button" value="Reload">
 <a id="download_bouts_link" href="/ajax/bouts_download?tourney=-1">Download these bouts as .tsv</a>
 
 {% endblock %}

@@ -119,55 +119,15 @@ def notimplPage():
     return flask.static_file('notimpl.html', root='../../www/static/')
 
 
-# @bp.route('/ajax/<path>')
-# @bp.route('/<path>')
-# def handleAjax(path):
-#     uiSession = session
-#     db = get_db()
-#     logMessage("Request for /ajax/%s"%path)
-#     if path=='tourneys':
-#         uiSession['curTab'] = 0
-#         #uiSession.changed()
-#         return render_template("tourneys.tpl")
-#     elif path=='entrants':
-#         uiSession['curTab'] = 1
-#         #uiSession.changed()
-#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-#         return render_template("entrants.tpl",
-#                                tourneyDict=tourneyDict)
-#     elif path=='bouts':
-#         uiSession['curTab'] = 2
-#         #uiSession.changed()
-#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-#         return render_template("bouts.tpl",
-#                                tourneyDict=tourneyDict)
-#     elif path=='horserace':
-#         uiSession['curTab'] = 3
-#         #uiSession.changed()
-#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-#         return render_template("horserace.tpl",
-#                                tourneyDict=tourneyDict)
-#     elif path=='test':
-#         uiSession['curTab'] = 4
-#         #uiSession.changed()
-#         tourneyDict = {t.tourneyId: t.name for t in db.query(Tourney)}
-#         return render_template("test.tpl",
-#                                tourneyDict=tourneyDict)
-#     elif path=='help':
-#         uiSession['curTab'] = 5
-#         #uiSession.changed()
-#         return render_template("info.tpl")
-#     else:
-#         raise RuntimeError("Unknown path /ajax/%s"%path)
-
 def _orderAndChopPage(pList,fieldMap):
+    """
+    This was very useful for the old version of jqGrid, before 'loadonce: true'
+    """
     sortIndex = request.values['sidx']
     sortOrder = request.values['sord']
     thisPageNum = int(request.values['page'])
     rowsPerPage = int(request.values['rows'])
-    print(f'point 1: {sortIndex} {sortOrder} {thisPageNum} {rowsPerPage}')
     if sortIndex in fieldMap:
-        print('point 2')
         field = fieldMap[sortIndex]
         pDict = {(getattr(p, field), idx) : p for idx, p in enumerate(pList)}
         sortMe = [tpl for tpl in pDict]
@@ -175,7 +135,6 @@ def _orderAndChopPage(pList,fieldMap):
             sortMe.sort()
         else:
             sortMe.sort(reverse=True)
-        print('point 3')
         pList = [pDict[tpl] for tpl in sortMe]
         nPages = int(ceil(float(len(pList))/(rowsPerPage-1)))
         totRecs = len(pList)
@@ -186,8 +145,6 @@ def _orderAndChopPage(pList,fieldMap):
             sR = (thisPageNum-1)*(rowsPerPage-1)
             eR = sR + rowsPerPage
         pList = pList[sR:eR]
-        print(f'point 4: {nPages} {thisPageNum} {totRecs} {pList}')
-        print([p.note for p in pList])
         return (nPages,thisPageNum,totRecs,pList)
     else:
         raise RuntimeError("Sort index %s not in field map"%sortIndex)
@@ -313,6 +270,9 @@ def handleEdit(path):
             db.commit()
             logMessage("Just added %s"%p)
             return {}
+        elif request.values['oper'] == 'del':
+            logMessage("delete entrant was requested but is not supported")
+            return {'msg': 'that did not work'}
         else:
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:
@@ -424,16 +384,13 @@ def handleJSON(path, **kwargs):
     logMessage("Request for /json/%s"%path)
     logMessage(f"params: {[(k,request.values[k]) for k in request.values]}")
     if path=='tourneys.json':
-        tourneyList = db.query(Tourney)
-        nPages,thisPageNum,totRecs,pList = _orderAndChopPage([t for t in tourneyList],
-                                                             {'id':'tourneyId', 'name':'name', 'notes':'note'})
+        tourneyList = [val for val in db.query(Tourney)]
         result = {
-                  "total":nPages,    # total pages
-                  "page":thisPageNum,     # which page is this
-                  "records":totRecs,  # total records
+                  "records":len(tourneyList),  # total records
                   "rows": [ {"id":t.tourneyId, "cell":[t.tourneyId, t.name, t.note]} 
                            for t in tourneyList ]
                   }
+        logMessage("returning %s"%result)
     elif path=='entrants.json':
         tourneyId = int(request.values.get('tourneyId', -1))
         if tourneyId >= 0:
@@ -446,35 +403,22 @@ def handleJSON(path, **kwargs):
                 playerList = [val for val in rs]
         else:
             playerList = [val for val in db.query(LogitPlayer)]
-        nPages,thisPageNum,totRecs,pList = _orderAndChopPage([p for p in playerList],
-                                                             {'id':'id', 'name':'name',
-                                                              'notes':'note'})
         result = {
-                  "total":nPages,    # total pages
-                  "page":thisPageNum,     # which page is this
-                  "records":totRecs,  # total records
-                  "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in pList ]
+                  "records":len(playerList),  # total records
+                  "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in playerList ]
                   }
+        logMessage("returning %s"%result)
     elif path =='bouts.json':
         tourneyId = int(request.values.get('tourneyId', -1))
         if tourneyId >= 0:
             boutList = [b for b in db.query(Bout).filter_by(tourneyId=tourneyId)]
         else:
             boutList = [b for b in db.query(Bout)]
-        nPages,thisPageNum,totRecs,boutList = _orderAndChopPage(boutList,
-                                                                {'tourney':'tourneyId',
-                                                                 'lwins':'leftWins', 
-                                                                 'rwins':'rightWins',
-                                                                 'leftplayer':'lName',
-                                                                 'rightplayer':'rName',
-                                                                 'draws':'draws',
-                                                                 'notes':'note'})
         result = {
-                  "total":nPages,    # total pages
-                  "page":thisPageNum,     # which page is this
-                  "records":totRecs,  # total records
+                  "records":len(boutList),  # total records
                   "rows": [ {"id":p.boutId, "cell":[p.tourneyName, 
-                                                    p.leftWins, p.lName, p.draws, p.rName, p.rightWins, p.note] } 
+                                                    p.leftWins, p.lName, p.draws,
+                                                    p.rName, p.rightWins, p.note] } 
                            for p in boutList ]
                   }
         logMessage("returning %s"%result)
@@ -496,13 +440,8 @@ def handleJSON(path, **kwargs):
         playerList.sort()
         playerList = [p for _, p in playerList]
         pList = [p for p in playerList]
-        nPages,thisPageNum,totRecs,pList = _orderAndChopPage(pList,
-                                                             {'id':'id', 'name':'name', 'notes':'note',
-                                                              'estimate':'0.0', 'bearpit':'bearpit'})
         result = {
-                  "total":nPages,    # total pages
-                  "page":thisPageNum,     # which page is this
-                  "records":totRecs,  # total records
+                  "records":len(pList),  # total records
                   "rows": [ {"id":p.id, "cell":[p.id, p.name, 0, str(p.weight), p.note, p.id]} 
                            for i,p in enumerate(pList) ]
                   }

@@ -49,6 +49,7 @@ $(function() {
   "use strict";
   jQuery("#horserace_table").jqGrid({
     url:'json/horserace.json',
+    postData:{tourney: function(){return selTourney.val() || -1;}},
     datatype: "json",
     colNames:['Id','Name','BearPit', 'Estimate','Notes', 'Include'],
     colModel:[
@@ -63,20 +64,25 @@ $(function() {
        }
       }
     ],
-    rowNum:10,
-    rowList:[10,20,30],
-    pager: '#horserace_pager',
-    sortname: 'id',
-    viewrecords: true,
-    sortorder: "desc",
-    caption:"Score Estimates",
-    postData:{tourney: function(){return selTourney.val() || -1;}},
+    rowNum:5,
+    rowList:[5,10,20,30],
     pager: true,
+    cmTemplate: { autoResizable: true },
+    autoresizeOnLoad: true,
+    loadonce: true,
+    reloadGridOptions: { fromServer: true, reloadAfterSubmid: true },
+    sortname: 'id',
+    sortorder: "desc",
+    viewrecords: true,
+    caption:"Score Estimates",
     guiStyle: "bootstrap",
     iconSet: "fontAwesome"
   })    
+  jQuery("#reload_horserace_button").click( function() {
+    $("#horserace_table").trigger('reloadGrid',{ fromServer: true });
+    lastsel_entrants=null;
+  });
 });
-//jQuery("horserace_table").jqGrid('navGrid','#horserace_pager',{edit:false,add:false,del:false});
 
 </script>
 {% endblock %}
@@ -94,8 +100,8 @@ $(function() {
 
 <div>
   <table id="horserace_table"></table>
-<!--  <div id="horserace_pager"></div> -->
   <button id="horserace_go_btn">Go!</button>
+  <input type="BUTTON" id="reload_horserace_button" value="Reload">
 </div>
   <div id='announcement_div'>
   <p>
