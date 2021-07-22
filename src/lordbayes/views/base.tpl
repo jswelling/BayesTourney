@@ -86,16 +86,17 @@
 	      -->
 	  <ul class="nav navbar-nav navbar-right">
 	    {{ nav_link('help', 'Help') }}
-	    <!--
-		<li class="dropdown">
-		  <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-		    Dropdown <b class="caret"></b></a>
-		  <ul class="dropdown-menu">
-		    <li><a href="#">Action</a></li>
-		    <li><a href="#">Another action</a></li>
-		  </ul>
-		</li>
+	    <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+		Misc <b class="caret"></b></a>
+	      <ul class="dropdown-menu">
+		{{ nav_link('site_map', 'Site Map') }}
+		<!--
+		<li><a href="#">Site Map</a></li>
+		<li><a href="#">Another action</a></li>
 		-->
+	      </ul>
+	    </li>
 	    {% if g.user %}
 	    <li class="navbar-text"><span>{{ g.user['username'] }}</span></li>
 	    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>

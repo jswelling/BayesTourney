@@ -30,8 +30,8 @@ $(function() {
     ],
     onSelectRow: function(id){
       if(id && id!==lastsel_bouts){
-	jQuery('#bouts_table').jqGrid('saveRow',lastsel_bouts);
-	jQuery('#bouts_table').jqGrid('editRow',id,true);
+	$(this).jqGrid('saveRow',lastsel_bouts);
+	$(this).jqGrid('editRow',id,true);
 	lastsel_bouts=id;
       }
     },

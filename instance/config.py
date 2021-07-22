@@ -9,5 +9,10 @@ SECRET_KEY = environ.get('SECRET_KEY')
 FLASK_ENV = "development"
 DEBUG = True
 TESTING = True
+SESSION_SCRATCH_DIR = '/tmp'
+UPLOAD_FOLDER = '/tmp/lordbayes_uploads'
+Path(SESSION_SCRATCH_DIR).mkdir(parents=True, exist_ok=True)
+Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
+
     
 

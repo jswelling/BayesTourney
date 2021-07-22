@@ -16,8 +16,8 @@ $(function () {
     ],
     onSelectRow: function(id){
       if(id && id!==lastsel_tourneys){
-	jQuery('#tourneys_table').jqGrid('saveRow',lastsel_tourneys);
-	jQuery('#tourneys_table').jqGrid('editRow',id,true);
+	$(this).jqGrid('saveRow', lastsel_tourneys);
+	$(this).jqGrid('editRow', id, true);
 	lastsel_tourneys=id;
       }
     },

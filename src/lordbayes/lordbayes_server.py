@@ -18,6 +18,7 @@ from flask import (
     Blueprint, flash, g, render_template, request, url_for,
     send_from_directory, send_file, session, redirect, current_app
 )
+from werkzeug.utils import secure_filename
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import abort
 import numpy as np
@@ -33,7 +34,9 @@ from .auth import login_required
 from .models import Tourney, LogitPlayer, Bout
 from . import stat_utils
 
-SESSION_SCRATCH_DIR = '/tmp'
+
+UPLOAD_ALLOWED_EXTENSIONS = ['tsv', 'csv']
+
 
 logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
@@ -69,21 +72,62 @@ def debug_page_wrapper(view):
     return wrapped_view
 
     
-# @bp.route("/site-map")
-# def site_map():
-#     links = []
-#     for rule in current_app.url_map.iter_rules():
-#         # Filter out rules we can't navigate to in a browser
-#         # and rules that require parameters
-#         if "GET" in rule.methods or 'POST' in rule.methods:
-#             try:
-#                 url = url_for(rule.endpoint, **(rule.defaults or {}))
-#             except BuildError as e:
-#                 url = f'BuildError {e}'
-#             links.append((url, rule.endpoint))
-#     # links is now a list of url, endpoint tuples
-#     print(links)
+def allowed_upload_file(filename):
+    return ('.' in filename and
+            Path(filename).suffix[1:] in UPLOAD_ALLOWED_EXTENSIONS)
 
+
+@bp.route("/upload/entrants", methods=['GET', 'POST'])
+def upload_entrants_file():
+    if request.method == 'POST':
+        # check of the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            LOGGER.info('upload with no file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # If the user does not select a file, the browser submits an
+        # empty file without a filename.
+        if file.filename == '':
+            flash('No selected file')
+            LOGGER.info('upload with empty file part')
+            return redirect(request.url)
+        if file and allowed_upload_file(file.filename):
+            filename = secure_filename(file.filename)
+            LOGGER.info(f'Saving file to {filename}')
+            file.save(Path(current_app.config['UPLOAD_FOLDER'])
+                      / filename)
+            LOGGER.info('Save complete')
+            return redirect(url_for('entrants'))
+    return '''
+    <!doctype html>
+    <title>Upload new File</title>
+    <h1>Upload new File</h1>
+    <form method=post action="/upload/entrants" enctype=multipart/form-data>
+      <input type=file name=file>
+      <input type=submit value=Upload>
+    </form>
+    '''
+
+
+@bp.route("/site-map")
+def site_map():
+    links = []
+    for rule in current_app.url_map.iter_rules():
+        # Filter out rules we can't navigate to in a browser
+        # and rules that require parameters
+        if "GET" in rule.methods or 'POST' in rule.methods:
+            try:
+                url = url_for(rule.endpoint, **(rule.defaults or {}))
+            except BuildError as e:
+                url = f'BuildError {e}'
+            links.append((url, rule.endpoint))
+    # links is now a list of url, endpoint tuples
+    return render_template("site_map.html",
+                           link_dict={k:v for k, v in links})
+    print(links)
+
+ 
 @bp.route('/')
 @login_required
 def index():
@@ -300,7 +344,8 @@ def handleBoutsDownloadReq(**kwargs):
     else:
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
     
-    full_path =  Path(SESSION_SCRATCH_DIR) / 'bouts.tsv'
+    session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
+    full_path =  Path(session_scratch_dir) / 'bouts.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
     return send_file(full_path, as_attachment=True)
 
@@ -323,7 +368,8 @@ def handleEntrantsDownloadReq(**kwargs):
     else:
         entrantDF = pd.read_sql_table('players', engine, coerce_float=True)
     
-    full_path =  Path(SESSION_SCRATCH_DIR) / 'entrants.tsv'
+    session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
+    full_path =  Path(session_scratch_dir) / 'entrants.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
     return send_file(full_path, as_attachment=True)
 
