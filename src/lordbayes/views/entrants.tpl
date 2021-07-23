@@ -69,14 +69,30 @@ $(function() {
     height: 400,
     width: 350,
     modal: true,
-    buttons: {
-      Cancel: function() {
-        dialog.dialog( "close" );
-      }
+    open: function() {
+      $("#dlg_msg_span").hide();
     },
-    close: function() {
-      form[ 0 ].reset();
-    }
+    buttons: [
+      {
+        text: "Upload",
+	click: function() {
+	  console.log($("#upload_entrants_file").val());
+	  if ( $("#upload_entrants_file").val() ) {
+	    $("#upload_entrants_form").submit();
+	  } else {
+	    $("#dlg_msg_span").text("No file selected.").show();
+	  }
+	},
+	type: "submit",
+	form: "upload_entrants_form"
+	},
+      {
+	text: "Cancel",
+	click: function() {
+          dialog.dialog( "close" );
+	  }
+      	}
+    ]
   });
   
 });
@@ -94,24 +110,30 @@ $(function() {
     {% endfor %}
   </select>
   <table id="entrants_table"></table>
-  <input type="BUTTON" id="add_entrant_button" value="New Entrant">
-  <input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
-  <input type="BUTTON" id="reload_entrant_button" value="Reload">
-  <input type="BUTTON" id="upload_entrants_button" value="Upload Entrants">
-  <div id="download_entrants_div" >
-    <button id="download_entrants_button">Download these entrants as .tsv</button>
+  <div>
+    <input type="BUTTON" id="add_entrant_button" value="New Entrant">
+    <input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
+    <input type="BUTTON" id="reload_entrant_button" value="Reload">
+    <input type="BUTTON" id="upload_entrants_button" value="Upload Entrants">
+  </div>
+  <div id="download_entrants_div" class="float-child">
+    <button id="download_entrants_button">Download Entrants</button>
     <a id="download_entrants_link"></a>
   </div>
-  <a id="upload_entrants_link" href="/upload/entrants">Upload a .tsv of entrants</a>
 
   <div id="upload_entrants_dialog" title="Upload Entrants As Spreadsheet">
-  <h1>Upload A Table Of Entrants</h1>
-  <form method=post action="/upload/entrants" enctype=multipart/form-data>
-  <input type=file name=file>
-  <input type=submit value=Upload>
-  </form>
-  Entrants can be uploaded as a .csv or .tsv file in the same format as
-  can be downloaded from this page.
+    <h1>Upload A Table Of Entrants</h1>
+    <form id="upload_entrants_form"
+          method=post
+	  action="/upload/entrants"
+          enctype=multipart/form-data>
+      <input type=file name=file id="upload_entrants_file">
+      <!--<input type=submit value=Upload> -->
+    </form>
+    Entrants can be uploaded as a .csv or .tsv file in the same format as
+    can be downloaded from this page.
+    <br>
+    <span id="dlg_msg_span" class="alert alert-warning" role="alert"></span>
   </div>
 
 {% endblock %}
