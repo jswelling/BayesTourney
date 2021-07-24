@@ -1,10 +1,13 @@
 {% extends 'base.tpl' %}
 
+{% from "macros.html" import upload_dialog_script with context %}
+{% from "macros.html" import upload_dialog_content with context %}
+
 {% block pagescripts %}
 <script>
 var selEntrantsTourney;
 var lastsel_entrants;
-var dialog;
+var dialog_entrants_upload;
 $(function() {
   "use strict";
   selEntrantsTourney = $('#sel_entrants_tournament');
@@ -55,7 +58,7 @@ $(function() {
     $("#download_entrants_link")[0].click();
   });
   jQuery("#upload_entrants_button").click( function() {
-    dialog.dialog( "open" );
+    dialog_entrants_upload.dialog( "open" );
   });
   selEntrantsTourney.select().change( function() {
     $('#download_entrants_link').attr('href',
@@ -63,37 +66,7 @@ $(function() {
     $('#entrants_table').trigger('reloadGrid');
   });
 
-
-  dialog = $( "#upload_entrants_dialog" ).dialog({
-    autoOpen: false,
-    height: 400,
-    width: 350,
-    modal: true,
-    open: function() {
-      $("#dlg_msg_span").hide();
-    },
-    buttons: [
-      {
-        text: "Upload",
-	click: function() {
-	  console.log($("#upload_entrants_file").val());
-	  if ( $("#upload_entrants_file").val() ) {
-	    $("#upload_entrants_form").submit();
-	  } else {
-	    $("#dlg_msg_span").text("No file selected.").show();
-	  }
-	},
-	type: "submit",
-	form: "upload_entrants_form"
-	},
-      {
-	text: "Cancel",
-	click: function() {
-          dialog.dialog( "close" );
-	  }
-      	}
-    ]
-  });
+{{ upload_dialog_script('entrants') }}
   
 });
 </script>
@@ -118,22 +91,18 @@ $(function() {
   </div>
   <div id="download_entrants_div" class="float-child">
     <button id="download_entrants_button">Download Entrants</button>
-    <a id="download_entrants_link"></a>
+    <a id="download_entrants_link" href="/ajax/entrants_download"></a>
   </div>
 
-  <div id="upload_entrants_dialog" title="Upload Entrants As Spreadsheet">
-    <h1>Upload A Table Of Entrants</h1>
-    <form id="upload_entrants_form"
-          method=post
-	  action="/upload/entrants"
-          enctype=multipart/form-data>
-      <input type=file name=file id="upload_entrants_file">
-      <!--<input type=submit value=Upload> -->
-    </form>
-    Entrants can be uploaded as a .csv or .tsv file in the same format as
-    can be downloaded from this page.
-    <br>
-    <span id="dlg_msg_span" class="alert alert-warning" role="alert"></span>
-  </div>
+{{
+upload_dialog_content(
+  "entrants", "Upload A Table Of Entrants",
+  "/upload/entrants",
+  """
+  Entrants can be uploaded as a .csv or .tsv file in the same format as
+  those downloaded from this page.
+  """)
+}}
+
 
 {% endblock %}

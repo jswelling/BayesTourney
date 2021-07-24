@@ -6,3 +6,50 @@
 {% endif %}
 {% endmacro %}
 
+{% macro upload_dialog_script(key) %}
+  dialog_{{ key }}_upload = $( "#upload_{{ key }}_dialog" ).dialog({
+    autoOpen: false,
+    height: 400,
+    width: 350,
+    modal: true,
+    open: function() {
+      $("#dlg_{{ key }}_msg_span").hide();
+    },
+    buttons: [
+      {
+        text: "Upload",
+	click: function() {
+	  if ( $("#upload_{{ key }}_file").val() ) {
+	    $("#upload_{{ key }}_form").submit();
+	  } else {
+	    $("#dlg_{{ key }}_msg_span").text("No file selected.").show();
+	  }
+	},
+	type: "submit",
+	form: "upload_{{ key }}_form"
+	},
+      {
+	text: "Cancel",
+	click: function() {
+          dialog_{{ key }}_upload.dialog( "close" );
+	  }
+      	}
+    ]
+  });
+{% endmacro %}
+
+{% macro upload_dialog_content(key, title, endpoint, msg) %}
+  <div id="upload_{{ key }}_dialog" title="{{ title }}">
+    <h1>{{ title }}</h1>
+    <form id="upload_{{ key }}_form"
+          method=post
+	  action="{{ endpoint }}"
+          enctype=multipart/form-data>
+      <input type=file name=file id="upload_{{ key }}_file">
+    </form>
+    {{ msg }}
+    <br>
+    <span id="dlg_{{ key }}_msg_span"
+	  class="alert alert-warning" role="alert"></span>
+  </div>
+{% endmacro %}
