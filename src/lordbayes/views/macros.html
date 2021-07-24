@@ -58,8 +58,10 @@
 var dialog_{{ key }}_upload;
 {% endmacro %}
 
-{% macro updown_button_script(key) %}
+{% macro updown_button_script(key, download_endpoint, sel_fun_name) %}
   $("#download_{{ key }}_button").click( function() {
+    var url = "{{ download_endpoint }}?" + {{ sel_fun_name }}();
+    $("#download_{{ key }}_link").attr('href', url);
     $("#download_{{ key }}_link")[0].click();
   });
   $("#upload_{{ key }}_button").click( function() {
