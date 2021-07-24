@@ -53,3 +53,31 @@
 	  class="alert alert-warning" role="alert"></span>
   </div>
 {% endmacro %}
+
+{% macro updown_button_script_preamble(key) %}
+var dialog_{{ key }}_upload;
+{% endmacro %}
+
+{% macro updown_button_script(key) %}
+  $("#download_{{ key }}_button").click( function() {
+    $("#download_{{ key }}_link")[0].click();
+  });
+  $("#upload_{{ key }}_button").click( function() {
+    dialog_{{ key }}_upload.dialog( "open" );
+  });
+  {{ upload_dialog_script(key) }}
+{% endmacro %}
+
+{% macro updown_button_content(key, label,
+  upload_dlg_title, upload_endpoint, download_endpoint,
+  upload_dlg_msg) %}
+  <input type="BUTTON" id="upload_{{ key }}_button"
+	 value="Upload {{ label }}">
+  <div id="download_{{ key }}_div">
+    <button id="download_{{ key }}_button">Download {{ label }}</button>
+    <a id="download_{{ key }}_link" href="{{ download_endpoint }}"></a>
+  </div>
+
+  {{ upload_dialog_content(key, upload_dlg_title,
+       upload_endpoint, upload_dlg_msg) }}  
+{% endmacro %}
