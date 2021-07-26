@@ -110,6 +110,39 @@ def upload_entrants_file():
     '''
 
 
+@bp.route("/upload/bouts", methods=['GET', 'POST'])
+def upload_bouts_file():
+    if request.method == 'POST':
+        # check of the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            LOGGER.info('upload with no file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # If the user does not select a file, the browser submits an
+        # empty file without a filename.
+        if file.filename == '':
+            flash('No selected file')
+            LOGGER.info('upload with empty file part')
+            return redirect(request.url)
+        if file and allowed_upload_file(file.filename):
+            filename = secure_filename(file.filename)
+            LOGGER.info(f'Saving file to {filename}')
+            file.save(Path(current_app.config['UPLOAD_FOLDER'])
+                      / filename)
+            LOGGER.info('Save complete')
+            return redirect(url_for('bouts'))
+    return '''
+    <!doctype html>
+    <title>Upload new File</title>
+    <h1>Upload new File</h1>
+    <form method=post action="/upload/bouts" enctype=multipart/form-data>
+      <input type=file name=file>
+      <input type=submit value=Upload>
+    </form>
+    '''
+
+
 @bp.route("/site-map")
 def site_map():
     links = []

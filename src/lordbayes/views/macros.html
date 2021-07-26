@@ -83,3 +83,17 @@ var dialog_{{ key }}_upload;
   {{ upload_dialog_content(key, upload_dlg_title,
        upload_endpoint, upload_dlg_msg) }}  
 {% endmacro %}
+
+{% macro jqgrid_boilerplate() %}
+    datatype: "json",
+    rowNum:10,
+    rowList:[5,10,20,30],
+    pager: true,
+    sortorder: "desc",
+    guiStyle: "bootstrap",
+    iconSet: "fontAwesome",
+    cmTemplate: { autoResizable: true },
+    autoresizeOnLoad: true,
+    loadonce: true,
+    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true }  
+{% endmacro %}

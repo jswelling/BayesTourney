@@ -1,9 +1,9 @@
 {% extends 'base.tpl' %}
 
-{% from "macros.html" import upload_dialog_content with context %}
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
 {% from "macros.html" import updown_button_content with context %}
+{% from "macros.html" import jqgrid_boilerplate with context %}
 
 {% block pagescripts %}
 <script>
@@ -19,8 +19,8 @@ $(function() {
   function tourneySelFun() { return "tourney="+selEntrantsTourney.val(); };
   $("#entrants_table").jqGrid({
     url:'json/entrants.json',
+    editurl:'edit/edit_entrants.json',
     postData: {'tourneyId': function() { return selEntrantsTourney.val() || -1; } },
-    datatype: "json",
     colNames:['Id','Name','Notes'],
     colModel:[
       {name:'id',index:'id', width:55, sorttype:'integer'},
@@ -34,20 +34,9 @@ $(function() {
 	lastsel_entrants=id;
       }
     },
-    rowNum:5,
-    rowList:[5,10,20,30],
-    pager: '#entrants_pager',
     sortname: 'id',
-    sortorder: "desc",
     caption:"Entrants",
-    pager: true,
-    guiStyle: "bootstrap",
-    iconSet: "fontAwesome",
-    editurl:'edit/edit_entrants.json',
-    cmTemplate: { autoResizable: true },
-    autoresizeOnLoad: true,
-    loadonce: true,
-    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },    
+    {{ jqgrid_boilerplate() }}
   });
   $("#add_entrant_button").click( function() {
     $("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
@@ -57,6 +46,7 @@ $(function() {
     lastsel_entrants=null;
   });
   $("#reload_entrant_button").click( function() {
+    $("#entrants_table").jqGrid('editRow', lastsel_entrants, false);
     $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });

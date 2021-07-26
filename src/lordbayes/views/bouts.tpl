@@ -1,16 +1,26 @@
 {% extends 'base.tpl' %}
 
+{% from "macros.html" import updown_button_script_preamble with context %}
+{% from "macros.html" import updown_button_script with context %}
+{% from "macros.html" import updown_button_content with context %}
+{% from "macros.html" import jqgrid_boilerplate with context %}
+
 {% block pagescripts %}
 <script>
+{{ updown_button_script_preamble('bouts') }}
 var lastsel_bouts;
 var selBoutsTourney;
 $(function() {
   "use strict";
   selBoutsTourney = $('#sel_bouts_tournament');
+  selBoutsTourney.select().change( function() {
+    $('#bouts_table').trigger('reloadGrid');
+  });
+  function tourneySelFun() { return "tourney="+selBoutsTourney.val(); };
   jQuery("#bouts_table").jqGrid({
     url:'json/bouts.json',
+    editurl:'edit/edit_bouts.json',
     postData: {'tourneyId': function() { return selBoutsTourney.val() || -1; } },
-    datatype: "json",
     colNames:['Tourney','Wins', 'Player 1','Draws', 'Player 2','Wins','Notes'],
     colModel:[
       {name:'tourney','index':'tourney',width:200, align:'center',
@@ -38,35 +48,23 @@ $(function() {
     beforeProcessing: function(data, status, xhr) {
       console.log(data, status, xhr);
     },
-    rowNum:5,
-    rowList:[5,10,20,30],
-    pager: true,
-    cmTemplate: { autoResizable: true },
-    autoresizeOnLoad: true,
-    loadonce: true,
-    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },
     sortname: 'leftplayer',
-    sortorder: "desc",
     caption:"Bouts",
-    editurl:'edit/edit_bouts.json',
-    guiStyle: "bootstrap",
-    iconSet: "fontAwesome"  
+    {{ jqgrid_boilerplate() }}
   });
-  jQuery("#add_bout_button").click( function() {
+  $("#add_bout_button").click( function() {
     jQuery("#bouts_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
   });
-  jQuery("#del_bout_button").click( function() {
+  $("#del_bout_button").click( function() {
     jQuery("#bouts_table").jqGrid('delGridRow',lastsel_bouts,{});
     lastsel_bouts=null;
   });
-  jQuery("#reload_bout_button").click( function() {
+  $("#reload_bout_button").click( function() {
     $("#bouts_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
-  selBoutsTourney.select().change( function() {
-    $('#download_bouts_link').attr('href', '/ajax/bouts_download?tourney=' + selBoutsTourney.val());
-    $('#bouts_table').trigger('reloadGrid');
-  });
+  {{ updown_button_script('bouts', '/ajax/bouts_download',
+			  "tourneySelFun" ) }}
 });
 </script>
 {% endblock %}
@@ -86,6 +84,16 @@ $(function() {
 <input type="BUTTON" id="add_bout_button" value="New Bout">
 <input type="BUTTON" id="del_bout_button" value="Delete Selected Bout">
 <input type="BUTTON" id="reload_bout_button" value="Reload">
-<a id="download_bouts_link" href="/ajax/bouts_download?tourney=-1">Download these bouts as .tsv</a>
+
+  {{ updown_button_content('bouts', 'Bouts',
+       'Upload A Table Of Bouts',
+       '/upload/bouts', '/ajax/bouts_download',
+       """
+       Bouts can be uploaded as a .csv or .tsv file in the same format as
+       those downloaded from this page.
+       """   
+     )
+  }}
+
 
 {% endblock %}
