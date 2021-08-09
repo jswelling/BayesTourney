@@ -18,6 +18,15 @@
   Say some stuff here.
   </p>
 </div>
+<h3>Editing Tips</h3>
+<div>
+<p>
+Click on a row to edit it.  Once a row is being edited, you can save
+the new values with the 'Enter' key or cancel the edit with the 'Esc(ape)'
+key.  The escape key won't work in multi-line fields like 'Notes', so to
+edit a note you must type in that field, then <em>select a different
+field</em> and use the 'Enter' key to save your edits.
+</div>
 <h3>Overview</h3>
 <div>
   <p>

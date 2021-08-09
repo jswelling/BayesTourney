@@ -1,5 +1,7 @@
 {% extends 'base.tpl' %}
 
+{% from "macros.html" import jqgrid_boilerplate with context %}
+
 {% block pagescripts %}
 <script>
 var lastsel_tourneys;
@@ -7,7 +9,7 @@ $(function () {
   "use strict";
   jQuery("#tourneys_table").jqGrid({
     url:'json/tourneys.json',
-    datatype: "json",
+    editurl:'edit/edit_tourneys.json',
     colNames:['Id','Name','Notes'],
     colModel:[
       {name:'id',index:'id', width:55, sortable:true, sorttype:'integer'},
@@ -21,20 +23,9 @@ $(function () {
 	lastsel_tourneys=id;
       }
     },
-    rowNum:5,
-    rowList:[5,10,20,30],
     sortname: 'id',
-    sortorder: "desc",
     caption:"Tourneys",
-    editurl:'edit/edit_tourneys.json',
-    //toppager: true,
-    pager: true,
-    guiStyle: "bootstrap",
-    iconSet: "fontAwesome",
-    cmTemplate: { autoResizable: true },
-    autoresizeOnLoad: true,
-    loadonce: true,
-    reloadGridOptions: { fromServer: true, reloadAfterSubmit: true },    
+    {{ jqgrid_boilerplate() }}
   });
   jQuery("#add_tourney_button").click( function() {
     $("#tourneys_table").jqGrid('editGridRow', "new",

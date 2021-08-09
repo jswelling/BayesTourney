@@ -355,7 +355,8 @@ def handleEdit(path):
             db.commit()
             return {}
         elif request.values['oper'] == 'del':
-            return {'msg': 'that did not work'}
+            return "that did not work", 400
+            #return {'msg': 'that did not work'}
         else:
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:

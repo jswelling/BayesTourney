@@ -95,5 +95,12 @@ var dialog_{{ key }}_upload;
     cmTemplate: { autoResizable: true },
     autoresizeOnLoad: true,
     loadonce: true,
+    loadError: function (jqXHR, textStatus, errorThrown) {
+        alert('HTTP status code: ' + jqXHR.status + '' +
+              'textStatus: ' + textStatus + ' ' +
+              'errorThrown: ' + errorThrown);
+        alert('HTTP message body (jqXHR.responseText): '
+	    + ' ' + jqXHR.responseText);
+    },
     reloadGridOptions: { fromServer: true, reloadAfterSubmit: true }  
 {% endmacro %}
