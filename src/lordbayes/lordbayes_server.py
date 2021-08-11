@@ -66,7 +66,8 @@ def debug_page_wrapper(view):
     def wrapped_view(**kwargs):
         LOGGER.debug(f'{request.method} Request for {request.endpoint}'
                      f' kwargs {kwargs}'
-                     f' params {[(k,request.values[k]) for k in request.values]}')
+                     f' params {[(k,request.values[k]) for k in request.values]}'
+        )
         rslt = view(**kwargs)
         return rslt
     return wrapped_view
@@ -77,70 +78,98 @@ def allowed_upload_file(filename):
             Path(filename).suffix[1:] in UPLOAD_ALLOWED_EXTENSIONS)
 
 
-@bp.route("/upload/entrants", methods=['GET', 'POST'])
+@bp.route("/upload/entrants", methods=['POST'])
 def upload_entrants_file():
-    if request.method == 'POST':
-        # check of the post request has the file part
-        if 'file' not in request.files:
-            flash('No file part')
-            LOGGER.info('upload with no file part')
-            return redirect(request.url)
-        file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
-        if file.filename == '':
-            flash('No selected file')
-            LOGGER.info('upload with empty file part')
-            return redirect(request.url)
-        if file and allowed_upload_file(file.filename):
-            filename = secure_filename(file.filename)
-            LOGGER.info(f'Saving file to {filename}')
-            file.save(Path(current_app.config['UPLOAD_FOLDER'])
-                      / filename)
-            LOGGER.info('Save complete')
-            return redirect(url_for('entrants'))
-    return '''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post action="/upload/entrants" enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
-    '''
+    """
+    This is an AJAX transaction
+    """
+    # check of the post request has the file part
+    if 'file' not in request.files:
+        flash('No file part')
+        LOGGER.info('upload with no file part')
+        return "No file provided", 400
+    file = request.files['file']
+    # If the user does not select a file, the browser submits an
+    # empty file without a filename.
+    if file.filename == '':
+        LOGGER.info('upload with empty file part')
+        return "request had an empty file", 400
+    if not allowed_upload_file(file.filename):
+        LOGGER.info('file type not supported for upload')
+        return 'file type not supported for upload', 400
+    filename = secure_filename(file.filename)
+    LOGGER.info(f'Saving file to {filename}')
+    file.save(Path(current_app.config['UPLOAD_FOLDER'])
+              / filename)
+    LOGGER.info('Save complete')
+    return {"status":"success"}
 
 
-@bp.route("/upload/bouts", methods=['GET', 'POST'])
+class DBException(Exception):
+    pass
+
+
+def insert_bouts_from_df(df, tourney):
+    col_set = set([str(col) for col in df.columns])
+    if col_set == set(["boutId", "tourneyId", "leftWins", "leftPlayerId",
+	               "rightPlayerId",	"rightWins", "draws", "note"]):
+        raise DBException('point 1')
+    else:
+        raise DBException('Unknown column pattern for bouts')
+
+
+@bp.route("/upload/bouts", methods=['POST'])
+@debug_page_wrapper
 def upload_bouts_file():
-    if request.method == 'POST':
-        # check of the post request has the file part
-        if 'file' not in request.files:
-            flash('No file part')
-            LOGGER.info('upload with no file part')
-            return redirect(request.url)
-        file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
-        if file.filename == '':
-            flash('No selected file')
-            LOGGER.info('upload with empty file part')
-            return redirect(request.url)
-        if file and allowed_upload_file(file.filename):
-            filename = secure_filename(file.filename)
-            LOGGER.info(f'Saving file to {filename}')
-            file.save(Path(current_app.config['UPLOAD_FOLDER'])
-                      / filename)
-            LOGGER.info('Save complete')
-            return redirect(url_for('bouts'))
-    return '''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post action="/upload/bouts" enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
-    '''
+    """
+    This is an AJAX transaction
+    """
+    # check of the post request has the file part
+    if 'file' not in request.files:
+        LOGGER.info(msg := 'no file part')
+        return msg, 400
+    file = request.files['file']
+    # If the user does not select a file, the browser submits an
+    # empty file without a filename.
+    if file.filename == '':
+        LOGGER.info(msg := 'upload with empty file part')
+        return msg, 400
+    if not allowed_upload_file(file.filename):
+        LOGGER.info(msg := 'file type not supported for upload')
+        return msg, 400
+    if 'tournament' in request.values:
+        tourney_id_str = request.values['tournament']
+    else:
+        LOGGER.info(msg := 'bout upload tournament id is missing')
+        return msg, 400
+    try:
+        tourney_id = int(tourney_id_str)
+    except ValueError:
+        LOGGER.info(msg := 'bout upload tournament id invalid format')
+        return msg, 400
+    if tourney_id < 0:
+        LOGGER.info(msg := 'bout upload tournament id is not valid')
+        return msg, 400
+    filename = secure_filename(file.filename)
+    LOGGER.info(f'Saving file to {filename}')
+    file_fullpath = Path(current_app.config['UPLOAD_FOLDER']) / filename
+    file.save(file_fullpath)
+    LOGGER.info('Save complete')
+    if filename.endswith('.tsv'):
+        df = pd.read_csv(file_fullpath, sep='\t')
+    else:
+        df = pd.read_csv(file_fullpath)
+    LOGGER.info('Parse complete')
+    tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+    LOGGER.info(f'Tourney is {tourney}')
+    try:
+        insert_bouts_from_df(df, tourney)
+    except DBException as e:
+        LOGGER.info(f'DBException: {e}')
+        return {"status":"failure", "msg":str(e)}
+    file_fullpath.unlink()
+    LOGGER.info('Uploaded file was unlinked')
+    return {"status":"success"}
 
 
 @bp.route("/site-map")

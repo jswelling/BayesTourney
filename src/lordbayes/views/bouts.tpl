@@ -45,9 +45,6 @@ $(function() {
 	lastsel_bouts=id;
       }
     },
-    beforeProcessing: function(data, status, xhr) {
-      console.log(data, status, xhr);
-    },
     sortname: 'leftplayer',
     caption:"Bouts",
     {{ jqgrid_boilerplate() }}
@@ -91,7 +88,8 @@ $(function() {
        """
        Bouts can be uploaded as a .csv or .tsv file in the same format as
        those downloaded from this page.
-       """   
+       """,
+       'true'
      )
   }}
 

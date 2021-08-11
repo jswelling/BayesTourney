@@ -7,7 +7,28 @@
 {% endmacro %}
 
 {% macro upload_dialog_script(key) %}
-  dialog_{{ key }}_upload = $( "#upload_{{ key }}_dialog" ).dialog({
+  var options = {
+    dataType : 'json',
+    success: function (responseJSON, statusText, xhr, $form) {
+      if (responseJSON["status"] != "success") {
+	if (responseJSON["msg"] == undefined) {
+	  alert("The server reported a problem but did not provide a message");
+	} else {
+	  alert("The server reported a problem: " + responseJSON["msg"]);
+	}
+      }
+      $("#upload_{{ key }}_dialog").dialog("close");
+    },
+    error: function( response ) {
+      alert(response.statusText + ' : ' + response.responseText);
+    },
+    resetForm: true
+  };
+  $("#upload_{{ key }}_form").submit(function() {
+    $(this).ajaxSubmit(options);
+    return false;
+  });
+  $( "#upload_{{ key }}_dialog" ).dialog({
     autoOpen: false,
     height: 400,
     width: 350,
@@ -20,7 +41,16 @@
         text: "Upload",
 	click: function() {
 	  if ( $("#upload_{{ key }}_file").val() ) {
-	    $("#upload_{{ key }}_form").submit();
+	    if ($("#upload_{{ key }}_form").find("#sel_upload_tournament").length) {
+	      var selval = $("#upload_{{ key }}_form").find("#sel_upload_tournament").val(); 
+	      if ( selval | 0 == selval && selval < 0) {
+		$("#dlg_{{ key }}_msg_span").text("Select a tournament for the data you are uploading");
+	      } else {
+		$("#upload_{{ key }}_form").submit();
+	      }
+	    } else {
+	      $("#upload_{{ key }}_form").submit();
+	    }
 	  } else {
 	    $("#dlg_{{ key }}_msg_span").text("No file selected.").show();
 	  }
@@ -31,21 +61,29 @@
       {
 	text: "Cancel",
 	click: function() {
-          dialog_{{ key }}_upload.dialog( "close" );
+	  $("#upload_{{ key }}_dialog").dialog( "close" );
 	  }
       	}
     ]
   });
 {% endmacro %}
 
-{% macro upload_dialog_content(key, title, endpoint, msg) %}
+{% macro upload_dialog_content(key, title, endpoint, msg, include_tourney_sel) %}
   <div id="upload_{{ key }}_dialog" title="{{ title }}">
     <h1>{{ title }}</h1>
     <form id="upload_{{ key }}_form"
           method=post
-	  action="{{ endpoint }}"
-          enctype=multipart/form-data>
+	  action="{{ endpoint }}">
       <input type=file name=file id="upload_{{ key }}_file">
+      {% if include_tourney_sel == "true" %}
+      <label for="sel_upload_tournament">Which Tournament?</label>
+      <select id="sel_upload_tournament" name="tournament">
+	<option value=-1>-none-</option>
+	{% for id, name in tourneyDict | dictsort %}
+	<option value={{id}}>{{name}}</option>
+	{% endfor %}
+      </select>
+      {% endif %}
     </form>
     {{ msg }}
     <br>
@@ -55,7 +93,6 @@
 {% endmacro %}
 
 {% macro updown_button_script_preamble(key) %}
-var dialog_{{ key }}_upload;
 {% endmacro %}
 
 {% macro updown_button_script(key, download_endpoint, sel_fun_name) %}
@@ -65,14 +102,14 @@ var dialog_{{ key }}_upload;
     $("#download_{{ key }}_link")[0].click();
   });
   $("#upload_{{ key }}_button").click( function() {
-    dialog_{{ key }}_upload.dialog( "open" );
+    $("#upload_{{ key }}_dialog").dialog( "open" );
   });
   {{ upload_dialog_script(key) }}
 {% endmacro %}
 
 {% macro updown_button_content(key, label,
   upload_dlg_title, upload_endpoint, download_endpoint,
-  upload_dlg_msg) %}
+  upload_dlg_msg, include_tourney_sel="false") %}
   <input type="BUTTON" id="upload_{{ key }}_button"
 	 value="Upload {{ label }}">
   <div id="download_{{ key }}_div">
@@ -80,8 +117,9 @@ var dialog_{{ key }}_upload;
     <a id="download_{{ key }}_link" href="{{ download_endpoint }}"></a>
   </div>
 
+  </div id="junk_div"></div>
   {{ upload_dialog_content(key, upload_dlg_title,
-       upload_endpoint, upload_dlg_msg) }}  
+       upload_endpoint, upload_dlg_msg, include_tourney_sel) }}  
 {% endmacro %}
 
 {% macro jqgrid_boilerplate() %}
