@@ -109,11 +109,47 @@ class DBException(Exception):
     pass
 
 
+def player_name_to_id(row, key, db):
+    p_list = [p for p in db.query(LogitPlayer).filter_by(name=row[key])]
+    if len(p_list) == 1:
+        return p_list[0].id
+    else:
+        return -1  # we need to use an int as the signal value for Pandas' sake
+
+
 def insert_bouts_from_df(df, tourney):
     col_set = set([str(col) for col in df.columns])
-    if col_set == set(["boutId", "tourneyId", "leftWins", "leftPlayerId",
-	               "rightPlayerId",	"rightWins", "draws", "note"]):
-        raise DBException('point 1')
+    db = get_db()
+    if set(["leftWins", "leftPlayerName", "rightPlayerName",
+            "rightWins", "draws"]).issubset(col_set):
+        df["tourneyId"] = tourney.tourneyId
+        df['leftPlayerId'] = df.apply(player_name_to_id,
+                                       key='leftPlayerName',
+                                       db=db,
+                                       axis=1)
+        df['rightPlayerId'] = df.apply(player_name_to_id,
+                                       key='rightPlayerName',
+                                       db=db,
+                                       axis=1)
+        bad_names = df[df['leftPlayerId'] == -1]['leftPlayerName']
+        bad_names = bad_names.append(df[df['rightPlayerId'] == -1]['rightPlayerName'])
+        if bad_name_l := [nm for nm in bad_names.unique()]:
+            bad_name_str = ', '.join([f'"{nm}"' for nm in bad_name_l])
+            raise DBException(f'Unknown or multiply defined player names: {bad_name_str}')
+        else:
+            df = df.drop(columns=['leftPlayerName', 'rightPlayerName', 'tourneyName'])
+            print(df)
+            for idx, row in df.iterrows():
+                print(row)
+                new_bout = Bout(int(row['tourneyId']),
+                                int(row['leftWins']), int(row['leftPlayerId']),
+                                int(row['draws']),
+                                int(row['rightPlayerId']), int(row['rightWins']),
+                                note = "just inserted this")
+                db.add(new_bout)
+                print(new_bout)
+            db.commit()
+                         
     else:
         raise DBException('Unknown column pattern for bouts')
 
@@ -273,6 +309,10 @@ def _orderAndChopPage(pList,fieldMap):
 @bp.route('/list/<path>')
 @debug_page_wrapper
 def handleList(path):
+    """
+    Used for populating select elements
+    returns html
+    """
     db = get_db()
     uiSession = session
     if path=='select_entrant':
@@ -299,6 +339,9 @@ def handleList(path):
 @bp.route('/edit/<path>', methods=['POST'])
 @debug_wrapper
 def handleEdit(path):
+    """
+    Specialized endpoint that understands the requests jqgrid uses to perform edits
+    """
     db = get_db()
     uiSession = session
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
@@ -321,8 +364,12 @@ def handleEdit(path):
             db.commit()
             return {}
         elif request.values['oper']=='del':
-            b = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
-            db.delete(b)
+            tourneyId = int(request.values['id'])
+            bouts = db.query(Bout).filter_by(tourneyId=tourneyId)
+            for bout in bouts:
+                db.delete(bout)
+            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+            db.delete(tourney)
             db.commit()
             return {}
         else:
@@ -384,15 +431,14 @@ def handleEdit(path):
             db.commit()
             return {}
         elif request.values['oper'] == 'del':
-            return "that did not work", 400
-            #return {'msg': 'that did not work'}
+            return "not implemented", 400
         else:
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:
         raise RuntimeError("Bad path /edit/%s"%path)
 
 
-@bp.route('/ajax/bouts_download')
+@bp.route('/download/bouts')
 @debug_page_wrapper
 def handleBoutsDownloadReq(**kwargs):
     db = get_db()
@@ -402,10 +448,30 @@ def handleBoutsDownloadReq(**kwargs):
     tourneyId = int(request.values.get('tourney', '-1'))
 
     if tourneyId >= 0:
-        boutDF = pd.read_sql(f'select * from bouts where tourneyId={tourneyId}',
-                             engine, coerce_float=True)
+        boutDF = pd.read_sql(
+            f"""
+            select tourneys.name as tourneyName, 
+            bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
+            rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
+            bouts.draws as draws 
+            from bouts, tourneys, players as lplayers, players as rplayers 
+            where bouts.leftPlayerId = lplayers.id 
+            and bouts.rightPlayerId = rplayers.id 
+            and tourneys.tourneyId = bouts.tourneyId 
+            and bouts.tourneyId = {tourneyId}
+            """, engine, coerce_float=True)
     else:
-        boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
+        boutDF = pd.read_sql(
+            """
+            select tourneys.name as tourneyName, 
+            bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
+            rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
+            bouts.draws as draws 
+            from bouts, tourneys, players as lplayers, players as rplayers 
+            where bouts.leftPlayerId = lplayers.id 
+            and bouts.rightPlayerId = rplayers.id 
+            and tourneys.tourneyId = bouts.tourneyId 
+            """, engine, coerce_float=True)
     
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
     full_path =  Path(session_scratch_dir) / 'bouts.tsv'
@@ -413,7 +479,7 @@ def handleBoutsDownloadReq(**kwargs):
     return send_file(full_path, as_attachment=True)
 
 
-@bp.route('/ajax/entrants_download')
+@bp.route('/download/entrants')
 @debug_page_wrapper
 def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
@@ -490,6 +556,9 @@ def horserace_go(**kwargs):
 @bp.route('/json/<path>')
 @debug_wrapper
 def handleJSON(path, **kwargs):
+    """
+    Specialized endpoint called by jqgrid when populating tables
+    """
     db = get_db()
     engine = db.get_bind()
     uiSession = session

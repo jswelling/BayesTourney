@@ -50,7 +50,7 @@ $(function() {
     $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
-  {{ updown_button_script('entrants', '/ajax/entrants_download',
+  {{ updown_button_script('entrants', '/download/entrants',
 			  "tourneySelFun" ) }}
 
 });

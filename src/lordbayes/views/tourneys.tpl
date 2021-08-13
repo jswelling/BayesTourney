@@ -32,7 +32,8 @@ $(function () {
 				{closeAfterAdd: true, reloadAfterSubmit: true});
   });
   jQuery("#del_tourney_button").click( function() {
-    jQuery("#tourneys_table").jqGrid('delGridRow',lastsel_tourneys,{});
+    jQuery("#tourneys_table").jqGrid('delGridRow',lastsel_tourneys,
+				     {msg:"Are you sure you want to delete this tournament and all the associated bouts?"});
     lastsel_tourneys=null;
   });
   jQuery("#reload_tourney_button").click( function() {

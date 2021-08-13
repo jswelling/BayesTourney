@@ -60,7 +60,7 @@ $(function() {
     $("#bouts_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
-  {{ updown_button_script('bouts', '/ajax/bouts_download',
+  {{ updown_button_script('bouts', '/download/bouts',
 			  "tourneySelFun" ) }}
 });
 </script>
