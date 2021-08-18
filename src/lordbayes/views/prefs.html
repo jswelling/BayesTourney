@@ -1,0 +1,70 @@
+{% extends 'base.tpl' %}
+
+{% block pagescripts %}
+<script>
+  $( function() {
+    $( "input[type='radio']" ).checkboxradio()
+      .change(function() {
+	var name = this.name;
+	var id = this.id;
+	$.ajax({
+	  type: 'PUT',
+	  url: 'ajax/settings',
+	  data: {id: id, name: name}
+	}).done(function(data, textStatus, jqXHR) {
+	  if (data['status'] != "success") {
+	    if (data['msg'] == undefined) {
+	      alert('The server failed to save this update');
+	    }
+	    else {
+	      alert('The server failed to save this update: ' + data['msg']);
+	    }
+	    window.location.reload();
+	  }
+	})
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert('An error occurred: ' + errorThrown);
+	    window.location.reload();
+	  })
+      });
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+<h2>Horserace Graph Style</h2>
+<fieldset>
+  <legend>Select a graph: </legend>
+  <label for="hr_graph_style_box">Box plot</label>
+  <input type="radio" name="hr_graph_style" id="hr_graph_style_box"
+	 {% if hr_graph_style == "hr_graph_style_box" %} checked {% endif %}
+	 >
+  <br>
+  <label for="hr_graph_style_violin">Violin plot</label>
+  <input type="radio" name="hr_graph_style" id="hr_graph_style_violin"
+	 {% if hr_graph_style == "hr_graph_style_violin" %} checked {% endif %}
+	 >
+</fieldset>
+
+<h2>How Draws Are Counted</h2>
+<fieldset>
+  <legend>Select a rule: </legend>
+  <label for="hr_draws_rule_ignore">Ignore draws</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_ignore"
+	 {% if hr_draws_rule == "hr_draws_rule_ignore" %} checked {% endif %}
+	 >
+  <br>
+  <label for="hr_draws_rule_loss">Counts as a loss for both</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_loss"
+	 {% if hr_draws_rule == "hr_draws_rule_loss" %} checked {% endif %}
+	 >
+  <br>
+  <label for="hr_draws_rule_win">Counts as a win for both</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_win"
+	 {% if hr_draws_rule == "hr_draws_rule_win" %} checked {% endif %}
+	 >
+</fieldset>
+
+{% endblock %}

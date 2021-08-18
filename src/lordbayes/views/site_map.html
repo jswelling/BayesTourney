@@ -1,0 +1,14 @@
+{% extends 'base.tpl' %}
+
+{% block pagescripts %}
+{% endblock %}
+
+{% block content %}
+<h1>Site Map</h1>
+
+<ul>
+  {% for url, topic in link_dict | dictsort %}
+  <li><a href={{url}}> {{topic}} </a></li>
+  {% endfor %}
+</ul>
+{% endblock %}
