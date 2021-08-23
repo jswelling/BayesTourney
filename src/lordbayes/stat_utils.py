@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+from io import StringIO
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,8 +11,8 @@ BURNIN_SWEEPS = 300
 #BURNIN_SWEEPS = 0
 
 """Number of Metropolis samples to generate, per chain"""
-N_SAMP = 500
-#N_SAMP = 20
+#N_SAMP = 500
+N_SAMP = 20
 
 """Number of sweeps between samples, to minimize correlation"""
 SWEEPS_PER_SAMP = 100
@@ -23,8 +25,6 @@ N_CHAINS = 20
 """Standard deviation of normal used to generate mutation step sizes"""
 MUTATION_SIGMA = 0.03
 
-"""Number of samples to use in estimating victory probability"""
-N_VICTORY_SAMPS = 10000
 
 def generate_random_bouts(n_players, n_pairs, player_wts):
     outcomes = []
@@ -170,11 +170,13 @@ class ModelFit(object):
         self.samp_array = None
         self.player_id_list = None
         self.player_name_dict = None
+        self.win_probabilities = None
     def gen_samples(self):
         self.player_id_list = [elt for elt in self.bouts_df['player'].unique()]
         self.player_name_dict = {row['id']: row['name']
                                  for idx, row in self.player_df.iterrows()}
         #print(self.player_name_dict)
+        self.win_probabilities = None  # Any old result is about to become invalid
         self.samp_array = metropolis(self.player_id_list, self.bouts_df,
                                      N_SAMP, N_CHAINS, BURNIN_SWEEPS,
                                      SWEEPS_PER_SAMP)
@@ -201,37 +203,68 @@ class ModelFit(object):
             axis.boxplot(self.samp_array, labels=labels, showfliers=False)
         else:
             raise RuntimeError(f'Unknown graph type {graph_type}')
+
+    def estimate_win_probabilities(self) -> 'WinProbabilities':
+        self.win_probabilities = WinProbabilities(self)
+        return self.win_probabilities
         
-    def estimate_victory_probabilities(self):
-        if self.samp_array is None:
-            self.gen_samples()
-        n_samps, n_players = self.samp_array.shape
+
+class WinProbabilities(object):
+    def __init__(self, model_fit: ModelFit):
+        self.model_fit = model_fit
+        if self.model_fit.samp_array is None:
+            self.model_fit.gen_samples()
+        n_samps, n_players = self.model_fit.samp_array.shape
         print(n_samps, n_players)
-        total_win_prob = 0.0
-        for idx, player_id in enumerate(self.player_id_list):
-            print(self.player_name_dict[player_id])
-            samps = np.random.choice(self.samp_array[:, idx], N_VICTORY_SAMPS)
-            cum_win_prob = 1.0
-            for opp_idx in range(n_players):
-                if opp_idx == idx:
-                    print('--------------')
-                    continue
-                opp_samps = np.random.choice(self.samp_array[:, opp_idx],
-                                             N_VICTORY_SAMPS)
-                rslt = np.choose(samps > opp_samps, [0, 1])
-                print('----------------')
-                print(np.sum(rslt))
-                win_prob = float(np.sum(rslt))/float(N_VICTORY_SAMPS)
-                cum_win_prob *= win_prob
-            print(f'{self.player_name_dict[player_id]} median {np.median(self.samp_array[:, idx])}, win prob: {cum_win_prob}')
-            total_win_prob += cum_win_prob
-        print(f'total win prob: {total_win_prob}')
-        for idx in range(n_players):
-            print(f'{self.player_name_dict[self.player_id_list[idx]]}')
-            bins, bounds = np.histogram(self.samp_array[:,idx], bins=100)
-            peak_idx = np.argmax(bins)
-            print(peak_idx, bounds[peak_idx], bounds[peak_idx+1])
-                
+        winner_hits = {id: 0 for id in self.model_fit.player_id_list}
+        top3_hits = {id: 0 for id in self.model_fit.player_id_list}
+        for idx in range(n_samps):
+            pairs = [(est, id)
+                     for est, id in zip(self.model_fit.samp_array[idx, :],
+                                        self.model_fit.player_id_list)]
+            pairs.sort(reverse=True)
+            ranked_ids = [id for est, id in pairs]
+            winner_hits[ranked_ids[0]] += 1
+            for idx2 in range(3):
+                top3_hits[ranked_ids[idx2]] += 1
+        #print(f'winner_hits: {winner_hits}')
+        #print(f'top3_hits: {top3_hits}')
+        pairs = [(ct, id) for id, ct in winner_hits.items()]
+        pairs.sort(reverse=True)
+        winner_ct, winner_id = pairs[0]
+        self.winner = (winner_id, winner_ct / n_samps)
+        pairs = [(ct, id) for id, ct in top3_hits.items()]
+        pairs.sort(reverse=True)
+        self.top3 = []
+        for idx in range(3):
+            winner_ct, winner_id = pairs[idx]
+            self.top3.append((winner_id, winner_ct / n_samps))
+
+    def as_string(self) -> str:
+        sio = StringIO()
+        id, chance = self.winner
+        chance_str = '{:.2f}'.format(chance)
+        sio.write(f'{self.model_fit.player_name_dict[id]} has a {chance_str}'
+                  ' chance of having won\n')
+        for id, chance in self.top3:
+            chance_str = '{:.2f}'.format(chance)
+            sio.write(f'{self.model_fit.player_name_dict[id]} has a {chance_str}'
+                      ' chance of being in the top 3\n')
+        return sio.getvalue()
+
+    def as_html(self) -> str:
+        sio = StringIO()
+        id, chance = self.winner
+        chance_str = '{:.2f}'.format(chance)
+        sio.write(f'<b>{self.model_fit.player_name_dict[id]}</b> has a {chance_str}'
+                  ' chance of having won.<br>')
+        sio.write('<br>')
+        for id, chance in self.top3:
+            chance_str = '{:.2f}'.format(chance)
+            sio.write(f'<b>{self.model_fit.player_name_dict[id]}</b> has a {chance_str}'
+                      ' chance of being in the top 3.<br>')
+        return sio.getvalue()
+
 
 def estimate(player_df, bouts_df):
     restructured_df = restructure_df(bouts_df)
@@ -261,14 +294,14 @@ def main():
     trimmed_df = trimmed_df[trimmed_df['opponent'] != 3]
     print('trimmed_df follows')
     print(trimmed_df)
-    m_f_1 = ModelFit(player_df, restructured_df)
+    # m_f_1 = ModelFit(player_df, restructured_df)
     m_f_2 = ModelFit(player_df, trimmed_df)
-    fig, axes = plt.subplots(ncols=2, nrows=1)
-    m_f_1.gen_graph(fig, axes[0], 'violin')
-    m_f_2.gen_graph(fig, axes[1], 'boxplot')
-    plt.show(block=True)
+    # fig, axes = plt.subplots(ncols=2, nrows=1)
+    # m_f_1.gen_graph(fig, axes[0], 'violin')
+    # m_f_2.gen_graph(fig, axes[1], 'boxplot')
+    # plt.show(block=True)
 
-    m_f_1.estimate_victory_probabilities()
+    print(m_f_2.estimate_win_probabilities().as_string())
     
 if __name__ == '__main__':
     main()

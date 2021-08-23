@@ -552,20 +552,21 @@ def horserace_go(**kwargs):
                                  keycols=['leftPlayerId', 'rightPlayerId'],
                                  checkbox_dict=checkbox_dict)]
     output = io.BytesIO()
+    
     try:
-        fitInfo = stat_utils.estimate(playerDF, boutDF)
+        fit_info = stat_utils.estimate(playerDF, boutDF)
         fig, axes = plt.subplots(ncols=1, nrows=1)
         graph_type_dct = {'hr_graph_style_box': 'boxplot',
                           'hr_graph_style_violin': 'violin'}
         graph_type = graph_type_dct[get_settings()['hr_graph_style']]
-        fitInfo.gen_graph(fig, axes, graph_type)
+        fit_info.gen_graph(fig, axes, graph_type)
         FigureCanvas(fig).print_png(output)
-
+        
     except RuntimeError as e:
         logMessage('horseRace_go exception: %s' % str(e))
     result = {'image': ('data:image/png;base64,'
                         + base64.b64encode(output.getvalue()).decode("ascii")),
-              'announce_html': '<p>I <em>just</em> made this up.</p>'
+              'announce_html': fit_info.estimate_win_probabilities().as_html()
               }
 
     return result
