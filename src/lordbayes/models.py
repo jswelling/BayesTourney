@@ -58,9 +58,12 @@ class Bout(Base):
     rightWins = Column(Integer)
     draws = Column(Integer)
     note = Column(String)
-    lName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==leftPlayerId))
-    rName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==rightPlayerId))
-    tourneyName = column_property(select([Tourney.name]).where(Tourney.tourneyId==tourneyId))
+    lName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==leftPlayerId)
+                            .scalar_subquery())
+    rName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==rightPlayerId)
+                            .scalar_subquery())
+    tourneyName = column_property(select([Tourney.name]).where(Tourney.tourneyId==tourneyId)
+                                  .scalar_subquery())
     def __init__(self, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
         self.tourneyId = tourneyId
         self.leftWins = lWins
