@@ -32,6 +32,7 @@ from pprint import pprint
 from .database import get_db
 from .auth import login_required
 from .models import Tourney, LogitPlayer, Bout
+from .settings import get_settings, set_settings, SettingsError
 from . import stat_utils
 
 
@@ -225,11 +226,17 @@ def site_map():
                            link_dict={k:v for k, v in links})
     print(links)
 
- 
+
+@bp.route("/settings")
+def settings():
+    return render_template("prefs.html", **(get_settings()))
+
+
 @bp.route('/')
 @login_required
 def index():
     return redirect(url_for('tourneys'))
+
 
 @bp.route('/tourneys')
 @login_required
@@ -254,6 +261,13 @@ def bouts():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("bouts.tpl",
                            tourneyDict=tourneyDict)
+
+
+@bp.route('/experiment')
+#login_required
+def experiment():
+    g.user.prefs = None
+    get_db().commit()
 
 
 @bp.route('/horserace')
@@ -510,6 +524,7 @@ def _include_fun(row, keycols, checkbox_dict):
 
 @bp.route('/horserace_go', methods=['POST'])
 @debug_page_wrapper
+@login_required
 def horserace_go(**kwargs):
     db = get_db()
     engine = db.get_bind()
@@ -540,7 +555,10 @@ def horserace_go(**kwargs):
     try:
         fitInfo = stat_utils.estimate(playerDF, boutDF)
         fig, axes = plt.subplots(ncols=1, nrows=1)
-        fitInfo.gen_graph(fig, axes, 'boxplot')
+        graph_type_dct = {'hr_graph_style_box': 'boxplot',
+                          'hr_graph_style_violin': 'violin'}
+        graph_type = graph_type_dct[get_settings()['hr_graph_style']]
+        fitInfo.gen_graph(fig, axes, graph_type)
         FigureCanvas(fig).print_png(output)
 
     except RuntimeError as e:
@@ -552,6 +570,34 @@ def horserace_go(**kwargs):
 
     return result
     
+
+@bp.route('/ajax/settings', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_settings(**kwargs):
+    if request.method == 'GET':
+        return {'status': 'success',
+                'value': {k:v for k, v in get_settings().items()}
+                }
+    elif request.method == 'PUT':
+        name = request.values['name']
+        id = request.values['id']
+        if name in get_settings():
+            try:
+                set_settings(name, id);
+            except SettingsError as e:
+                return {"status": "error",
+                        "msg": f"invalid setting {name} = {id}"
+                }
+            get_db().commit()
+            return {'status': 'success'}
+        else:
+            return {"status": "error",
+                    "msg": f"{name} is not a known setting"
+                    }
+    else:
+        return f"unsupported method {request.method}", 405
+
 
 @bp.route('/json/<path>')
 @debug_wrapper

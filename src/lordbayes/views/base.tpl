@@ -86,6 +86,7 @@
 	      </form>
 	      -->
 	  <ul class="nav navbar-nav navbar-right">
+	    {{ nav_link('settings', 'Settings') }}
 	    {{ nav_link('help', 'Help') }}
 	    <li class="dropdown">
 	      <a href="#" class="dropdown-toggle" data-toggle="dropdown">

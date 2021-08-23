@@ -1,6 +1,6 @@
 from .database import Base
 
-from sqlalchemy import Column, Integer, Float, String, ForeignKey
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, JSON
 from sqlalchemy import select
 from sqlalchemy.orm import column_property
 
@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
+    prefs = Column(JSON, nullable=True)
 
     def __init__(self, username, password):
         self.username = username
