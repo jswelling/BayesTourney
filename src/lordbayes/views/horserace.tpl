@@ -36,7 +36,7 @@ $(function() {
 				   })
 			      .done( function(data) {
 				$('#announcement_div').html(data['announce_html']);
-				$('#horseraceImage').attr('src', data['image']);
+				$('#horseraceImage').html(data['image']);
 			      })
 			      .fail(function(jqxhr, textStatus, error) {
 				alert('Error: '+jqxhr.responseText);
@@ -106,7 +106,8 @@ $(function() {
   <p>
   Click 'go' to analyze the selected tournament.
   </p>
-  </div>  
-<img id="horseraceImage" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" width="640" height="480" alt="" />
+  </div>
+  <div id="horseraceImage">
+  </div>
 
 {% endblock %}
