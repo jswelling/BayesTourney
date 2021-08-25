@@ -452,40 +452,75 @@ def handleEdit(path):
         raise RuntimeError("Bad path /edit/%s"%path)
 
 
+def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFrame:
+    db = get_db()
+    engine = db.get_bind()
+    if tourneyId >= 0:
+        if include_ids:
+            boutDF = pd.read_sql(
+                f"""
+                select tourneys.name as tourneyName, 
+                bouts.leftWins as leftWins, lplayers.name as leftPlayerName,
+                lplayers.id as leftPlayerId,
+                rplayers.name as rightPlayerName, 
+                rplayers.id as rightPlayerId,
+                bouts.rightWins as rightWins, 
+                bouts.draws as draws 
+                from bouts, tourneys, players as lplayers, players as rplayers 
+                where bouts.leftPlayerId = lplayers.id 
+                and bouts.rightPlayerId = rplayers.id 
+                and tourneys.tourneyId = bouts.tourneyId 
+                and bouts.tourneyId = {tourneyId}
+                """, engine, coerce_float=True)
+        else:
+            boutDF = pd.read_sql(
+                f"""
+                select tourneys.name as tourneyName, 
+                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
+                rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
+                bouts.draws as draws 
+                from bouts, tourneys, players as lplayers, players as rplayers 
+                where bouts.leftPlayerId = lplayers.id 
+                and bouts.rightPlayerId = rplayers.id 
+                and tourneys.tourneyId = bouts.tourneyId 
+                and bouts.tourneyId = {tourneyId}
+                """, engine, coerce_float=True)
+    else:
+        if include_ids:
+            boutDF = pd.read_sql(
+                """
+                select tourneys.name as tourneyName, 
+                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
+                lplayers.id as leftPlayerId,
+                rplayers.name as rightPlayerName, 
+                rplayers.id as rightPlayerId,
+                bouts.rightWins as rightWins, 
+                bouts.draws as draws 
+                from bouts, tourneys, players as lplayers, players as rplayers 
+                where bouts.leftPlayerId = lplayers.id 
+                and bouts.rightPlayerId = rplayers.id 
+                and tourneys.tourneyId = bouts.tourneyId 
+                """, engine, coerce_float=True)
+        else:
+            boutDF = pd.read_sql(
+                """
+                select tourneys.name as tourneyName, 
+                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
+                rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
+                bouts.draws as draws 
+                from bouts, tourneys, players as lplayers, players as rplayers 
+                where bouts.leftPlayerId = lplayers.id 
+                and bouts.rightPlayerId = rplayers.id 
+                and tourneys.tourneyId = bouts.tourneyId 
+                """, engine, coerce_float=True)
+    return boutDF
+
+
 @bp.route('/download/bouts')
 @debug_page_wrapper
 def handleBoutsDownloadReq(**kwargs):
-    db = get_db()
-    engine = db.get_bind()
-    uiSession = session
-
     tourneyId = int(request.values.get('tourney', '-1'))
-
-    if tourneyId >= 0:
-        boutDF = pd.read_sql(
-            f"""
-            select tourneys.name as tourneyName, 
-            bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
-            rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-            bouts.draws as draws 
-            from bouts, tourneys, players as lplayers, players as rplayers 
-            where bouts.leftPlayerId = lplayers.id 
-            and bouts.rightPlayerId = rplayers.id 
-            and tourneys.tourneyId = bouts.tourneyId 
-            and bouts.tourneyId = {tourneyId}
-            """, engine, coerce_float=True)
-    else:
-        boutDF = pd.read_sql(
-            """
-            select tourneys.name as tourneyName, 
-            bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
-            rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-            bouts.draws as draws 
-            from bouts, tourneys, players as lplayers, players as rplayers 
-            where bouts.leftPlayerId = lplayers.id 
-            and bouts.rightPlayerId = rplayers.id 
-            and tourneys.tourneyId = bouts.tourneyId 
-            """, engine, coerce_float=True)
+    boutDF = _get_bouts_dataframe(tourneyId)
     
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
     full_path =  Path(session_scratch_dir) / 'bouts.tsv'
@@ -649,25 +684,45 @@ def handleJSON(path, **kwargs):
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         tourneyId = int(request.values['tourney'])
-        if tourneyId >= 0:
-            with engine.connect() as conn:
-                rs = conn.execute('select distinct players.*'
-                                  'from players inner join bouts'
-                                  ' on ( bouts.leftPlayerId = players.id'
-                                  ' or bouts.rightPlayerId = players.id )'
-                                  f' where bouts.tourneyId={tourneyId}')
-                playerList = [val for val in rs]
-        else:
-            playerList = [val for val in db.query(LogitPlayer)]
-        playerList = [(p.id, p) for p in playerList]
-        playerList.sort()
-        playerList = [p for _, p in playerList]
-        pList = [p for p in playerList]
+
+        boutDF = _get_bouts_dataframe(tourneyId, include_ids=True)
+        #print(boutDF.head())
+
+        leftDF = boutDF[['leftPlayerName', 'leftPlayerId', 'leftWins', 'rightWins',
+                         'draws']]
+        leftDF['bouts'] = leftDF['leftWins'] + leftDF['rightWins'] + leftDF['draws']
+        leftDF = leftDF.rename(columns={'leftWins': 'wins',
+                                        'rightWins': 'losses',
+                                        'leftPlayerName': 'playerName',
+                                        'leftPlayerId': 'id'})
+
+        rightDF = boutDF[['rightPlayerName', 'rightPlayerId', 'rightWins', 'leftWins',
+                          'draws']]
+        rightDF['bouts'] = rightDF['leftWins'] + rightDF['rightWins'] + rightDF['draws']
+        rightDF = rightDF.rename(columns={'leftWins': 'losses',
+                                          'rightWins': 'wins',
+                                          'rightPlayerName': 'playerName',
+                                          'rightPlayerId': 'id'})
+        rightDF = rightDF[leftDF.columns]
+
+        workDF = pd.concat([leftDF, rightDF])
+        workDF = workDF.groupby(['playerName', 'id']).sum().reset_index()
+
+        workDF['bearpit'] = 2 * workDF['wins'] + workDF['losses'] + workDF['draws']
+        print(workDF)
+        workDF = workDF.sort_values(by='id', axis='rows')
+        print(workDF)
+        
         result = {
-                  "records":len(pList),  # total records
-                  "rows": [ {"id":p.id, "cell":[p.id, p.name, 0, str(p.weight), p.note, p.id]} 
-                           for i,p in enumerate(pList) ]
+                  "records":len(workDF),  # total records
+                  "rows": [ {"id":row['id'],
+                             "cell":[row['id'], row['playerName'],
+                                     row['wins'], row['losses'], row['draws'],
+                                     row['bearpit'],
+                                     row['id']]} 
+                            for _,row in workDF.iterrows() ]
                   }
+        pprint(result)
     else:
         raise RuntimeError("Request for unknown AJAX element %s"%path)
     return result

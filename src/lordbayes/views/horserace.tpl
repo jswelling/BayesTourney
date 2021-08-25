@@ -50,21 +50,23 @@ $(function() {
     url:'json/horserace.json',
     postData:{tourney: function(){return selTourney.val() || -1;}},
     datatype: "json",
-    colNames:['Id','Name','BearPit', 'Estimate','Notes', 'Include'],
+    colNames:['Id','Name','Wins', 'Losses', 'Draws',
+	      'BearPit', 'Include'],
     colModel:[
       {name:'id',index:'id', width:55},
       {name:'name',index:'name', width:100},
-      {name:'bearpit',index:'estimate',width:55},
-      {name:'estimate',index:'estimate',width:55},
-      {name:'notes',index:'notes', width:100},
+      {name:'wins',index:'wins',width:55},
+      {name:'losses',index:'losses',width:55},
+      {name:'draws',index:'draws',width:55},
+      {name:'bearpit',index:'bearpit',width:55},
       {sortable:false, name:'exclude', index:'id', width:100,
        formatter: function(cellvalue, options, rowobject){
 	 return '<input type="checkbox" id="horserace_checkbox_'+cellvalue+'" checked>';
        }
       }
     ],
-    rowNum:5,
-    rowList:[5,10,20,30],
+    rowNum:10,
+    rowList:[10,20,30],
     pager: true,
     cmTemplate: { autoResizable: true },
     autoresizeOnLoad: true,
