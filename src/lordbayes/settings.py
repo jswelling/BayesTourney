@@ -12,11 +12,14 @@ ALLOWED_SETTINGS = {"hr_graph_style": ["hr_graph_style_box",
                     "hr_draws_rule": ["hr_draws_rule_ignore",
                                       "hr_draws_rule_win",
                                       "hr_draws_rule_loss"],
+                    "hr_graph_yscale": ["hr_graph_yscale_linear",
+                                        "hr_graph_yscale_log"]
                     }
 
 
 DEFAULT_SETTINGS = {"hr_graph_style": "hr_graph_style_box",
-                    "hr_draws_rule": "hr_draws_rule_ignore"
+                    "hr_draws_rule": "hr_draws_rule_ignore",
+                    "hr_graph_yscale": "hr_graph_yscale_linear",
                     }
 
 
@@ -28,10 +31,10 @@ def get_settings() -> dict:
     """
     A convenient method to get user-specific settings
     """
-    if g.user.prefs is None:
-        return deepcopy(DEFAULT_SETTINGS)
-    else:
-        return g.user.prefs
+    rslt = deepcopy(DEFAULT_SETTINGS)
+    if g.user.prefs is not None:
+        rslt.update(g.user.prefs)
+    return rslt
 
 
 def set_settings(key: str, value: str):

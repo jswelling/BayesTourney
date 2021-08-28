@@ -48,6 +48,19 @@
 	 >
 </fieldset>
 
+<fieldset>
+  <legend>How should the Y axis of the graph be scaled?: </legend>
+  <label for="hr_graph_yscale_linear">Linear</label>
+  <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_linear"
+	 {% if hr_graph_yscale == "hr_graph_yscale_linear" %} checked {% endif %}
+	 >
+  <br>
+  <label for="hr_graph_yscale_log">Logarithmic</label>
+  <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_log"
+	 {% if hr_graph_yscale == "hr_graph_yscale_log" %} checked {% endif %}
+	 >
+</fieldset>
+
 <h2>How Draws Are Counted</h2>
 <fieldset>
   <legend>Select a rule: </legend>

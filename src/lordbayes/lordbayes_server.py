@@ -595,6 +595,9 @@ def horserace_go(**kwargs):
         )
         plt.figure(figsize=[3,3])
         fig, axes = plt.subplots(ncols=1, nrows=1)
+        graph_yscale_dct = {'hr_graph_yscale_linear': 'linear',
+                            'hr_graph_yscale_log': 'log'}
+        axes.set_yscale(graph_yscale_dct[get_settings()['hr_graph_yscale']])
         graph_type_dct = {'hr_graph_style_box': 'boxplot',
                           'hr_graph_style_violin': 'violin'}
         graph_type = graph_type_dct[get_settings()['hr_graph_style']]
@@ -621,6 +624,7 @@ def ajax_settings(**kwargs):
     elif request.method == 'PUT':
         name = request.values['name']
         id = request.values['id']
+        print(f'GET_SETTINGS: {get_settings()}')
         if name in get_settings():
             try:
                 set_settings(name, id);
