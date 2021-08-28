@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from .settings import ALLOWED_SETTINGS
+
 """Number of sweeps used in Metropolis burn-in"""
 BURNIN_SWEEPS = 300
 #BURNIN_SWEEPS = 0
@@ -45,19 +47,39 @@ def generate_random_bouts(n_players, n_pairs, player_wts):
     return totals_df
 
 
-def restructure_df(raw_df):
+def restructure_df(raw_df, draws_rule=None):
     """
-    We are excluding draws from the bouts totals at this point.
+    draws_rule must be one of the hr_draws_rule values supported in settings, or None.  The effect
+    of counting draws as wins or losses is the same because both players must gain either a win or
+    a loss, so the other player must gain either a loss or a win.
     """
+    if draws_rule is None:
+        draws_rule = 'hr_draws_rule_ignore'
+    assert draws_rule in ALLOWED_SETTINGS['hr_draws_rule'], f'invalid draws_rule {draws_rule}'
+        
     merge_df_a = raw_df.rename(columns={'l_player':'player', 'r_player':'opponent', 'l_wins':'wins', 'r_wins':'losses',
                                         'leftPlayerId':'player', 'rightPlayerId':'opponent', 'leftWins':'wins',
-                                        'rightWins':'losses'})
-    merge_df_a['bouts'] = merge_df_a['wins'] + merge_df_a['losses']
+                                        'rightWins':'losses'}).copy()
     merge_df_b = raw_df.rename(columns={'r_player':'player', 'l_player':'opponent', 'r_wins':'wins', 'l_wins':'losses',
                                         'rightPlayerId':'player', 'leftPlayerId':'opponent', 'rightWins':'wins',
-                                        'leftWins':'losses'})
+                                        'leftWins':'losses'}).copy()
+    merge_df_a['bouts'] = merge_df_a['wins'] + merge_df_a['losses']
     merge_df_b['bouts'] = merge_df_b['wins'] + merge_df_b['losses']
+
+    for df in [merge_df_a, merge_df_b]:
+        if draws_rule == 'hr_draws_rule_ignore':
+            pass
+        elif draws_rule in ['hr_draws_rule_win', 'hr_draws_rule_loss']:
+            df['wins'] += df['draws']
+            df['bouts'] += 2 * df['draws']
+        else:
+            raise RuntimeError(f'invalid draws_rule {draws_rule}')
+            
     rslt = pd.concat([merge_df_a, merge_df_b], axis=0).groupby(['player','opponent']).sum().reset_index()
+    print('original table follows')
+    print(raw_df)
+    print('rslt follows')
+    print(rslt)
     rslt = rslt.drop(columns=[col for col in ['draws', 'note'] if col in rslt.columns])
     return rslt
 
@@ -266,8 +288,11 @@ class WinProbabilities(object):
         return sio.getvalue()
 
 
-def estimate(player_df, bouts_df):
-    restructured_df = restructure_df(bouts_df)
+def estimate(player_df, bouts_df, draws_rule=None):
+    """
+    If present, draws_rule must be one of the 'hr_draws_rule' settings
+    """
+    restructured_df = restructure_df(bouts_df, draws_rule=draws_rule)
     m_f = ModelFit(player_df, restructured_df)
     m_f.gen_samples()
     return m_f

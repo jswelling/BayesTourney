@@ -589,7 +589,10 @@ def horserace_go(**kwargs):
     output = io.StringIO()
     
     try:
-        fit_info = stat_utils.estimate(playerDF, boutDF)
+        fit_info = stat_utils.estimate(
+            playerDF, boutDF,
+            draws_rule=get_settings()['hr_draws_rule']
+        )
         plt.figure(figsize=[3,3])
         fig, axes = plt.subplots(ncols=1, nrows=1)
         graph_type_dct = {'hr_graph_style_box': 'boxplot',
@@ -597,7 +600,6 @@ def horserace_go(**kwargs):
         graph_type = graph_type_dct[get_settings()['hr_graph_style']]
         fit_info.gen_graph(fig, axes, graph_type)
         FigureCanvas(fig).print_svg(output)
-        print(output.getvalue())
         
     except RuntimeError as e:
         logMessage('horseRace_go exception: %s' % str(e))
@@ -689,7 +691,7 @@ def handleJSON(path, **kwargs):
         #print(boutDF.head())
 
         leftDF = boutDF[['leftPlayerName', 'leftPlayerId', 'leftWins', 'rightWins',
-                         'draws']]
+                         'draws']].copy()
         leftDF['bouts'] = leftDF['leftWins'] + leftDF['rightWins'] + leftDF['draws']
         leftDF = leftDF.rename(columns={'leftWins': 'wins',
                                         'rightWins': 'losses',
@@ -697,7 +699,7 @@ def handleJSON(path, **kwargs):
                                         'leftPlayerId': 'id'})
 
         rightDF = boutDF[['rightPlayerName', 'rightPlayerId', 'rightWins', 'leftWins',
-                          'draws']]
+                          'draws']].copy()
         rightDF['bouts'] = rightDF['leftWins'] + rightDF['rightWins'] + rightDF['draws']
         rightDF = rightDF.rename(columns={'leftWins': 'losses',
                                           'rightWins': 'wins',
@@ -708,8 +710,14 @@ def handleJSON(path, **kwargs):
         workDF = pd.concat([leftDF, rightDF])
         workDF = workDF.groupby(['playerName', 'id']).sum().reset_index()
 
-        workDF['bearpit'] = 2 * workDF['wins'] + workDF['losses'] + workDF['draws']
-        print(workDF)
+        bearpit_wt_dct = {  # tuples are weights for (wins, losses, draws)
+            'hr_draws_rule_ignore': (2, 1, 0),
+            'hr_draws_rule_win': (2, 1, 2),
+            'hr_draws_rule_loss': (2, 1, 1)
+        }
+        wt_win, wt_loss, wt_draw = bearpit_wt_dct[get_settings()['hr_draws_rule']]
+        workDF['bearpit'] = (wt_win * workDF['wins'] + wt_loss * workDF['losses']
+                             + wt_draw * workDF['draws'])
         workDF = workDF.sort_values(by='id', axis='rows')
         print(workDF)
         
@@ -722,7 +730,6 @@ def handleJSON(path, **kwargs):
                                      row['id']]} 
                             for _,row in workDF.iterrows() ]
                   }
-        pprint(result)
     else:
         raise RuntimeError("Request for unknown AJAX element %s"%path)
     return result
