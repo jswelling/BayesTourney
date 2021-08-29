@@ -1,5 +1,7 @@
 {% extends 'base.tpl' %}
 
+{% from "macros.html" import sel_tournaments with context %}
+
 {% block pagescripts %}
 
 <script>
@@ -91,13 +93,7 @@ $(function() {
 {% block content %}
 <h1>Horserace</h1>
 
-<label for="sel_horserace_tournament">Which Tournament?</label>
-<select id="sel_horserace_tournament">
-  <option value=-1>All</option>
-  {% for id, name in tourneyDict | dictsort %}
-  <option value={{id}}>{{name}}</option>
-  {% endfor %}
-</select>
+{{ sel_tournaments('sel_horserace_tournament') }}
 
 <div>
   <table id="horserace_table"></table>

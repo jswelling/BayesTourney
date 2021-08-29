@@ -142,3 +142,17 @@
     },
     reloadGridOptions: { fromServer: true, reloadAfterSubmit: true }  
 {% endmacro %}
+
+{% macro sel_tournaments(id) %}
+  <label for="{{ id }}">Which Tournament?</label>
+  <select id="{{ id }}">
+    <option value="-1"
+    {% if sel_tourney_id == -1 %} selected {% endif %}
+    >All</option>
+    {% for id, name in tourneyDict | dictsort %}
+    <option value="{{id}}"
+    {% if sel_tourney_id == id %} selected {% endif %}
+    >{{name}}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}

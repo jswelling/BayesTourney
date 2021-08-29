@@ -4,6 +4,7 @@
 {% from "macros.html" import updown_button_script with context %}
 {% from "macros.html" import updown_button_content with context %}
 {% from "macros.html" import jqgrid_boilerplate with context %}
+{% from "macros.html" import sel_tournaments with context %}
 
 {% block pagescripts %}
 <script>
@@ -69,13 +70,7 @@ $(function() {
 {% block content %}
 <h1>Bouts</h1>
 
-<label for="sel_bouts_tournament">Which Tournament?</label>
-<select id="sel_bouts_tournament">
-<option value=-1>All</option>
-{% for id, name in tourneyDict | dictsort %}
-<option value={{id}}>{{name}}</option>
-{% endfor %}
-</select>
+{{ sel_tournaments('sel_bouts_tournament') }}
 <table id="bouts_table"></table>
 <!-- <div id="bouts_pager"></div> -->
 <input type="BUTTON" id="add_bout_button" value="New Bout">

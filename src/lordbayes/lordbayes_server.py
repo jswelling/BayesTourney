@@ -251,6 +251,7 @@ def tourneys():
 def entrants():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("entrants.tpl",
+                           sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
 
 
@@ -260,6 +261,7 @@ def entrants():
 def bouts():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("bouts.tpl",
+                           sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
 
 
@@ -276,7 +278,9 @@ def experiment():
 def horserace():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
     return render_template("horserace.tpl",
+                           sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
+
 
 @bp.route('/help')
 @debug_page_wrapper
@@ -328,7 +332,6 @@ def handleList(path):
     returns html
     """
     db = get_db()
-    uiSession = session
     if path=='select_entrant':
         playerList = db.query(LogitPlayer)
         pairs = [(p.id,p.name) for p in playerList]
@@ -357,7 +360,6 @@ def handleEdit(path):
     Specialized endpoint that understands the requests jqgrid uses to perform edits
     """
     db = get_db()
-    uiSession = session
     paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
     if path=='edit_tourneys.json':
         if request.values['oper']=='edit':
@@ -533,7 +535,6 @@ def handleBoutsDownloadReq(**kwargs):
 def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
     engine = db.get_bind()
-    uiSession = session
 
     tourneyId = int(request.values.get('tourney', '-1'))
 
@@ -563,7 +564,6 @@ def _include_fun(row, keycols, checkbox_dict):
 def horserace_go(**kwargs):
     db = get_db()
     engine = db.get_bind()
-    uiSession = session
     data = request.get_json()
     #logMessage(f"data: {data}")
     tourneyId = int(data['tourney'])
@@ -650,7 +650,6 @@ def handleJSON(path, **kwargs):
     """
     db = get_db()
     engine = db.get_bind()
-    uiSession = session
     if path=='tourneys.json':
         tourneyList = [val for val in db.query(Tourney)]
         result = {
@@ -660,6 +659,7 @@ def handleJSON(path, **kwargs):
                   }
     elif path=='entrants.json':
         tourneyId = int(request.values.get('tourneyId', -1))
+        session['sel_tourney_id'] = tourneyId
         if tourneyId >= 0:
             with engine.connect() as conn:
                 rs = conn.execute('select distinct players.*'
@@ -676,6 +676,7 @@ def handleJSON(path, **kwargs):
                   }
     elif path =='bouts.json':
         tourneyId = int(request.values.get('tourneyId', -1))
+        session['sel_tourney_id'] = tourneyId
         if tourneyId >= 0:
             boutList = [b for b in db.query(Bout).filter_by(tourneyId=tourneyId)]
         else:
@@ -690,6 +691,7 @@ def handleJSON(path, **kwargs):
     elif path == 'horserace.json':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         tourneyId = int(request.values['tourney'])
+        session['sel_tourney_id'] = tourneyId
 
         boutDF = _get_bouts_dataframe(tourneyId, include_ids=True)
         #print(boutDF.head())
