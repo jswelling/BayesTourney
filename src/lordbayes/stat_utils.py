@@ -247,7 +247,7 @@ class WinProbabilities(object):
             pairs.sort(reverse=True)
             ranked_ids = [id for est, id in pairs]
             winner_hits[ranked_ids[0]] += 1
-            for idx2 in range(3):
+            for idx2 in range(min(3, n_players)):
                 top3_hits[ranked_ids[idx2]] += 1
         #print(f'winner_hits: {winner_hits}')
         #print(f'top3_hits: {top3_hits}')
@@ -258,7 +258,7 @@ class WinProbabilities(object):
         pairs = [(ct, id) for id, ct in top3_hits.items()]
         pairs.sort(reverse=True)
         self.top3 = []
-        for idx in range(3):
+        for idx in range(min(3, n_players)):
             winner_ct, winner_id = pairs[idx]
             self.top3.append((winner_id, winner_ct / n_samps))
 
