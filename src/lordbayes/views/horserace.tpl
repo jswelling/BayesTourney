@@ -8,11 +8,38 @@
   
 var selTourney;
 var goBtn;
+function include_cb_change() {
+  var trimmed_id = this.id.slice(this.id.lastIndexOf("_")+1);
+  var data = {
+    "tourney_id": $("#sel_horserace_tournament").val(),
+    "player_id": trimmed_id,
+    "state": this.checked
+  };
+  $.ajax({type:'PUT',
+	  url:'ajax/horserace/checkbox',
+	  data:data,
+	  //contentType: "application/json; charset=utf-8",
+	  dataType: "json"
+	 })
+    .done(function(data, textStatus, jqXHR) {
+      if (data['status'] != "success") {
+	if (data['msg'] == undefined) {
+	  alert('The server failed to save this update');
+	}
+	else {
+	  alert('The server failed to save this update: ' + data['msg']);
+	}
+	window.location.reload();
+      }
+    })
+    .fail(function(jqXHR, textStatus, errorThrown) {
+      alert('An error occurred: ' + errorThrown);
+      window.location.reload();
+    })
+}
 $(function() {
   selTourney = $('#sel_horserace_tournament');
   goBtn = $('#horserace_go_btn');
-  console.log(selTourney);
-  console.log(goBtn);
   selTourney.select().change( function()
 			      {
 				$('#horserace_table').trigger('reloadGrid');
@@ -60,9 +87,13 @@ $(function() {
       {name:'losses',index:'losses',width:55},
       {name:'draws',index:'draws',width:55},
       {name:'bearpit',index:'bearpit',width:55},
-      {sortable:false, name:'exclude', index:'id', width:100,
+      {sortable:false, name:'include', index:'id', width:100,
        formatter: function(cellvalue, options, rowobject){
-	 return '<input type="checkbox" id="horserace_checkbox_'+cellvalue+'" checked>';
+	 var word_checked;
+	 var idx = cellvalue.slice(0,-1);
+	 if (cellvalue.slice(-1) == '+') {word_checked = ' checked '}
+	 else {word_checked = ' '};
+	 return '<input type="checkbox" class="includecb" id="horserace_checkbox_'+ idx + '"' + word_checked + '>';
        }
       }
     ],
@@ -78,14 +109,16 @@ $(function() {
     viewrecords: true,
     caption:"Score Estimates",
     guiStyle: "bootstrap",
-    iconSet: "fontAwesome"
+    iconSet: "fontAwesome",
+    gridComplete: function() {
+      $("#horserace_table").find('input:checkbox.includecb').change(include_cb_change);
+    }
   })    
   jQuery("#reload_horserace_button").click( function() {
     $("#horserace_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
 });
-
 </script>
 {% endblock %}
 

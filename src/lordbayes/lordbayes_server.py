@@ -69,7 +69,11 @@ def debug_page_wrapper(view):
                      f' kwargs {kwargs}'
                      f' params {[(k,request.values[k]) for k in request.values]}'
         )
+        print('session state before view follows:')
+        pprint(session)
         rslt = view(**kwargs)
+        print('session follows:')
+        pprint(session)
         return rslt
     return wrapped_view
 
@@ -266,10 +270,12 @@ def bouts():
 
 
 @bp.route('/experiment')
-#login_required
+#@login_required
+@debug_page_wrapper
 def experiment():
-    g.user.prefs = None
+    session.pop('horserace_includes')
     get_db().commit()
+    return 'the experiment happened'
 
 
 @bp.route('/horserace')
@@ -582,6 +588,8 @@ def horserace_go(**kwargs):
         boutDF = pd.read_sql_table('bouts', engine, coerce_float=True)
         playerDF = pd.read_sql_table('players', engine, coerce_float=True)
     checkbox_dict = {int(k): v for k, v in data['checkboxes'].items()}
+    for player_id, flag in checkbox_dict.items():
+        _set_hr_include(tourneyId, player_id, flag)
     playerDF = playerDF[playerDF.apply(_include_fun, axis=1,
                                        keycols=['id'], checkbox_dict=checkbox_dict)]
     boutDF = boutDF[boutDF.apply(_include_fun, axis=1,
@@ -625,20 +633,68 @@ def ajax_settings(**kwargs):
     elif request.method == 'PUT':
         name = request.values['name']
         id = request.values['id']
-        print(f'GET_SETTINGS: {get_settings()}')
         if name in get_settings():
             try:
                 set_settings(name, id);
+                get_db().commit()
+                return {'status': 'success'}
             except SettingsError as e:
                 return {"status": "error",
                         "msg": f"invalid setting {name} = {id}"
                 }
-            get_db().commit()
-            return {'status': 'success'}
         else:
             return {"status": "error",
                     "msg": f"{name} is not a known setting"
                     }
+    else:
+        return f"unsupported method {request.method}", 405
+
+
+def _get_hr_include(tourney_id, player_id):
+    """
+    All keys in the session must be strings, including the tourney_id and
+    player_id used here.
+    """
+    dct = session.get('horserace_includes', {}).get(str(tourney_id), {})
+    return dct.get(str(player_id), True)
+
+
+def _set_hr_include(tourney_id, player_id, flag: bool):
+    """
+    All keys in the session must be strings, including the tourney_id and
+    player_id used here.
+    """
+    dct = session.get('horserace_includes', {})
+    tourney_dct = dct.get(str(tourney_id), {})
+    tourney_dct[str(player_id)] = flag
+    dct[str(tourney_id)] = tourney_dct
+    session['horserace_includes'] = dct
+    
+
+@bp.route('/ajax/horserace/checkbox', methods=["GET", "PUT"])
+@debug_wrapper
+def handle_horserace_checkbox(**kwargs):
+    try:
+        tourney_id = int(request.values['tourney_id'])
+        player_id = int(request.values['player_id'])
+    except ValueError as e:
+        return f"{e} missing or not an int", 400
+    if request.method == "GET":
+        return {"status": "success",
+                "value": ("true" if _get_hr_include(tourney_id, player_id)
+                          else "false")
+                }
+    elif request.method == "PUT":
+        try:
+            state = request.values['state']
+        except ValueError as e:
+            return f"{e} missing from request", 400
+        bool_state = (state.lower() == 'true')
+        _set_hr_include(tourney_id, player_id, bool_state)
+        return {"status": "success",
+                "value": ("true" if _get_hr_include(tourney_id, player_id)
+                          else "false")
+                }
     else:
         return f"unsupported method {request.method}", 405
 
@@ -727,14 +783,16 @@ def handleJSON(path, **kwargs):
                              + wt_draw * workDF['draws'])
         workDF = workDF.sort_values(by='id', axis='rows')
         print(workDF)
-        
+            
         result = {
                   "records":len(workDF),  # total records
-                  "rows": [ {"id":row['id'],
-                             "cell":[row['id'], row['playerName'],
-                                     row['wins'], row['losses'], row['draws'],
-                                     row['bearpit'],
-                                     row['id']]} 
+                  "rows": [{"id":row['id'],
+                            "cell":[row['id'], row['playerName'],
+                                    row['wins'], row['losses'], row['draws'],
+                                    row['bearpit'],
+                                    str(row['id']) + ('+' if _get_hr_include(tourneyId,
+                                                                             row['id'])
+                                                      else '-')]} 
                             for _,row in workDF.iterrows() ]
                   }
     else:
