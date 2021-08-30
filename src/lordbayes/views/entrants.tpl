@@ -19,8 +19,8 @@ $(function() {
   });
   function tourneySelFun() { return "tourney="+selEntrantsTourney.val(); };
   $("#entrants_table").jqGrid({
-    url:'json/entrants.json',
-    editurl:'edit/edit_entrants.json',
+    url:'json/entrants',
+    editurl:'edit/entrants',
     postData: {'tourneyId': function() { return selEntrantsTourney.val() || -1; } },
     colNames:['Id','Name','Notes'],
     colModel:[

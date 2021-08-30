@@ -19,8 +19,8 @@ $(function() {
   });
   function tourneySelFun() { return "tourney="+selBoutsTourney.val(); };
   jQuery("#bouts_table").jqGrid({
-    url:'json/bouts.json',
-    editurl:'edit/edit_bouts.json',
+    url:'json/bouts',
+    editurl:'edit/bouts',
     postData: {'tourneyId': function() { return selBoutsTourney.val() || -1; } },
     colNames:['Tourney','Wins', 'Player 1','Draws', 'Player 2','Wins','Notes'],
     colModel:[

@@ -13,43 +13,42 @@ $(function() {
   goBtn = $('#horserace_go_btn');
   console.log(selTourney);
   console.log(goBtn);
-    selTourney.select().change( function()
-				{
-				  $('#horserace_table').trigger('reloadGrid');
-				});
-    goBtn.button().click( function()
-			  {
-			    checkboxData = {};
-			    $('#horserace_table').jqGrid('getRowData')
-			      .forEach(element => {
-				var thisId = element.id;
-				checkboxData[thisId] = $('#horserace_checkbox_' + thisId)[0].checked;
+  selTourney.select().change( function()
+			      {
+				$('#horserace_table').trigger('reloadGrid');
 			      });
-			    jsonData = {
-			      tourney: selTourney.val(),
-			      checkboxes: checkboxData
-			    };
-			    console.log(jsonData);
-			    $.ajax({type:'POST',
-				    url:'horserace_go',
-				    data:JSON.stringify(jsonData),
-				    contentType: "application/json; charset=utf-8",
-				    dataType: "json"
-				   })
-			      .done( function(data) {
-				$('#announcement_div').html(data['announce_html']);
-				$('#horseraceImage').html(data['image']);
-			      })
-			      .fail(function(jqxhr, textStatus, error) {
-				alert('Error: '+jqxhr.responseText);
-			      });
-			  });
-    function horserace_checkbox_change(chkbox) { alert(chkbox.checked); }
+  goBtn.button().click( function()
+			{
+			  checkboxData = {};
+			  $('#horserace_table').jqGrid('getRowData')
+			    .forEach(element => {
+			      var thisId = element.id;
+			      checkboxData[thisId] = $('#horserace_checkbox_' + thisId)[0].checked;
+			    });
+			  jsonData = {
+			    tourney: selTourney.val(),
+			    checkboxes: checkboxData
+			  };
+			  console.log(jsonData);
+			  $.ajax({type:'POST',
+				  url:'horserace_go',
+				  data:JSON.stringify(jsonData),
+				  contentType: "application/json; charset=utf-8",
+				  dataType: "json"
+				 })
+			    .done( function(data) {
+			      $('#announcement_div').html(data['announce_html']);
+			      $('#horseraceImage').html(data['image']);
+			    })
+			    .fail(function(jqxhr, textStatus, error) {
+			      alert('Error: '+jqxhr.responseText);
+			    });
+			});
 })
 $(function() {
   "use strict";
   jQuery("#horserace_table").jqGrid({
-    url:'json/horserace.json',
+    url:'json/horserace',
     postData:{tourney: function(){return selTourney.val() || -1;}},
     datatype: "json",
     colNames:['Id','Name','Wins', 'Losses', 'Draws',

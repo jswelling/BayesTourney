@@ -8,8 +8,8 @@ var lastsel_tourneys;
 $(function () {
   "use strict";
   jQuery("#tourneys_table").jqGrid({
-    url:'json/tourneys.json',
-    editurl:'edit/edit_tourneys.json',
+    url:'json/tourneys',
+    editurl:'edit/tourneys',
     colNames:['Id','Name','Notes'],
     colModel:[
       {name:'id',index:'id', width:55, sortable:true, sorttype:'integer'},
