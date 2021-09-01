@@ -22,11 +22,13 @@ $(function() {
     url:'json/entrants',
     editurl:'edit/entrants',
     postData: {'tourneyId': function() { return selEntrantsTourney.val() || -1; } },
-    colNames:['Id','Name','Notes'],
+    colNames:['Id','Name','Bouts','Tournaments','Notes'],
     colModel:[
-      {name:'id',index:'id', width:55, sorttype:'integer'},
-      {name:'name',index:'name', width:100, editable:true, edittype:'text'},
-      {name:'notes',index:'notes', width:100, editable:true, edittype:'textarea'}
+      {name:'id', index:'id', width:55, sorttype:'integer'},
+      {name:'name', index:'name', width:100, editable:true, edittype:'text'},
+      {name:'bouts', index:'bouts', width:100, editable:false, sorttype:'integer'},
+      {name:'tournaments', index:'tournaments', width:100, editable:false, sorttype:'integer'},
+      {name:'notes', index:'notes', width:100, editable:true, edittype:'textarea'}
     ],
     onSelectRow: function(id){ 
       if(id && id!==lastsel_entrants){

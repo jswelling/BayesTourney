@@ -21,6 +21,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import abort
+from sqlalchemy.sql import text as sql_text
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -717,20 +718,43 @@ def handleJSON(path, **kwargs):
     elif path=='entrants':
         tourneyId = int(request.values.get('tourneyId', -1))
         session['sel_tourney_id'] = tourneyId
-        if tourneyId >= 0:
-            with engine.connect() as conn:
-                rs = conn.execute('select distinct players.*'
-                                  'from players inner join bouts'
-                                  ' on ( bouts.leftPlayerId = players.id'
-                                  ' or bouts.rightPlayerId = players.id )'
-                                  f' where bouts.tourneyId={tourneyId}')
+        with engine.connect() as conn:
+            rs = conn.execute(
+                """
+                select players.name as name, players.id as id,
+                  count(distinct bouts.tourneyId) as num_tournies,
+                  count(boutId) as num_bouts, players.note as note
+                from players, bouts
+                where 
+                  players.id = bouts.leftPlayerId
+                  or players.id = bouts.rightPlayerId
+                group by players.id
+                """
+            )
+            if tourneyId >= 0:
+                stxt = sql_text(
+                    """
+                    select players.id as id
+                    from players, bouts
+                    where
+                      bouts.tourneyId = :t_id
+                      and (players.id = bouts.leftPlayerId
+                           or players.id = bouts.rightPlayerId)
+                    """
+                )
+                player_rs = conn.execute(stxt, t_id=tourneyId)
+                player_id_set = set([val.id for val in player_rs])
+                print("player_id_set:",player_id_set)
+                playerList = [val for val in rs if val.id in player_id_set]
+            else:
                 playerList = [val for val in rs]
-        else:
-            playerList = [val for val in db.query(LogitPlayer)]
-        result = {
-                  "records":len(playerList),  # total records
-                  "rows": [ {"id":p.id, "cell":[p.id, p.name, p.note]} for p in playerList ]
-                  }
+            result = {
+                      "records":len(playerList),  # total records
+                      "rows": [ {"id":p.id,
+                                 "cell":[p.id, p.name,
+                                         p.num_bouts, p.num_tournies,
+                                         p.note]} for p in playerList ]
+                      }
     elif path =='bouts':
         tourneyId = int(request.values.get('tourneyId', -1))
         session['sel_tourney_id'] = tourneyId
