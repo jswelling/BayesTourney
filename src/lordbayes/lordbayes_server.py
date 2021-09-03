@@ -275,7 +275,7 @@ def index():
 @login_required
 @debug_page_wrapper
 def tourneys():
-    return render_template("tourneys.tpl")
+    return render_template("tourneys.html")
 
 
 @bp.route('/entrants')
