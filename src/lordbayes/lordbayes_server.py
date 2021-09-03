@@ -320,7 +320,7 @@ def horserace():
 @bp.route('/help')
 @debug_page_wrapper
 def help():
-    return render_template("info.tpl")    
+    return render_template("info.html")    
 
 
 @bp.route('/notimpl')
