@@ -312,7 +312,7 @@ def experiment():
 @debug_page_wrapper
 def horserace():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
-    return render_template("horserace.tpl",
+    return render_template("horserace.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
 
