@@ -1,4 +1,4 @@
-{% extends 'base.tpl' %}
+{% extends 'base.html' %}
 
 {% from "macros.html" import jqgrid_boilerplate with context %}
 

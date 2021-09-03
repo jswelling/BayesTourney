@@ -1,4 +1,4 @@
-{% extends 'base.tpl' %}
+{% extends 'base.html' %}
 
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
