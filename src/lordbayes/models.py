@@ -35,18 +35,14 @@ class LogitPlayer(Base):
     __tablename__ = 'players'
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    weight = Column(Float)
     note = Column(String)
     
-    def __init__(self,name,weight,note):
+    def __init__(self,name,note):
         self.name = name
-        self.weight = weight
         self.note = note
     def __str__(self): return self.name
     def fight(self,otherPlayer):
-        assert isinstance(otherPlayer,LogitPlayer), "%s can only fight LogitPlayers"%self.name
-        if random.random() < self.weight/(self.weight+otherPlayer.weight): return 0
-        else: return 1
+        raise RuntimeError('since LogitPlayer no longer has a weight, fight is no longer implemented')
         
 class Bout(Base):
     __tablename__ = 'bouts'

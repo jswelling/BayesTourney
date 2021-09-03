@@ -18,6 +18,8 @@
 	}
       }
       $("#upload_{{ key }}_dialog").dialog("close");
+      $("#{{ key }}_table").trigger('reloadGrid',{ fromServer: true });
+      lastsel_{{ key }}=null;
     },
     error: function( response ) {
       alert(response.statusText + ' : ' + response.responseText);

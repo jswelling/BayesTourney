@@ -84,12 +84,28 @@ def allowed_upload_file(filename):
             Path(filename).suffix[1:] in UPLOAD_ALLOWED_EXTENSIONS)
 
 
+def insert_entrants_from_df(df):
+    col_set = set([str(col) for col in df.columns])
+    db = get_db()
+    if set(["name", "note"]).issubset(col_set):
+        df["id"] = df.apply(player_name_to_id,
+                            key='name',
+                            db=db,
+                            axis=1)
+        # Any row with an id of -1 is an unknown player
+        for idx, row in df[df['id'] == -1].iterrows():
+            db.add(LogitPlayer(row['name'], row['note']))
+        db.commit()
+    else:
+        raise DBException('Unknown column pattern for entrants')
+
+
 @bp.route("/upload/entrants", methods=['POST'])
 def upload_entrants_file():
     """
     This is an AJAX transaction
     """
-    # check of the post request has the file part
+    # check if the post request has the file part
     if 'file' not in request.files:
         flash('No file part')
         LOGGER.info('upload with no file part')
@@ -104,10 +120,22 @@ def upload_entrants_file():
         LOGGER.info('file type not supported for upload')
         return 'file type not supported for upload', 400
     filename = secure_filename(file.filename)
+    file_fullpath = Path(current_app.config['UPLOAD_FOLDER']) / filename
     LOGGER.info(f'Saving file to {filename}')
-    file.save(Path(current_app.config['UPLOAD_FOLDER'])
-              / filename)
+    file.save(file_fullpath)
     LOGGER.info('Save complete')
+    if filename.endswith('.tsv'):
+        df = pd.read_csv(file_fullpath, sep='\t')
+    else:
+        df = pd.read_csv(file_fullpath)
+    LOGGER.info('Parse complete')
+    try:
+        insert_entrants_from_df(df)
+    except DBException as e:
+        LOGGER.info(f'DBException: {e}')
+        return {"status":"failure", "msg":str(e)}
+    file_fullpath.unlink()
+    LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
 
 
@@ -368,7 +396,7 @@ def handleEdit(path):
     edits, adds, and deletes.
     """
     db = get_db()
-    paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
+    engine = db.get_bind()
     if path=='tourneys':
         if request.values['oper']=='edit':
             t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
@@ -450,12 +478,31 @@ def handleEdit(path):
             notes = request.values['notes']
             if db.query(LogitPlayer).filter_by(name=name).count() != 0:
                 raise RuntimeError('There is already an entrant named %s'%name)
-            p = LogitPlayer(name,-1.0,notes)
+            p = LogitPlayer(name,notes)
             db.add(p)
             db.commit()
             return {}
         elif request.values['oper'] == 'del':
-            return "not implemented", 400
+            player_id = int(request.values['id'])
+            with engine.connect() as conn:
+                stxt = sql_text(
+                    """
+                    select * from bouts
+                    where bouts.leftPlayerId = :p_id or bouts.rightPlayerId = :p_id
+                    """
+                )
+                rs = conn.execute(stxt, p_id=player_id)
+                num_bouts = len([rec for rec in rs])
+            if num_bouts == 0:
+                player = db.query(LogitPlayer).filter_by(id=player_id).one()
+                db.delete(player)
+                db.commit()
+                return {"status":"success"}
+            else:
+                return {"status":"failure",
+                        "msg":("The player could not be deleted because there"
+                               " are bouts which include them")
+                        }
         else:
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     else:
@@ -538,6 +585,44 @@ def handleBoutsDownloadReq(**kwargs):
     return send_file(full_path, as_attachment=True)
 
 
+def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFrame:
+    db = get_db()
+    engine = db.get_bind()
+    if tourneyId >= 0:
+        if include_ids:
+            entrantDF = pd.read_sql(
+                f"""
+                select distinct players.id, players.name, players.note
+                from players, bouts
+                where
+                  bouts.tourneyId == {tourneyId}
+                  and (players.id == bouts.leftPlayerId
+                    or players.id == bouts.rightPlayerId)
+                """, engine, coerce_float=True)
+        else:
+            entrantDF = pd.read_sql(
+                f"""
+                select distinct players.name, players.note
+                from players, bouts
+                where
+                  bouts.tourneyId == {tourneyId}
+                  and (players.id == bouts.leftPlayerId
+                    or players.id == bouts.rightPlayerId)
+                """, engine, coerce_float=True)
+    else:
+        if include_ids:
+            entrantDF = pd.read_sql(
+                """
+                select id, name, note from players
+                """, engine, coerce_float=True)
+        else:
+            entrantDF = pd.read_sql(
+                """
+                select name, note from players
+                """, engine, coerce_float=True)
+    return entrantDF
+
+
 @bp.route('/download/entrants')
 @debug_page_wrapper
 def handleEntrantsDownloadReq(**kwargs):
@@ -545,16 +630,7 @@ def handleEntrantsDownloadReq(**kwargs):
     engine = db.get_bind()
 
     tourneyId = int(request.values.get('tourney', '-1'))
-
-    if tourneyId >= 0:
-        entrantDF = pd.read_sql('select distinct players.*'
-                                ' from players inner join bouts'
-                                ' on ( bouts.leftPlayerId = players.id or bouts.rightPlayerId = players.id )'
-                                f' where bouts.tourneyId={tourneyId}',
-                                engine, coerce_float=True)
-    else:
-        entrantDF = pd.read_sql_table('players', engine, coerce_float=True)
-    
+    entrantDF = _get_entrants_dataframe(tourneyId)
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
     full_path =  Path(session_scratch_dir) / 'entrants.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
@@ -719,7 +795,7 @@ def handleJSON(path, **kwargs):
         tourneyId = int(request.values.get('tourneyId', -1))
         session['sel_tourney_id'] = tourneyId
         with engine.connect() as conn:
-            rs = conn.execute(
+            rs1 = conn.execute(  # This gets the players with bouts
                 """
                 select players.name as name, players.id as id,
                   count(distinct bouts.tourneyId) as num_tournies,
@@ -745,9 +821,21 @@ def handleJSON(path, **kwargs):
                 player_rs = conn.execute(stxt, t_id=tourneyId)
                 player_id_set = set([val.id for val in player_rs])
                 print("player_id_set:",player_id_set)
-                playerList = [val for val in rs if val.id in player_id_set]
+                playerList = [val for val in rs1 if val.id in player_id_set]
             else:
-                playerList = [val for val in rs]
+                rs2 = conn.execute(  # This gets the players without bouts
+                    """
+                    select players.name as name, players.id as id,
+                      0 as num_tournies, 0 as num_bouts, players.note as note
+                    from players, bouts
+                    where 
+                      players.id not in (select leftPlayerId from bouts)
+                      and
+                      players.id not in (select rightPlayerId from bouts)
+                    group by players.id
+                    """
+                )
+                playerList = ([val for val in rs1] + [val for val in rs2])
             result = {
                       "records":len(playerList),  # total records
                       "rows": [ {"id":p.id,

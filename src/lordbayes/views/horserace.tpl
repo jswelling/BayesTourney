@@ -56,7 +56,6 @@ $(function() {
 			    tourney: selTourney.val(),
 			    checkboxes: checkboxData
 			  };
-			  console.log(jsonData);
 			  $.ajax({type:'POST',
 				  url:'horserace_go',
 				  data:JSON.stringify(jsonData),

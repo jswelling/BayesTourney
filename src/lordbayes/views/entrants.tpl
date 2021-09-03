@@ -45,8 +45,26 @@ $(function() {
     $("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
   });
   $("#del_entrant_button").click( function() {
-    $("#entrants_table").jqGrid('delGridRow',lastsel_entrants,{});
-    lastsel_entrants=null;
+    var row = jQuery("#entrants_table").jqGrid('getRowData',lastsel_entrants);
+    if (row['bouts'] == 0) {
+      $("#entrants_table").jqGrid('delGridRow',lastsel_entrants,
+				  {
+				    afterSubmit: function(response, postdata) {
+				      var jsn = response.responseJSON;
+				      if (jsn['status'] == 'success') {
+					return [true, ""]
+				      }
+				      else {
+					return [false, jsn['msg'] || "bad server response"]
+				      }
+				    },
+				  });
+      lastsel_entrants=null;
+    }
+    else {
+      alert("The entrant " + row['name'] + " could not be deleted because they"
+	    + " are still included in " + row['bouts'] + " bouts.");
+    }
   });
   $("#reload_entrant_button").click( function() {
     $("#entrants_table").jqGrid('editRow', lastsel_entrants, false);
@@ -77,7 +95,7 @@ $(function() {
        """
        Entrants can be uploaded as a .csv or .tsv file in the same format as
        those downloaded from this page.
-       """   
+       """
      )
   }}
 
