@@ -283,7 +283,7 @@ def tourneys():
 @debug_page_wrapper
 def entrants():
     tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
-    return render_template("entrants.tpl",
+    return render_template("entrants.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
 
