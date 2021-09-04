@@ -5,22 +5,7 @@ from flask import g
 
 from .database import get_db
 
-
-
-ALLOWED_SETTINGS = {"hr_graph_style": ["hr_graph_style_box",
-                                       "hr_graph_style_violin"],
-                    "hr_draws_rule": ["hr_draws_rule_ignore",
-                                      "hr_draws_rule_win",
-                                      "hr_draws_rule_loss"],
-                    "hr_graph_yscale": ["hr_graph_yscale_linear",
-                                        "hr_graph_yscale_log"]
-                    }
-
-
-DEFAULT_SETTINGS = {"hr_graph_style": "hr_graph_style_box",
-                    "hr_draws_rule": "hr_draws_rule_ignore",
-                    "hr_graph_yscale": "hr_graph_yscale_linear",
-                    }
+from .settings_constants import ALLOWED_SETTINGS, DEFAULT_SETTINGS
 
 
 class SettingsError(RuntimeError):
