@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from .settings import ALLOWED_SETTINGS
+from .settings_constants import ALLOWED_SETTINGS
 
 """Number of sweeps used in Metropolis burn-in"""
 BURNIN_SWEEPS = 300
@@ -49,19 +49,30 @@ def generate_random_bouts(n_players, n_pairs, player_wts):
 
 def restructure_df(raw_df, draws_rule=None):
     """
-    draws_rule must be one of the hr_draws_rule values supported in settings, or None.  The effect
-    of counting draws as wins or losses is the same because both players must gain either a win or
-    a loss, so the other player must gain either a loss or a win.
+    draws_rule must be one of the hr_draws_rule values supported in settings, or None.
+    The effect of counting draws as wins or losses is the same because both players
+    must gain either a win or a loss, so the other player must gain either a loss or
+    a win.
     """
     if draws_rule is None:
         draws_rule = 'hr_draws_rule_ignore'
     assert draws_rule in ALLOWED_SETTINGS['hr_draws_rule'], f'invalid draws_rule {draws_rule}'
         
-    merge_df_a = raw_df.rename(columns={'l_player':'player', 'r_player':'opponent', 'l_wins':'wins', 'r_wins':'losses',
-                                        'leftPlayerId':'player', 'rightPlayerId':'opponent', 'leftWins':'wins',
+    merge_df_a = raw_df.rename(columns={'l_player':'player',
+                                        'r_player':'opponent',
+                                        'l_wins':'wins',
+                                        'r_wins':'losses',
+                                        'leftPlayerId':'player',
+                                        'rightPlayerId':'opponent',
+                                        'leftWins':'wins',
                                         'rightWins':'losses'}).copy()
-    merge_df_b = raw_df.rename(columns={'r_player':'player', 'l_player':'opponent', 'r_wins':'wins', 'l_wins':'losses',
-                                        'rightPlayerId':'player', 'leftPlayerId':'opponent', 'rightWins':'wins',
+    merge_df_b = raw_df.rename(columns={'r_player':'player',
+                                        'l_player':'opponent',
+                                        'r_wins':'wins',
+                                        'l_wins':'losses',
+                                        'rightPlayerId':'player',
+                                        'leftPlayerId':'opponent',
+                                        'rightWins':'wins',
                                         'leftWins':'losses'}).copy()
     merge_df_a['bouts'] = merge_df_a['wins'] + merge_df_a['losses']
     merge_df_b['bouts'] = merge_df_b['wins'] + merge_df_b['losses']
@@ -300,8 +311,10 @@ def estimate(player_df, bouts_df, draws_rule=None):
 
 def main():
     n_players = 10
-    player_names = ['andy', 'bob', 'carl', 'doug', 'ellen', 'fran', 'grace',
-                    'hugh', 'inez', 'john']
+    player_names = ['Andy le Fake', 'Bob le Fake', 'Carl le Fake',
+                    'Doug le Fake', 'Ellen le Fake', 'Fran le Fake',
+                    'Grace le Fake', 'Hugh le Fake', 'Inez le Fake',
+                    'John le Fake']
     n_bouts = 40000
     player_wts = np.zeros(n_players, dtype=float)
     for i in range(n_players):
@@ -312,8 +325,27 @@ def main():
                                                     player_wts)])
     print('player_df follows')
     print(player_df)
+    # player_df.to_csv('/tmp/long_tourney_entrants.tsv', sep='\t')
     totals_df = generate_random_bouts(n_players, n_bouts, player_wts)
+    # print('totals_df follows')
+    # print(totals_df)
     restructured_df = restructure_df(totals_df)
+
+    # merged_df = pd.merge(totals_df, player_df, left_on='l_player', right_on='id')
+    # merged_df = merged_df.rename(columns={'name':'leftPlayerName'}).drop(columns=['weight','id',
+    #                                                                              'note'])
+    # merged_df = pd.merge(merged_df, player_df, left_on='r_player', right_on='id')
+    # merged_df = merged_df.rename(columns={'name':'rightPlayerName'}).drop(columns=['weight','id',
+    #                                                                                'note'])
+
+    # merged_df = merged_df.rename(columns={'l_wins':'leftWins',
+    #                                       'r_wins':'rightWins'}).drop(columns=['l_player',
+    #                                                                            'r_player'])
+    # merged_df['draws'] = 0
+    # merged_df['tourneyName'] = f'long tourney example, {n_bouts} bouts'
+    # print('merged:')
+    # print(merged_df)
+    # merged_df.to_csv('/tmp/tourney_40.tsv', sep='\t', index=False)
 
     trimmed_df = restructured_df[restructured_df['player'] != 3]
     trimmed_df = trimmed_df[trimmed_df['opponent'] != 3]

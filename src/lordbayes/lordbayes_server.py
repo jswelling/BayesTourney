@@ -179,7 +179,7 @@ def insert_bouts_from_df(df, tourney):
                                 int(row['leftWins']), int(row['leftPlayerId']),
                                 int(row['draws']),
                                 int(row['rightPlayerId']), int(row['rightWins']),
-                                note = "just inserted this")
+                                note = "")
                 db.add(new_bout)
                 print(new_bout)
             db.commit()

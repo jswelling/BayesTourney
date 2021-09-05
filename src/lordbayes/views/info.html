@@ -18,20 +18,92 @@
   Say some stuff here.
   </p>
 </div>
-<h3>Editing Tips</h3>
-<div>
-<p>
-Click on a row to edit it.  Once a row is being edited, you can save
-the new values with the 'Enter' key or cancel the edit with the 'Esc(ape)'
-key.  The escape key won't work in multi-line fields like 'Notes', so to
-edit a note you must type in that field, then <em>select a different
-field</em> and use the 'Enter' key to save your edits.
-</div>
 <h3>Overview</h3>
 <div>
   <p>
   Say some stuff here.  
   </p>
+</div>
+<h3>Loading and Saving Tournaments</h3>
+<div>
+  You can load and save tournaments.  They get saved as spreadsheets,
+  in 'tab separated value' (".tsv") form.
+  When you load a tournament by uploading such a saved file, the
+  entrants in the tournament must already be in the database.  The
+  easiest way to make sure of this is to download the list of entrants
+  for the tourney as well, and then upload the entrants list first.
+  Uploading an entrant more than once is not a problem; if you upload
+  a name that is already known the new addition is just ignored.
+</div>
+<h3>Examples</h3>
+<div>
+  This section contains links for various example tournaments.  
+  <p>
+  The following few examples have the same set of entrants fighting
+  tournies with random pairings, with very different numbers of
+  bouts.
+  <table class="table table-sm">
+    <thead class="thead-light">
+      <tr><th>How many bouts?</th><th>Data link</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>40</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_40.tsv') }}">
+	    long_tourney_40.tsv
+	  </a>
+	</td>
+      </tr>
+      <tr><td>80</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_80.tsv') }}">
+	    long_tourney_80.tsv
+	  </a>
+	</td>
+      </tr>
+      <tr><td>120</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_120.tsv') }}">
+	    long_tourney_120.tsv
+	  </a>
+	</td>
+      </tr>
+      <tr><td>400</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_400.tsv') }}">
+	    long_tourney_400.tsv
+	  </a>
+	</td>
+      </tr>
+      <tr><td>4000</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_4000.tsv') }}">
+	    long_tourney_4000.tsv
+	  </a>
+	</td>
+      </tr>
+      <tr><td>40000</td>
+	<td><a href="{{ url_for('static',
+		     filename='examples/long_tourney_40000.tsv') }}">
+	    long_tourney_40000.tsv
+	  </a>
+	</td>
+      </tr>
+      <thead>
+	<tr>
+	  <th>The Entrants</th>
+	  <th><a href="{{ url_for('static',
+		       filename='examples/long_tourney_entrants.tsv')
+		       }}"
+		 class="link-primary">
+	      long_tourney_entrants.tsv
+	    </a>
+	  </th>
+	</tr>
+      </thead>
+    </tbody>
+  </table>
+  
 </div>
 <h3>How It Works</h3>
 <div>
@@ -44,6 +116,15 @@ field</em> and use the 'Enter' key to save your edits.
   <p>
   Say some stuff here.  
   </p>
+</div>
+<h3>Editing Tips For The Tables</h3>
+<div>
+<p>
+Click on a row to edit it.  Once a row is being edited, you can save
+the new values with the 'Enter' key or cancel the edit with the 'Esc(ape)'
+key.  The escape key won't work in multi-line fields like 'Notes', so to
+edit a note you must type in that field, then <em>select a different
+field</em> and use the 'Enter' key to save your edits.
 </div>
 <h3>Notes</h3>
 <div>
