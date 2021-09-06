@@ -33,7 +33,7 @@
 
     {% block pagescripts %}{% endblock %}
 
-    <title>{% block title %}{% endblock %} - Tourney Helper</title>
+    <title>{% block title %}{% endblock %} - Tournee</title>
 
     <link rel="stylesheet"
 	  href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/redmond/jquery-ui.min.css"/>
@@ -57,7 +57,7 @@
     <nav class="navbar navbar-inverse" role="navigation">
       <div class="container-fluid">
 	<!--
-	    <h1>{% block heading %}{% endblock %} - Tourney Helper Heading</h1>
+	    <h1>{% block heading %}{% endblock %} - Tournee Heading</h1>
 	    -->
 	<div class="navbar-header">
 	  <button type="button" class="navbar-toggle" data-toggle="collapse"
@@ -67,12 +67,12 @@
 	    <span class="icon-bar"></span>
 	    <span class="icon-bar"></span>
 	  </button>
-	  <a class="navbar-brand" href="/">LordBayesTourney</a>
+	  <a class="navbar-brand" href="/">Tournee!</a>
 	</div>
 
 	<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 	  <ul class="nav navbar-nav">
-	    {{ nav_link('tourneys', 'Tourneys') }}
+	    {{ nav_link('tourneys', 'Tournaments') }}
 	    {{ nav_link('entrants', 'Entrants') }}
 	    {{ nav_link('bouts', 'Bouts') }}
 	    {{ nav_link('horserace', 'Horserace') }}
