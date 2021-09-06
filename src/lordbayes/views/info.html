@@ -9,19 +9,123 @@
 {% endblock %}
 
 {% block content %}
-<h1>About TourneyHelper</h1>
+<h1>About Tournee</h1>
 
 <div id="help_accordion">
 <h3>What's this?</h3>
 <div>
   <p>
-  Say some stuff here.
+  The goal here is to let you run an unusual kind of tournament.  It's
+  very free-form, with people fighting whoever they want- more like a
+  fighting practice than a standard list.  As the bouts proceed, they
+  get entered into this program.  As results get entered, the list
+  person can use the program to assign scores to entrants.  At some
+  point, one of the entrants will emerge as unambiguously "the best".
+  </p>
+  <p>
+  We're all familiar with odds ratios.  We might say "this person has
+  four-to-one odds of beating that person", which would mean that out
+  of five bouts, we'd expect the first entrant to win four and the
+  other entrant to win one, on average.  What the program does is
+  to look at the results of the actual bouts of the tournament and
+  estimate what odds ratios would have produced those results. It's
+  easy for two people, but it's a lot trickier for ten people. Also,
+  on any given day there is some randomness to the outcomes of the
+  bouts. Our four-to-one person might only win 3 out of 5, or might
+  win all 5.  So when the program calculates the odds ratios, it gives
+  ranges. "The odds ratio for this bout was somewhere between 3-to-1
+  and 5-to-1", for example.  When it says someone is winning, it takes
+  that randomness into account.  
+  </p>
+  <p>
+  Let's talk a moment about odds ratios where there are more than two
+  entrants. Suppose there are 3, and person A has an odds ratio of
+  4-to-1 to beat person B.  Suppose person A has an odds ratio of
+  2-to-1 (or equivalently 4-to-2) to beat person C.  If person B has
+  odds of 2-to-1 to beat person C, that makes a consistent set of
+  scores for all three: person A has score 4, person B has score 1,
+  and person C has score 2.  To get the odds ratio for any given bout,
+  combine those scores: 4-to-1 for A vs. B, 4-to-2 for A vs. C, and
+  2-to-1 for C vs B.  These scores are what the program is actually
+  estimating. Of course, it doesn't have to work out so
+  neatly, and that's where the randomn chance of "what happens today"
+  comes in.  The program's job is to figure out what the likely values
+  of those scores are.  This amounts to estimating the <em>probability
+  distributions</em> of the scores.
+  </p>
+  <p>
+  There are a couple of things that can go wrong with this process.
+  First, someone may win <b>all</b> their bouts, or conversely may
+  lose all of them. The program can't work with that, because it looks
+  like that person is infinitely good, or infinitely not-good.  The
+  solution there is to ask them to fight some more fights in the hopes
+  that one or a few will turn out differently.  In the worst case, you
+  can tell the program to just ignore one of the entrants.
+  </p>
+  <p>
+  The other thing that can go wrong is that two (or more!) entrants
+  are so close together in skill that it's impossible to tell who is
+  better.  They keep fighting against each other, and the score keeps
+  shifting back and forth between them.  In a normal tournament one of
+  them would just happen to win the single all-important bout by
+  luck.  Here, well, you'll have to decide how to pick a winner when
+  the actual math says that neither is better than the other.  Maybe
+  just hold a "finals" and declare whoever wins that bout the winner.
   </p>
 </div>
-<h3>Overview</h3>
+<h3>How To Run A Tournament</h3>
 <div>
-  <p>
-  Say some stuff here.  
+  Here are the steps:
+  <ul>
+    <li>Create a tournament by adding it to the Tournaments page.
+      You'll need to give it a unique name, like "My Strange Tournament"
+      or "Practice 9/5/2021".  You can also enter a comment if you like.
+    </li>
+    <li>Find some people to participate.  People can join and leave
+      the tournament at any time, but if they arrive late it can take
+      time to figure out if they are winning, so late arrivals will make
+      your tournament run long.
+    </li>
+    <li>
+      Enter their names on the Entrants page.  If you set the
+      Tournament at the top of the Entrants page to 'All', you can see
+      if they already exist in the database.  If so, don't re-enter
+      them; their scores for this new tournament will be kept
+      separate.  The 'Tournament' on the Entrants page does not have
+      to be set to your new tournament in order to enter names.
+      You're just letting the program know that people with these
+      names exist.
+    </li>
+    <li>
+      Tell them each to pick an opponent and go fight each other.
+      Anyone can fight anyone and it's not necessary for everyone to
+      fight everyone.  If A fights B and B fights C, the program can
+      make guesses about the relative strength of A and C even if they
+      never fight each other directly.  Tell them to fight several
+      times, like between 3 and 10 passes.
+    </li>
+    <li>
+      When each pair finishes, they should come back to you and give
+      you their numbers of wins, losses, and draws.  You then enter
+      those on the Bouts page.
+    </li>
+    <li>
+      Once some bouts have been entered for your tournament, you can
+      to to the Horserace page, select your tournament, and click
+      'Go!'.  The program will estimate the odds with the data it has,
+      and give you some information about who might be winning and who
+      is probably in the top three.  As more bouts get added this
+      information will get more precise.
+    </li>
+    <li>
+      Keep adding bouts until the program can estimate a winner, or
+      until you have a good sense that two or more are so close that
+      you have to have a run-off between them.  To start to get good
+      results, everyone will have to fight at least 10 passes total,
+      hopefully with several different opponents.
+    </li>
+  </ul>
+  That's it!
   </p>
 </div>
 <h3>Loading and Saving Tournaments</h3>
