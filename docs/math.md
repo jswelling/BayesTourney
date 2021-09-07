@@ -1,4 +1,4 @@
-usemathjax: true 
+{% include head.html %}
 
 A description of the math goes here.
 
