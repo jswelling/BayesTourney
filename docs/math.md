@@ -1,4 +1,6 @@
-{% include head.html %}
+---
+usemathjax: true
+---
 
 A description of the math goes here.
 
