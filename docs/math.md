@@ -22,6 +22,8 @@ where $$N$$ is the set of all participants, $$i, k \in N$$, $$\alpha_{ij}$$ is t
 
 For a mutation that takes $$w_k \mapsto {w_k}'$$ ,
 
+{% raw %}
 $$
 \frac{{P_k}'}{P_k} = \prod _{i\neq k}\left ( \frac{{w_k}'}{w_k} \right )^{\alpha_{ki}} \left (\frac{w_k + w_i}{{w_k}' + w_i} \right )^{\alpha_{ki} + \beta_{ki}}
 $$
+{% endraw %}
