@@ -8,4 +8,6 @@ A description of the math goes here.
   $$a^2 + b^2 = c^2$$ --> note that all equations between these tags will not need escaping! 
  {% endraw %}
 
+$$E=mc^2$$
+
 Is this even updating?
