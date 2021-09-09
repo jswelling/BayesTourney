@@ -9,7 +9,10 @@ P_{ki}=\frac{w_k}{w_k + w_i}
 $$
 
 where $$w_k$$ and $$w_i$$ are the 'weights' of $$k$$ and $$i$$ respectively.  For N players there are  N such weights, and those weights fully specify the model.  
-The weights are not known a priori, but at any given point in the tournament the outcomes of a set of such bouts are known.  The objective is to estimate the weights based on those known outcomes.  A given outcome could arise from a range of possible weights, since the outcome of any given bout is random.  Thus, the formal statement of the objective is to estimate the probability distribution function ( *pdf* ) on the N-dimensional set of weights parameterized by the specific set of observed outcomes.  We will do this using the [Metropolis-Hastings Algorithm](https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm).  In this specific case the jump function will be a Normal distribution, which is symmetric, so the algorithm is technically Metropolis rather than Metropolis-Hastings.
+
+The weights are not known a priori, but at any given point in the tournament the outcomes of a set of such bouts are known.  The objective is to estimate the weights based on those known outcomes.  A given outcome could arise from a range of possible weights, since the outcome of any given bout is random.  Thus, the formal statement of the objective is to estimate the probability distribution function ( *pdf* ) on the N-dimensional set of weights parameterized by the specific set of observed outcomes.
+
+We will do this using the [Metropolis-Hastings Algorithm](https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm).  In this specific case the jump function will be a Normal distribution, which is symmetric, so the algorithm is technically Metropolis rather than Metropolis-Hastings.
 
 The likelihood that entrant $$k$$ will have a given number of wins and losses in all the bouts of the tourney is thus
 
