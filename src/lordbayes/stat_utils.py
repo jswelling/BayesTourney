@@ -25,7 +25,7 @@ N_CHAINS = 20
 #N_CHAINS = 1
 
 """Standard deviation of normal used to generate mutation step sizes"""
-MUTATION_SIGMA = 0.03
+MUTATION_SIGMA = 4.0 # works for Iron Comet
 
 
 def generate_random_bouts(n_players, n_pairs, player_wts):
@@ -86,7 +86,8 @@ def restructure_df(raw_df, draws_rule=None):
         else:
             raise RuntimeError(f'invalid draws_rule {draws_rule}')
             
-    rslt = pd.concat([merge_df_a, merge_df_b], axis=0).groupby(['player','opponent']).sum().reset_index()
+    rslt = (pd.concat([merge_df_a, merge_df_b], axis=0)
+            .groupby(['player','opponent']).sum().reset_index())
     print('original table follows')
     print(raw_df)
     print('rslt follows')
@@ -101,7 +102,7 @@ def initialize_weights(n_players, n_chains=1):
 
 def mutate(w_vec, idx, rng, sigma=1.0):
     n_chains, n_players = w_vec.shape
-    norm_samp = rng.standard_normal(size=n_chains)
+    norm_samp = sigma * rng.standard_normal(size=n_chains)
     scale_fac = np.exp(norm_samp)
     rslt = w_vec.copy()
     rslt[:,idx] *= scale_fac
@@ -152,14 +153,19 @@ def sweep(player_id_vec, w_vec, win_loss_df, rng, sigma):
     n_chains, n_players = w_vec.shape
     assert player_id_vec.shape[0] == n_players, ("Weight vector length does"
                                                  " not match players")
+    tot_accepted = 0
+    tot_trials = 0
     for trial in range(n_players):
         idx = np.random.randint(n_players)
         player = player_id_vec[idx]
         mutated_w_vec = mutate(w_vec, idx, rng, sigma=sigma)
         p_ratio = calc_p_ratio(idx, player, w_vec, mutated_w_vec, win_loss_df)
         choice_vec = (np.random.random(n_chains) <= p_ratio)
+        tot_accepted += choice_vec.sum()
+        tot_trials += np.prod(choice_vec.shape)
         w_vec = np.where(choice_vec[:, None], mutated_w_vec, w_vec)
-    return w_vec
+
+    return w_vec, tot_accepted/tot_trials
 
 
 def sample_list_to_array(samp_l):
@@ -178,19 +184,36 @@ def metropolis(player_id_list, restructured_df, n_samp, n_chains,
     rng = np.random.default_rng()
     w_vec = initialize_weights(n_players, n_chains)
     # burn-in
+    sigma = MUTATION_SIGMA
+    accept_ratio_samps = []
     for iter in range(burnin_sweeps):
-        w_vec = sweep(player_id_vec, w_vec, restructured_df,
-                      rng, sigma=MUTATION_SIGMA)
+        w_vec, accept_ratio = sweep(player_id_vec, w_vec, restructured_df,
+                                    rng, sigma=sigma)
+        accept_ratio_samps.append(accept_ratio)
+        accept_ratio_samps = accept_ratio_samps[-10:]  # Keep the last 10
+        running_mean_accept_ratio = sum(accept_ratio_samps) / len(accept_ratio_samps)
+        #
+        # The following is an extremely primitive self-tuning algorithm based on the
+        # rule that the acceptance ratio for a Normal jump function should be around
+        # 0.3 .
+        #
+        if (iter + 1) % 10 == 0:
+            sigma_initial = sigma
+            if running_mean_accept_ratio < 0.2:
+                sigma *= 0.5
+            elif running_mean_accept_ratio > 0.5:
+                sigma *= 1.5
+            print(f'Updating sigma: running mean = {running_mean_accept_ratio}'
+                  f' so sigma {sigma_initial} -> sigma')
         w_vec /= w_vec[:, 0, None]  # rescale
-    print('burn-in complete')
+    print(f'burn-in complete; sigma={sigma}')
     samp_l = []
     for samp in range(n_samp):
         for iter in range(sweeps_per_samp):
-            w_vec = sweep(player_id_vec, w_vec, restructured_df,
-                          rng, sigma=MUTATION_SIGMA)
+            w_vec, accept_ratio = sweep(player_id_vec, w_vec, restructured_df,
+                                        rng, sigma=sigma)
             w_vec /= w_vec[:, 0, None]  # rescale
         samp_l.append(w_vec.copy())
-        print(samp)
 
     samp_array= sample_list_to_array(samp_l)
     return samp_array
