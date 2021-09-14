@@ -56,6 +56,7 @@ $(function() {
 			    tourney: selTourney.val(),
 			    checkboxes: checkboxData
 			  };
+			  $("#spinner_div").addClass("show-spinner");
 			  $.ajax({type:'POST',
 				  url:'horserace_go',
 				  data:JSON.stringify(jsonData),
@@ -63,10 +64,12 @@ $(function() {
 				  dataType: "json"
 				 })
 			    .done( function(data) {
+			      $("#spinner_div").removeClass("show-spinner");
 			      $('#announcement_div').html(data['announce_html']);
 			      $('#horseraceImage').html(data['image']);
 			    })
 			    .fail(function(jqxhr, textStatus, error) {
+			      $("#spinner_div").removeClass("show-spinner");
 			      alert('Error: '+jqxhr.responseText);
 			    });
 			});
@@ -131,12 +134,15 @@ $(function() {
   <button id="horserace_go_btn">Go!</button>
   <input type="BUTTON" id="reload_horserace_button" value="Reload">
 </div>
-  <div id='announcement_div'>
+<div id='announcement_div'>
   <p>
   Click 'go' to analyze the selected tournament.
   </p>
-  </div>
-  <div id="horseraceImage">
-  </div>
+</div>
+<div id="spinner_div" class="spinner-modal" role="status">
+  <span class="sr-only">Loading...</span>
+</div>
+<div id="horseraceImage">
+</div>
 
 {% endblock %}
