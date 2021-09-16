@@ -642,14 +642,9 @@ def _include_fun(row, keycols, checkbox_dict):
     return all(flags)
 
 
-@bp.route('/horserace_go', methods=['POST'])
-@debug_page_wrapper
-@login_required
-def horserace_go(**kwargs):
+def _horserace_fetch_dataframes(data, **kwargs):
     db = get_db()
     engine = db.get_bind()
-    data = request.get_json()
-    #logMessage(f"data: {data}")
     tourneyId = int(data['tourney'])
     if tourneyId >= 0:
         boutDF = pd.read_sql(f'select * from bouts'
@@ -672,8 +667,19 @@ def horserace_go(**kwargs):
     boutDF = boutDF[boutDF.apply(_include_fun, axis=1,
                                  keycols=['leftPlayerId', 'rightPlayerId'],
                                  checkbox_dict=checkbox_dict)]
+
+    return playerDF, boutDF, checkbox_dict
+
+
+@bp.route('/horserace_go', methods=['POST'])
+@debug_page_wrapper
+@login_required
+def horserace_go(**kwargs):
+    data = request.get_json()
+    #logMessage(f"data: {data}")
+    playerDF, boutDF, checkbox_dict = _horserace_fetch_dataframes(data, **kwargs)
     output = io.StringIO()
-    
+
     try:
         fit_info = stat_utils.estimate(
             playerDF, boutDF,
@@ -694,6 +700,35 @@ def horserace_go(**kwargs):
         logMessage('horseRace_go exception: %s' % str(e))
     result = {'image': output.getvalue(),
               'announce_html': fit_info.estimate_win_probabilities().as_html()
+              }
+
+    return result
+    
+
+@bp.route('/horserace_get_bouts_graph', methods=['POST'])
+@debug_page_wrapper
+@login_required
+def horserace_get_bouts_graph(**kwargs):
+    data = request.get_json()
+    #logMessage(f"data: {data}")
+    player_df, bouts_df, checkbox_dict = _horserace_fetch_dataframes(
+        data,
+        **kwargs
+    )
+    tourney_id = int(data['tourney'])
+    tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+
+    try:
+        fit_info = stat_utils.ModelFit.from_raw_bouts(
+            player_df, bouts_df,
+            draws_rule=get_settings()['hr_draws_rule']
+        )
+        svg_str = fit_info.gen_bouts_graph_svg()
+        
+    except RuntimeError as e:
+        logMessage('horseRace_get_bouts_graph exception: %s' % str(e))
+    result = {'image': svg_str,
+              'announce_html': f"Bouts for {tourney.name}"
               }
 
     return result

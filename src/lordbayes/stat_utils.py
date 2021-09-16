@@ -1,12 +1,19 @@
 #! /usr/bin/env python
 
+import logging
 from io import StringIO
+from os import unlink
+from tempfile import TemporaryFile
 
 import numpy as np
 import pandas as pd
+import pygraphviz as pgv
 import matplotlib.pyplot as plt
 
 from .settings_constants import ALLOWED_SETTINGS
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 """Number of sweeps used in Metropolis burn-in"""
 BURNIN_SWEEPS = 300
@@ -88,10 +95,10 @@ def restructure_df(raw_df, draws_rule=None):
             
     rslt = (pd.concat([merge_df_a, merge_df_b], axis=0)
             .groupby(['player','opponent']).sum().reset_index())
-    print('original table follows')
-    print(raw_df)
-    print('rslt follows')
-    print(rslt)
+    LOGGER.debug('original table follows')
+    LOGGER.debug(raw_df)
+    LOGGER.debug('rslt follows')
+    LOGGER.debug(rslt)
     rslt = rslt.drop(columns=[col for col in ['draws', 'note'] if col in rslt.columns])
     return rslt
 
@@ -203,10 +210,10 @@ def metropolis(player_id_list, restructured_df, n_samp, n_chains,
                 sigma *= 0.5
             elif running_mean_accept_ratio > 0.5:
                 sigma *= 1.5
-            print(f'Updating sigma: running mean = {running_mean_accept_ratio}'
-                  f' so sigma {sigma_initial} -> sigma')
+            LOGGER.debug(f'Updating sigma: running mean = {running_mean_accept_ratio}'
+                         f' so sigma {sigma_initial} -> {sigma}')
         w_vec /= w_vec[:, 0, None]  # rescale
-    print(f'burn-in complete; sigma={sigma}')
+    LOGGER.debug(f'burn-in complete; sigma={sigma}')
     samp_l = []
     for samp in range(n_samp):
         for iter in range(sweeps_per_samp):
@@ -224,13 +231,22 @@ class ModelFit(object):
         self.player_df = player_df
         self.bouts_df = bout_df  # in restructured form
         self.samp_array = None
-        self.player_id_list = None
-        self.player_name_dict = None
         self.win_probabilities = None
-    def gen_samples(self):
         self.player_id_list = [elt for elt in self.bouts_df['player'].unique()]
         self.player_name_dict = {row['id']: row['name']
                                  for idx, row in self.player_df.iterrows()}
+
+    def from_raw_bouts(player_df, raw_bouts_df, draws_rule=None):
+        """
+        This version of the constructor includes restructuring of the
+        bouts dataframe.
+
+        If present, draws_rule must be one of the 'hr_draws_rule' settings
+        """
+        restructured_df = restructure_df(raw_bouts_df, draws_rule=draws_rule)
+        return ModelFit(player_df, restructured_df)
+
+    def gen_samples(self):
         #print(self.player_name_dict)
         self.win_probabilities = None  # Any old result is about to become invalid
         self.samp_array = metropolis(self.player_id_list, self.bouts_df,
@@ -263,7 +279,32 @@ class ModelFit(object):
     def estimate_win_probabilities(self) -> 'WinProbabilities':
         self.win_probabilities = WinProbabilities(self)
         return self.win_probabilities
-        
+
+    def gen_bouts_graph_svg(self):
+        """
+        Write a graph representation of the bouts network to outfile
+        """
+        grph = pgv.AGraph(strict=False, directed=False)
+        grph.graph_attr['overlap'] = 'scale'
+        for idx, row in self.player_df.iterrows():
+            grph.add_node(row['name'])
+        penw_scale = 10.0 / self.bouts_df['bouts'].max()
+        for idx, row in self.bouts_df.iterrows():
+            if row['player'] <= row['opponent']:  # don't double-count bouts
+                grph.add_edge(self.player_name_dict[row['player']],
+                              self.player_name_dict[row['opponent']],
+                              weight=row['bouts'],
+                              penwidth=(penw_scale * row['bouts']),
+                              dir='both', arrowhead='normal',
+                              label=f"{row['bouts']} bouts")
+        grph.layout(prog="neato")
+        tmpf = TemporaryFile()
+        grph.draw(tmpf, format="svg")
+        tmpf.seek(0)
+        svg_str = tmpf.read().decode("utf-8")
+        tmpf.close()  # causes file to be removed
+        return svg_str
+
 
 class WinProbabilities(object):
     def __init__(self, model_fit: ModelFit):
@@ -271,7 +312,7 @@ class WinProbabilities(object):
         if self.model_fit.samp_array is None:
             self.model_fit.gen_samples()
         n_samps, n_players = self.model_fit.samp_array.shape
-        print(n_samps, n_players)
+        #print(n_samps, n_players)
         winner_hits = {id: 0 for id in self.model_fit.player_id_list}
         top3_hits = {id: 0 for id in self.model_fit.player_id_list}
         for idx in range(n_samps):
@@ -326,8 +367,7 @@ def estimate(player_df, bouts_df, draws_rule=None):
     """
     If present, draws_rule must be one of the 'hr_draws_rule' settings
     """
-    restructured_df = restructure_df(bouts_df, draws_rule=draws_rule)
-    m_f = ModelFit(player_df, restructured_df)
+    m_f = ModelFit.from_raw_bouts(player_df, bouts_df, draws_rule=draws_rule)
     m_f.gen_samples()
     return m_f
 

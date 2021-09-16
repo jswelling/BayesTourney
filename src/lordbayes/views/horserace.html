@@ -40,6 +40,7 @@ function include_cb_change() {
 $(function() {
   selTourney = $('#sel_horserace_tournament');
   goBtn = $('#horserace_go_btn');
+  boutsGraphBtn = $('#horserace_bouts_graph_btn');
   selTourney.select().change( function()
 			      {
 				$('#horserace_table').trigger('reloadGrid');
@@ -59,6 +60,35 @@ $(function() {
 			  $("#spinner_div").addClass("show-spinner");
 			  $.ajax({type:'POST',
 				  url:'horserace_go',
+				  data:JSON.stringify(jsonData),
+				  contentType: "application/json; charset=utf-8",
+				  dataType: "json"
+				 })
+			    .done( function(data) {
+			      $("#spinner_div").removeClass("show-spinner");
+			      $('#announcement_div').html(data['announce_html']);
+			      $('#horseraceImage').html(data['image']);
+			    })
+			    .fail(function(jqxhr, textStatus, error) {
+			      $("#spinner_div").removeClass("show-spinner");
+			      alert('Error: '+jqxhr.responseText);
+			    });
+			});
+  boutsGraphBtn.button().click( function()
+			{
+			  checkboxData = {};
+			  $('#horserace_table').jqGrid('getRowData')
+			    .forEach(element => {
+			      var thisId = element.id;
+			      checkboxData[thisId] = $('#horserace_checkbox_' + thisId)[0].checked;
+			    });
+			  jsonData = {
+			    tourney: selTourney.val(),
+			    checkboxes: checkboxData
+			  };
+			  $("#spinner_div").addClass("show-spinner");
+			  $.ajax({type:'POST',
+				  url:'horserace_get_bouts_graph',
 				  data:JSON.stringify(jsonData),
 				  contentType: "application/json; charset=utf-8",
 				  dataType: "json"
@@ -131,12 +161,13 @@ $(function() {
 
 <div>
   <table id="horserace_table"></table>
-  <button id="horserace_go_btn">Go!</button>
+  <button id="horserace_bouts_graph_btn">Who fought whom?</button>
+  <button id="horserace_go_btn">Who is winning?</button>
   <input type="BUTTON" id="reload_horserace_button" value="Reload">
 </div>
 <div id='announcement_div'>
   <p>
-  Click 'go' to analyze the selected tournament.
+  Click a button to analyze the selected tournament.
   </p>
 </div>
 <div id="spinner_div" class="spinner-modal" role="status">
