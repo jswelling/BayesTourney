@@ -1,4 +1,4 @@
-# LordBayesTourney
+# BayesTourney
 
 This project features a program to collect information about individual bouts in a tournament,
 to figure out the relative strengths of the the participants.
