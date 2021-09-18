@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import random
-import lordbayes
+import bayestourney.stat_utils as stat_utils
 
 #players = ['Andy', 'Bob', 'Carl', 'Donna', 'Erin', 'Fran']
 players = ['Andy', 'Bob', 'Carl', 'Donna', 'Erin', 'Fran']
@@ -25,5 +25,5 @@ def genRandomOutcomes(scoreEstDict, nTrials):
 counts = {}
 trials = genRandomOutcomes(hiddenScores,10000)
 #print trials
-estDict = lordbayes.estimate(players,trials)
+estDict = stat_utils.estimate(players,trials)
 print(estDict)

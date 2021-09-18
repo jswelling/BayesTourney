@@ -10,7 +10,7 @@ FLASK_ENV = "development"
 DEBUG = True
 TESTING = True
 SESSION_SCRATCH_DIR = '/tmp'
-UPLOAD_FOLDER = '/tmp/lordbayes_uploads'
+UPLOAD_FOLDER = '/tmp/bayestourney_uploads'
 Path(SESSION_SCRATCH_DIR).mkdir(parents=True, exist_ok=True)
 Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
 

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import random
-import playermodel,lordbayes
+import playermodel,stat_utils
 
 #random.seed(1234)
 
@@ -27,7 +27,7 @@ for i,b in enumerate(bouts):
     print("%d: %s"%(i,b))
     print(b.getWinner())
     print(b.getLoser())
-estDict = lordbayes.estimate(playersByName, activePlayerNames, bouts)
+estDict = stat_utils.estimate(playersByName, activePlayerNames, bouts)
 #counts = {}
 #trials = genRandomOutcomes(playersByName, activePlayerNames,10000)
 ##print trials

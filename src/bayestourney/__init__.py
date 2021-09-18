@@ -29,8 +29,8 @@ def create_app():
     from . import auth
     app.register_blueprint(auth.bp)
     
-    from . import lordbayes_server as tourney
-    app.register_blueprint(tourney.bp)
+    from . import app as bayestourney_app
+    app.register_blueprint(bayestourney_app.bp)
     app.add_url_rule('/', endpoint='index')
 
     return app
