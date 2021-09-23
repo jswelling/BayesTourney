@@ -317,6 +317,11 @@ def horserace():
                            tourneyDict=tourneyDict)
 
 
+@bp.route('/hello')
+def hello():
+    return "Hello World"
+
+
 @bp.route('/help')
 @debug_page_wrapper
 def help():

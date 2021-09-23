@@ -3,37 +3,44 @@ from flask import current_app, g
 from flask.cli import with_appcontext
 from pathlib import Path
 
-dbURI = f"sqlite:///{Path(__file__).parent.parent.parent / 'data' / 'mydb.db'}"
-print(f'##### DBURI: {dbURI}')
-
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, column_property, scoped_session
 
-engine= create_engine(dbURI, echo=True)
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
-                                         bind=engine))
+DEFAULT_DATABASE_PATH = Path(__file__).parent.parent.parent / 'data' / 'mydb.db'
+
 Base = declarative_base()
-Base.query = db_session.query_property()
+
+def _initialize_session_db():
+    database_file_path = current_app.config.get('DATABASE', DEFAULT_DATABASE_PATH)
+    dbURI = f"sqlite:///{database_file_path}"
+    print(f'##### DBURI: {dbURI}')
+    engine= create_engine(dbURI, echo=True)
+    db_session = scoped_session(sessionmaker(autocommit=False,
+                                             autoflush=False,
+                                             bind=engine))
+    return db_session, engine
 
 def get_db():
     if 'db' not in g:
-        g.db = db_session
+        g.db, g.engine = _initialize_session_db()
     return g.db
 
 def get_engine():
     if 'engine' not in g:
-        g.engine = engine
+        g.db, g.engine = _initialize_session_db()
     return g.engine
 
 def init_db():
     # This defines the interface between classes and the db
+    #Base.query = get_db().query_property()
+
     from . import models
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
 
 def close_db(e=None):
     db = g.pop('db', None)
+    engine = g.pop('engine', None)
     if db is not None:
         db.close()
 

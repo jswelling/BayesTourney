@@ -362,6 +362,14 @@ class WinProbabilities(object):
                       ' chance of being in the top 3.<br>')
         return sio.getvalue()
 
+    def as_dict(self) -> dict:
+        rslt = {}
+        id, chance = self.winner
+        rslt['winner'] = (self.model_fit.player_name_dict[id], chance)
+        rslt['top3'] = [(self.model_fit.player_name_dict[id], chance)
+                        for id, chance in self.top3]
+        return rslt
+
 
 def estimate(player_df, bouts_df, draws_rule=None):
     """

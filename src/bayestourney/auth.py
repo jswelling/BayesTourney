@@ -61,7 +61,7 @@ def login():
             else:
                 error = 'Incorrect password.'
         except NoResultFound:
-            error = 'Incorrect username'
+            error = 'Incorrect username.'
 
         flash(error)
 
