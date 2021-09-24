@@ -7,7 +7,9 @@ INSERT INTO tourneys (name, note)
 VALUES
   ('test_tourney_1', 'first test tourney'),
   ('test_tourney_2', 'second test tourney'),
-  ('test_tourney_3', 'third test tourney');
+  ('test_tourney_3', 'third test tourney'),
+  ('test_tourney_4', 'fourth test tourney'),
+  ('test_tourney_5', 'fifth test tourney');
 
 INSERT INTO players (name, note)
 VALUES
