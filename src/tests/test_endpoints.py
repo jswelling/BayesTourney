@@ -39,6 +39,13 @@ def test_list_select_entrant(client, app):
 # - download/entrants
 #
 
+
+def _parse_jqgrid_response_json(some_json):
+    rec_d = {rec['id']: rec['cell'] for rec in some_json['rows']}
+    assert len(rec_d) == some_json['records']
+    return rec_d
+
+
 def test_edit_tourneys_edit(client, app):
     with client:
         before_response = client.get('/json/tourneys')
@@ -71,8 +78,8 @@ def test_edit_tourneys_edit(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
     assert before_json['records'] == after_json['records']
-    before_rec_d = {rec['id']: rec['cell'] for rec in before_json['rows']}
-    after_rec_d = {rec['id']: rec['cell'] for rec in after_json['rows']}
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
     for (id1, rec1), (id2, rec2) in zip(before_rec_d.items(), after_rec_d.items()):
         assert id1 == id2
         if id1 == 1:
@@ -91,3 +98,78 @@ def test_edit_tourneys_edit(client, app):
             assert rec2[1] == rec1[1]
             assert rec2[0] == rec1[0]
             assert rec2[2] == rec1[2]
+
+
+def test_edit_tourneys_add(client, app):
+    with client:
+        before_response = client.get('/json/tourneys')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+
+        with pytest.raises(RuntimeError) as e:
+            response = client.post(
+                '/edit/tourneys',
+                data={'oper': 'add',
+                      'name': 'test_tourney_2',
+                      'notes': 'watch me fail'
+                })
+            assert response.status_code == 400
+
+        response = client.post(
+            '/edit/tourneys',
+            data={'oper': 'add',
+                  'name': 'test_tourney_extra',
+                  'notes': 'watch me not fail'
+            })
+        assert response.status_code == 200
+        assert response.data.decode('utf-8').strip() == '{}'        
+
+        after_response = client.get('/json/tourneys')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+
+    assert after_json['records'] == before_json['records'] + 1
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
+    for id, rec in after_rec_d.items():
+        if id in before_rec_d:
+            assert rec == before_rec_d[id]
+        else:
+            assert rec[1] == 'test_tourney_extra'
+            assert rec[2] == 'watch me not fail'
+
+def test_edit_tourneys_del(client, app):
+    with client:
+        before_response = client.get('/json/tourneys')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+        before_bouts_response = client.get('/json/bouts')
+        assert before_bouts_response.status_code == 200
+        before_bouts_json = json.loads(before_bouts_response.data.decode('utf-8'))
+
+        response = client.post(
+            '/edit/tourneys',
+            data={'oper': 'del',
+                  'id': 1
+            })
+        assert response.status_code == 200
+        assert response.data.decode('utf-8').strip() == '{}'        
+
+        after_response = client.get('/json/tourneys')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+        after_bouts_response = client.get('/json/bouts')
+        assert after_bouts_response.status_code == 200
+        after_bouts_json = json.loads(after_bouts_response.data.decode('utf-8'))
+            
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    before_bouts_rec_d = _parse_jqgrid_response_json(before_bouts_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
+    after_bouts_rec_d = _parse_jqgrid_response_json(after_bouts_json)
+
+    for id, rec in after_rec_d.items():
+        assert id != 1
+        assert rec == before_rec_d[id]
+    for id, rec in after_bouts_rec_d.items():
+        assert rec[0] != 'test_tourney_1'
+        assert rec == before_bouts_rec_d[id]

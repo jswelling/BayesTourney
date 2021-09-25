@@ -16,3 +16,11 @@ VALUES
   ('Andy', 'test player 1'),
   ('Betty', 'test player 2'),
   ('Cal', 'test player 3');
+
+INSERT INTO bouts (tourneyId, leftWins, leftPlayerId, rightPlayerId, rightWins, draws, note)
+VALUES
+  (1, 3, 1, 2, 5, 2, 'tourney 1 set 1'),
+  (1, 2, 2, 1, 3, 1, 'tourney 1 set 2'),
+  (1, 4, 3, 1, 2, 0, 'tourney 1 set 3'),
+  (2, 3, 2, 3, 5, 1, 'tourney 2 set 1');
+
