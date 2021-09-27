@@ -15,7 +15,8 @@ INSERT INTO players (name, note)
 VALUES
   ('Andy', 'test player 1'),
   ('Betty', 'test player 2'),
-  ('Cal', 'test player 3');
+  ('Cal', 'test player 3'),
+  ('Donna', 'test player 4');
 
 INSERT INTO bouts (tourneyId, leftWins, leftPlayerId, rightPlayerId, rightWins, draws, note)
 VALUES
