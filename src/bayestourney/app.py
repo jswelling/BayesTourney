@@ -441,9 +441,9 @@ def handleEdit(path):
             if 'leftplayer' in request.values:
                 b.leftPlayerId = int(request.values['leftplayer'])
             if 'rwins' in request.values:
-                b.rWins = int(request.values['rwins'])
+                b.rightWins = int(request.values['rwins'])
             if 'lwins' in request.values:
-                b.lWins = int(request.values['lwins'])
+                b.leftWins = int(request.values['lwins'])
             if 'draws' in request.values:
                 b.draws = int(request.values['draws'])
             if 'notes' in request.values:

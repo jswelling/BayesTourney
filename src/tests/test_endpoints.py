@@ -1,5 +1,6 @@
 import pytest
 import json
+from pprint import pprint
 from flask import g, session
 from bayestourney.database import get_db
 
@@ -307,3 +308,96 @@ def test_edit_entrants_del(client, app):
     for id, rec in after_rec_d.items():
         assert id != 4
         assert rec == before_rec_d[id]
+
+
+def test_edit_bouts_edit(client, app):
+    with client:
+        before_response = client.get('/json/bouts')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+
+        response = client.get('/json/tourneys')
+        assert response.status_code == 200
+        tourney_d = _parse_jqgrid_response_json(
+            json.loads(response.data.decode('utf-8'))
+            )
+            
+        response = client.get('/json/entrants')
+        assert response.status_code == 200
+        entrant_d = _parse_jqgrid_response_json(
+            json.loads(response.data.decode('utf-8'))
+            )
+
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'edit',
+                  'id': 1,
+                  'tourney': 3
+            })
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'edit',
+                  'id': 2,
+                  'rightplayer': 3
+            })
+        assert response.data.decode('utf-8').strip() == '{}'        
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'edit',
+                  'id': 3,
+                  'leftplayer': 3
+            })
+        assert response.data.decode('utf-8').strip() == '{}'        
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'edit',
+                  'id': 4,
+                  'notes': 'modified'
+            })
+        assert response.data.decode('utf-8').strip() == '{}'        
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'edit',
+                  'id': 3,
+                  'rwins': 10,
+                  'lwins': 30,
+                  'draws': 20
+            })
+        assert response.data.decode('utf-8').strip() == '{}'        
+        after_response = client.get('/json/bouts')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+    assert before_json['records'] == after_json['records']
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
+    id_set = set([k for k in before_rec_d] + [k for k in after_rec_d])
+    for id in id_set:
+        assert id in before_rec_d
+        assert id in after_rec_d
+        rec1 = before_rec_d[id]
+        rec2 = after_rec_d[id]
+        changed_set = set()
+        if id == 1:
+            assert rec2[0] == tourney_d[3][1]  # = name of tourney 3
+            changed_set.add(0)
+        elif id == 2:
+            assert rec2[4] == entrant_d[3][1]  # = name of player 3
+            changed_set.add(4)
+        elif id == 3:
+            assert rec2[2] == entrant_d[3][1]  # = name of player 3
+            changed_set.add(2)
+            assert rec2[1] == 30
+            changed_set.add(1)
+            assert rec2[3] == 20
+            changed_set.add(3)
+            assert rec2[5] == 10
+            changed_set.add(5)
+        elif id == 4:
+            assert rec2[6] == 'modified'
+            changed_set.add(6)
+        for idx, (v1, v2) in enumerate(zip(rec1, rec2)):
+            if idx not in changed_set:
+                assert v1 == v2, f'mismatch for idx {idx} of id {id}'
+        
+
+
