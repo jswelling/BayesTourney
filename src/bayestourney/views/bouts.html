@@ -59,7 +59,7 @@ $(function() {
   });
   $("#reload_bout_button").click( function() {
     $("#bouts_table").trigger('reloadGrid',{ fromServer: true });
-    lastsel_entrants=null;
+    lastsel_bouts=null;
   });
   {{ updown_button_script('bouts', '/download/bouts',
 			  "tourneySelFun" ) }}
