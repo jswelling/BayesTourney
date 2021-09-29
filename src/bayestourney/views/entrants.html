@@ -67,7 +67,6 @@ $(function() {
     }
   });
   $("#reload_entrant_button").click( function() {
-    $("#entrants_table").jqGrid('editRow', lastsel_entrants, false);
     $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
