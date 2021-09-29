@@ -400,4 +400,90 @@ def test_edit_bouts_edit(client, app):
                 assert v1 == v2, f'mismatch for idx {idx} of id {id}'
         
 
+def test_edit_bouts_add(client, app):
+    with client:
+        before_response = client.get('/json/bouts')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+
+        response = client.get('/json/tourneys')
+        assert response.status_code == 200
+        tourney_d = _parse_jqgrid_response_json(
+            json.loads(response.data.decode('utf-8'))
+            )
+            
+        response = client.get('/json/entrants')
+        assert response.status_code == 200
+        entrant_d = _parse_jqgrid_response_json(
+            json.loads(response.data.decode('utf-8'))
+            )
+
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'add',
+                  'tourney': 2,
+                  'leftplayer': 1,
+                  'rightplayer': 3,
+                  'lwins': 50,
+                  'draws': 60,
+                  'notes': 'tourney 2 extra bout'
+            })
+        assert response.status_code == 200
+        assert response.data.decode('utf-8').strip() == '{}'        
+
+        after_response = client.get('/json/bouts')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+
+    assert after_json['records'] == before_json['records'] + 1
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
+    for id, rec in after_rec_d.items():
+        if id in before_rec_d:
+            assert rec == before_rec_d[id]
+        else:
+            assert rec[0] == tourney_d[2][1]
+            assert rec[1] == 50
+            assert rec[2] == entrant_d[1][1]
+            assert rec[3] == 60
+            assert rec[4] == entrant_d[3][1]
+            assert rec[5] == 0
+            assert rec[6] == 'tourney 2 extra bout'
+
+
+def test_edit_entrants_del(client, app):
+    with client:
+        before_response = client.get('/json/bouts')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+
+        with pytest.raises(RuntimeError) as e:
+            response = client.post(
+                '/edit/bouts',
+                data={'oper': 'del',
+                      'id': 500
+                })
+            assert response.status_code == 400
+
+        response = client.post(
+            '/edit/bouts',
+            data={'oper': 'del',
+                  'id': 4
+            })
+        assert response.status_code == 200
+        assert response.data.decode('utf-8').strip() == '{}'        
+
+        after_response = client.get('/json/bouts')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+            
+    before_rec_d = _parse_jqgrid_response_json(before_json)
+    after_rec_d = _parse_jqgrid_response_json(after_json)
+    assert len(after_rec_d) == len(before_rec_d) - 1
+    for id, rec in after_rec_d.items():
+        assert id != 4
+        assert rec == before_rec_d[id]
+
+
+
 

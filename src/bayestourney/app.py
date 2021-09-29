@@ -22,6 +22,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import abort
 from sqlalchemy.sql import text as sql_text
+from sqlalchemy.exc import NoResultFound
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -230,7 +231,10 @@ def upload_bouts_file():
     else:
         df = pd.read_csv(file_fullpath)
     LOGGER.info('Parse complete')
-    tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+    try:
+        tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+    except NoResultFound:
+        raise RuntimeError("No such tourney")
     LOGGER.info(f'Tourney is {tourney}')
     try:
         insert_bouts_from_df(df, tourney)
@@ -404,7 +408,10 @@ def handleEdit(path):
     engine = db.get_bind()
     if path=='tourneys':
         if request.values['oper']=='edit':
-            t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
+            try:
+                t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
+            except NoResultFound:
+                raise RuntimeError("No such tourney")
             if 'name' in request.values:
                 t.name = request.values['name']
             if 'notes' in request.values:
@@ -422,10 +429,13 @@ def handleEdit(path):
             return {}
         elif request.values['oper']=='del':
             tourneyId = int(request.values['id'])
+            try:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+            except NoResultFound:
+                raise RuntimeError("no such tourney")
             bouts = db.query(Bout).filter_by(tourneyId=tourneyId)
             for bout in bouts:
                 db.delete(bout)
-            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
             db.delete(tourney)
             db.commit()
             return {}
@@ -433,7 +443,10 @@ def handleEdit(path):
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     elif path=='bouts':
         if request.values['oper']=='edit':
-            b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
+            try:
+                b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
+            except NoResultFound:
+                raise RuntimeError("no such bout")
             if 'tourney' in request.values:
                 b.tourneyId = int(request.values['tourney'])
             if 'rightplayer' in request.values:
@@ -454,16 +467,19 @@ def handleEdit(path):
             tourneyId = int(request.values['tourney'])
             lPlayerId = int(request.values['leftplayer'])
             rPlayerId = int(request.values['rightplayer'])
-            lWins = int(request.values['lwins'] or '0')
-            rWins = int(request.values['rwins'] or '0')
-            draws = int(request.values['draws'] or '0')
-            note = request.values['notes']
+            lWins = int(request.values.get('lwins', '0'))
+            rWins = int(request.values.get('rwins', '0'))
+            draws = int(request.values.get('draws', '0'))
+            note = request.values.get('notes', '')
             b = Bout(tourneyId,lWins,lPlayerId,draws,rPlayerId,rWins,note)
             db.add(b)
             db.commit()
             return {}
         elif request.values['oper']=='del':
-            b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
+            try:
+                b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
+            except NoResultFound:
+                raise RuntimeError(f"No such bout")
             db.delete(b)
             db.commit()
             return {}
@@ -471,7 +487,10 @@ def handleEdit(path):
             raise RuntimeError(f"Bad edit operation {request.values['oper']}")
     elif path=='entrants':
         if request.values['oper']=='edit':
-            p = db.query(LogitPlayer).filter_by(id=int(request.values['id'])).one()
+            try:
+                p = db.query(LogitPlayer).filter_by(id=int(request.values['id'])).one()
+            except NoResultFound:
+                raise RuntimeError("No such entrant")
             if 'name' in request.values:
                 p.name = request.values['name']
             if 'notes' in request.values:
@@ -489,6 +508,10 @@ def handleEdit(path):
             return {}
         elif request.values['oper'] == 'del':
             player_id = int(request.values['id'])
+            try:
+                player = db.query(LogitPlayer).filter_by(id=player_id).one()
+            except NoResultFound:
+                raise RuntimeError("No such entrant")
             with engine.connect() as conn:
                 stxt = sql_text(
                     """
@@ -499,7 +522,6 @@ def handleEdit(path):
                 rs = conn.execute(stxt, p_id=player_id)
                 num_bouts = len([rec for rec in rs])
             if num_bouts == 0:
-                player = db.query(LogitPlayer).filter_by(id=player_id).one()
                 db.delete(player)
                 db.commit()
                 return {"status":"success"}
@@ -721,7 +743,10 @@ def horserace_get_bouts_graph(**kwargs):
         **kwargs
     )
     tourney_id = int(data['tourney'])
-    tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+    try:
+        tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
+    except NoResultFound:
+        raise RuntimeError("No such tourney")
 
     try:
         fit_info = stat_utils.ModelFit.from_raw_bouts(
