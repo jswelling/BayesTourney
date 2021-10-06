@@ -33,15 +33,6 @@ def test_list_select_entrant(client, app):
 """
     assert rslt.data.decode('utf-8').strip() == expected.strip()
 
-#
-# To add later-
-# - upload/entrants
-# - upload/bouts
-# - download/bouts
-# - download/entrants
-#
-
-
 def _parse_jqgrid_response_json(some_json):
     rec_d = {rec['id']: rec['cell'] for rec in some_json['rows']}
     assert len(rec_d) == some_json['records']

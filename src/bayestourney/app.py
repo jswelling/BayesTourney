@@ -177,11 +177,12 @@ def insert_bouts_from_df(df, tourney):
             print(df)
             for idx, row in df.iterrows():
                 print(row)
+                note = row['note'] if 'note' in row else ""
                 new_bout = Bout(int(row['tourneyId']),
                                 int(row['leftWins']), int(row['leftPlayerId']),
                                 int(row['draws']),
                                 int(row['rightPlayerId']), int(row['rightWins']),
-                                note = "")
+                                note = note)
                 db.add(new_bout)
                 print(new_bout)
             db.commit()
@@ -550,7 +551,7 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 rplayers.name as rightPlayerName, 
                 rplayers.id as rightPlayerId,
                 bouts.rightWins as rightWins, 
-                bouts.draws as draws 
+                bouts.draws as draws, bouts.note as note
                 from bouts, tourneys, players as lplayers, players as rplayers 
                 where bouts.leftPlayerId = lplayers.id 
                 and bouts.rightPlayerId = rplayers.id 
@@ -563,7 +564,7 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 select tourneys.name as tourneyName, 
                 bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
                 rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-                bouts.draws as draws 
+                bouts.draws as draws, bouts.note as note
                 from bouts, tourneys, players as lplayers, players as rplayers 
                 where bouts.leftPlayerId = lplayers.id 
                 and bouts.rightPlayerId = rplayers.id 
@@ -580,7 +581,7 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 rplayers.name as rightPlayerName, 
                 rplayers.id as rightPlayerId,
                 bouts.rightWins as rightWins, 
-                bouts.draws as draws 
+                bouts.draws as draws, bouts.note as note
                 from bouts, tourneys, players as lplayers, players as rplayers 
                 where bouts.leftPlayerId = lplayers.id 
                 and bouts.rightPlayerId = rplayers.id 
@@ -592,7 +593,7 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 select tourneys.name as tourneyName, 
                 bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
                 rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-                bouts.draws as draws 
+                bouts.draws as draws, bouts.note as note
                 from bouts, tourneys, players as lplayers, players as rplayers 
                 where bouts.leftPlayerId = lplayers.id 
                 and bouts.rightPlayerId = rplayers.id 
@@ -602,6 +603,7 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
 
 
 @bp.route('/download/bouts')
+@login_required
 @debug_page_wrapper
 def handleBoutsDownloadReq(**kwargs):
     tourneyId = int(request.values.get('tourney', '-1'))
@@ -652,12 +654,14 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
 
 
 @bp.route('/download/entrants')
+@login_required
 @debug_page_wrapper
 def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
     engine = db.get_bind()
 
     tourneyId = int(request.values.get('tourney', '-1'))
+    with open('/tmp/debug2.txt','w') as f: f.write(f'tourney {tourneyId}\n')
     entrantDF = _get_entrants_dataframe(tourneyId)
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
     full_path =  Path(session_scratch_dir) / 'entrants.tsv'
