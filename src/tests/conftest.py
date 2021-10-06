@@ -19,7 +19,8 @@ def app():
         'DATABASE': db_path,
         'SECRET_KEY': '1234',
         'TEMPLATE_FOLDER': 'views',
-        'UPLOAD_FOLDER': '/tmp'
+        'UPLOAD_FOLDER': '/tmp',
+        'SESSION_SCRATCH_DIR': '/tmp',
     })
 
     with app.app_context():
