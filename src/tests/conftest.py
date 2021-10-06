@@ -15,9 +15,11 @@ def app():
 
     app = create_app({
         'TESTING': True,
+        'LOGIN_DISABLED': True,
         'DATABASE': db_path,
         'SECRET_KEY': '1234',
         'TEMPLATE_FOLDER': 'views',
+        'UPLOAD_FOLDER': '/tmp'
     })
 
     with app.app_context():

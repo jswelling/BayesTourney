@@ -102,6 +102,7 @@ def insert_entrants_from_df(df):
 
 
 @bp.route("/upload/entrants", methods=['POST'])
+@login_required
 def upload_entrants_file():
     """
     This is an AJAX transaction
