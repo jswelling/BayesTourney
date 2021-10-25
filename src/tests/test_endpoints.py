@@ -442,7 +442,7 @@ def test_edit_bouts_add(client, app):
             assert rec[6] == 'tourney 2 extra bout'
 
 
-def test_edit_entrants_del(client, app):
+def test_edit_bouts_del(client, app):
     with client:
         before_response = client.get('/json/bouts')
         assert before_response.status_code == 200
