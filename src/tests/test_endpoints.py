@@ -33,7 +33,7 @@ def test_list_select_entrant(client, app):
 """
     assert rslt.data.decode('utf-8').strip() == expected.strip()
 
-def _parse_jqgrid_response_json(some_json):
+def parse_jqgrid_response_json(some_json):
     rec_d = {rec['id']: rec['cell'] for rec in some_json['rows']}
     assert len(rec_d) == some_json['records']
     return rec_d
@@ -71,8 +71,8 @@ def test_edit_tourneys_edit(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
     assert before_json['records'] == after_json['records']
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     for (id1, rec1), (id2, rec2) in zip(before_rec_d.items(), after_rec_d.items()):
         assert id1 == id2
         if id1 == 1:
@@ -122,8 +122,8 @@ def test_edit_tourneys_add(client, app):
         after_json = json.loads(after_response.data.decode('utf-8'))
 
     assert after_json['records'] == before_json['records'] + 1
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     for id, rec in after_rec_d.items():
         if id in before_rec_d:
             assert rec == before_rec_d[id]
@@ -156,10 +156,10 @@ def test_edit_tourneys_del(client, app):
         assert after_bouts_response.status_code == 200
         after_bouts_json = json.loads(after_bouts_response.data.decode('utf-8'))
             
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    before_bouts_rec_d = _parse_jqgrid_response_json(before_bouts_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
-    after_bouts_rec_d = _parse_jqgrid_response_json(after_bouts_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    before_bouts_rec_d = parse_jqgrid_response_json(before_bouts_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
+    after_bouts_rec_d = parse_jqgrid_response_json(after_bouts_json)
 
     for id, rec in after_rec_d.items():
         assert id != 1
@@ -201,8 +201,8 @@ def test_edit_entrants_edit(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
     assert before_json['records'] == after_json['records']
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     id_set = set([k for k in before_rec_d] + [k for k in after_rec_d])
     for id in id_set:
         assert id in before_rec_d
@@ -255,8 +255,8 @@ def test_edit_entrants_add(client, app):
         after_json = json.loads(after_response.data.decode('utf-8'))
 
     assert after_json['records'] == before_json['records'] + 1
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     for id, rec in after_rec_d.items():
         if id in before_rec_d:
             assert rec == before_rec_d[id]
@@ -293,8 +293,8 @@ def test_edit_entrants_del(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
             
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     assert len(after_rec_d) == len(before_rec_d) - 1
     for id, rec in after_rec_d.items():
         assert id != 4
@@ -309,13 +309,13 @@ def test_edit_bouts_edit(client, app):
 
         response = client.get('/json/tourneys')
         assert response.status_code == 200
-        tourney_d = _parse_jqgrid_response_json(
+        tourney_d = parse_jqgrid_response_json(
             json.loads(response.data.decode('utf-8'))
             )
             
         response = client.get('/json/entrants')
         assert response.status_code == 200
-        entrant_d = _parse_jqgrid_response_json(
+        entrant_d = parse_jqgrid_response_json(
             json.loads(response.data.decode('utf-8'))
             )
 
@@ -359,8 +359,8 @@ def test_edit_bouts_edit(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
     assert before_json['records'] == after_json['records']
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     id_set = set([k for k in before_rec_d] + [k for k in after_rec_d])
     for id in id_set:
         assert id in before_rec_d
@@ -399,13 +399,13 @@ def test_edit_bouts_add(client, app):
 
         response = client.get('/json/tourneys')
         assert response.status_code == 200
-        tourney_d = _parse_jqgrid_response_json(
+        tourney_d = parse_jqgrid_response_json(
             json.loads(response.data.decode('utf-8'))
             )
             
         response = client.get('/json/entrants')
         assert response.status_code == 200
-        entrant_d = _parse_jqgrid_response_json(
+        entrant_d = parse_jqgrid_response_json(
             json.loads(response.data.decode('utf-8'))
             )
 
@@ -427,8 +427,8 @@ def test_edit_bouts_add(client, app):
         after_json = json.loads(after_response.data.decode('utf-8'))
 
     assert after_json['records'] == before_json['records'] + 1
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     for id, rec in after_rec_d.items():
         if id in before_rec_d:
             assert rec == before_rec_d[id]
@@ -468,8 +468,8 @@ def test_edit_bouts_del(client, app):
         assert after_response.status_code == 200
         after_json = json.loads(after_response.data.decode('utf-8'))
             
-    before_rec_d = _parse_jqgrid_response_json(before_json)
-    after_rec_d = _parse_jqgrid_response_json(after_json)
+    before_rec_d = parse_jqgrid_response_json(before_json)
+    after_rec_d = parse_jqgrid_response_json(after_json)
     assert len(after_rec_d) == len(before_rec_d) - 1
     for id, rec in after_rec_d.items():
         assert id != 4

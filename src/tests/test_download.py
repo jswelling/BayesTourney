@@ -5,12 +5,12 @@ from io import BytesIO
 from pprint import pprint
 from flask import g, session, url_for
 from bayestourney.database import get_db
-from .test_endpoints import _parse_jqgrid_response_json
+from .test_endpoints import parse_jqgrid_response_json
 
 def _get_rec_dict(client, endpoint):
     response = client.get(endpoint)
     assert response.status_code == 200
-    return _parse_jqgrid_response_json(json.loads(response.data.decode('utf-8')))
+    return parse_jqgrid_response_json(json.loads(response.data.decode('utf-8')))
 
 
 def test_download_entrants(auth, client, app):
