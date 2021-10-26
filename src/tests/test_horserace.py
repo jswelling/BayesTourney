@@ -53,11 +53,25 @@ def test_horserace_get_bouts_graph(auth, client, app):
 def test_horserace_table(auth, client, app):
     auth.login()
     with client:
-        tbl_response = client.get('/json/horserace?tourney=1')
-        assert tbl_response.status_code == 200
-        tbl_json = json.loads(tbl_response.data.decode('utf-8'))
-        rec_d = parse_jqgrid_response_json(tbl_json)
-        with open('/tmp/debug.txt','w') as f:
-            from pprint import pprint
-            pprint(tbl_json, stream=f)
-            pprint(rec_d, stream=f)
+        before_response = client.get('/json/horserace?tourney=1')
+        assert before_response.status_code == 200
+        before_json = json.loads(before_response.data.decode('utf-8'))
+        before_rec_d = parse_jqgrid_response_json(before_json)
+        ckbox_get_response = client.get('/ajax/horserace/checkbox?tourney_id=1&player_id=3')
+        assert ckbox_get_response.status_code == 200
+        ckbox_get_json = json.loads(ckbox_get_response.data.decode('utf-8'))
+        assert ckbox_get_json['value'] == 'true'
+        assert before_rec_d[3][6] == '3+'
+        ckbox_put_response = client.put('/ajax/horserace/checkbox?tourney_id=1&player_id=3&state=false')
+        assert ckbox_put_response.status_code == 200
+        ckbox_put_json = json.loads(ckbox_put_response.data.decode('utf-8'))
+        assert ckbox_put_json['value'] == 'false'
+        after_response = client.get('/json/horserace?tourney=1')
+        assert after_response.status_code == 200
+        after_json = json.loads(after_response.data.decode('utf-8'))
+        after_rec_d = parse_jqgrid_response_json(after_json)
+        assert after_rec_d[3][6] == '3-'
+        
+        
+
+
