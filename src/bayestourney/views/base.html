@@ -101,7 +101,7 @@
 		-->
 	      </ul>
 	    </li>
-	    {% if current_user %}
+	    {% if current_user and current_user.get_id() %}
 	    <li class="navbar-text"><span>{{ current_user['username'] }}</span></li>
 	    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
 	    {% else %}

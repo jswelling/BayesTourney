@@ -3,7 +3,7 @@ from flask import (
     url_for, current_app, abort
 )
 from flask_login import (
-    login_user, logout_user, login_required
+    login_user, logout_user, login_required, current_user
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import NoResultFound
@@ -11,6 +11,7 @@ from urllib.parse import urlparse, urljoin
 
 from .models import User
 from .database import get_db
+from .email import send_email
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -21,8 +22,20 @@ def is_safe_url(target):
             and ref_url.netloc == test_url.netloc)
 
 
+def send_congrats_email(user):
+    send_email('[Congrats] You are registered',
+               sender=current_app.config['ADMINS'][0],
+               recipients=[user.username],
+               text_body=render_template('email/reset_password.txt',
+                                         user=user),
+               html_body=render_template('email/reset_password.html',
+                                         user=user))
+
+
 @bp.route('/register', methods=('GET', 'POST'))
 def register():
+    if current_user.is_authenticated:
+        return redirect(urlfor('index'))
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -38,8 +51,10 @@ def register():
             error = f"User {username} is already registered."
 
         if error is None:
-            db.add(User(username, generate_password_hash(password)))
+            user = User(username, generate_password_hash(password))
+            db.add(user)
             db.commit()
+            #send_congrats_email(user)
             current_app.logger.info("Just added new user %s",
                                     username)
             return redirect(url_for('auth.login'))
