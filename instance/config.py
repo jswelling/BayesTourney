@@ -1,11 +1,13 @@
 """Flask configuration"""
-from os import environ
+import os
 from dotenv import load_dotenv, dotenv_values
 from pathlib import Path
 
+basepath = Path(__file__).parent.resolve()
+
 load_dotenv(f"{Path(__file__).parent / '.env'}", verbose=True)
 
-SECRET_KEY = environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY')
 FLASK_ENV = "development"
 DEBUG = True
 TESTING = False
