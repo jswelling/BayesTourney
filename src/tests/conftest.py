@@ -3,6 +3,8 @@ from pathlib import Path
 import tempfile
 import re
 
+from flask_login import FlaskLoginClient
+
 from sqlalchemy.sql import text
 import pytest
 from bayestourney import create_app
@@ -22,6 +24,7 @@ def app():
         'UPLOAD_FOLDER': '/tmp',
         'SESSION_SCRATCH_DIR': '/tmp',
     })
+    app.test_client_class = FlaskLoginClient
 
     with app.app_context():
         init_db()

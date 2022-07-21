@@ -4,7 +4,10 @@ from sqlalchemy import Column, Integer, Float, String, ForeignKey, JSON
 from sqlalchemy import select
 from sqlalchemy.orm import column_property
 
-class User(Base):
+from flask_login import UserMixin
+
+
+class User(UserMixin, Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, nullable=False)
@@ -17,6 +20,7 @@ class User(Base):
 
     def __str__(self):
         return "<User(%s)>"%self.username
+
 
 class Tourney(Base):
     __tablename__ = 'tourneys'

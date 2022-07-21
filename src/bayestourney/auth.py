@@ -1,19 +1,25 @@
-"""
-This is straight from the tutorial
-"""
-import functools
-
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session,
-    url_for, current_app
+    url_for, current_app, abort
+)
+from flask_login import (
+    login_user, logout_user, login_required
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import NoResultFound
+from urllib.parse import urlparse, urljoin
 
 from .models import User
 from .database import get_db
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+def is_safe_url(target):
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return (test_url.scheme in ('http', 'https')
+            and ref_url.netloc == test_url.netloc)
+
 
 @bp.route('/register', methods=('GET', 'POST'))
 def register():
@@ -53,11 +59,13 @@ def login():
         try:
             user = db.query(User).filter_by(username=username).one()
             if check_password_hash(user.password, password):
-                session.clear()
-                session['user_id'] = user.id
+                login_user(user)
                 current_app.logger.info("Successful login by %s",
                                         username)
-                return redirect(url_for('index'))
+                next = request.args.get('next')
+                if not is_safe_url(next):
+                    return abort(400)
+                return redirect(next or url_for('index'))
             else:
                 error = 'Incorrect password.'
         except NoResultFound:
@@ -67,27 +75,12 @@ def login():
 
     return render_template('auth/login.html')
 
+
 @bp.route('/logout')
+@login_required
 def logout():
-    session.clear()
-    return redirect(url_for('index'))
+    logout_user()
+    return redirect(url_for('auth.login'))
 
-@bp.before_app_request
-def load_logged_in_user():
-    user_id = session.get('user_id')
 
-    if user_id is None:
-        g.user = None
-    else:
-        g.user = get_db().query(User).filter_by(id=user_id).one()
-
-def login_required(view):
-    @functools.wraps(view)
-    def wrapped_view(**kwargs):
-        if g.user is None:
-            return redirect(url_for('auth.login'))
-
-        return view(**kwargs)
-
-    return wrapped_view
 

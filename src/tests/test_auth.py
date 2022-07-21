@@ -1,5 +1,6 @@
 import pytest
-from flask import g, session
+from flask import session
+from flask_login import current_user
 from bayestourney.database import get_db
 
 
@@ -35,8 +36,8 @@ def test_login(client, auth):
 
     with client:
         client.get('/')
-        assert session['user_id'] == 1
-        assert getattr(g.user, 'username') == 'test'
+        assert session['_user_id'] == '1'
+        assert getattr(current_user, 'username') == 'test'
 
 
 @pytest.mark.parametrize(('username', 'password', 'message'), (

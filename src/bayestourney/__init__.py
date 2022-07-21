@@ -8,6 +8,7 @@ Created on Jun 4, 2013
 
 from flask import Flask
 from pathlib import Path
+from pprint import pprint
 
 def create_app(test_config=None):
     instance_path = Path(__file__).parent.parent.parent / 'instance'
@@ -25,6 +26,10 @@ def create_app(test_config=None):
         app.config.from_pyfile('config.py')
     else:
         app.config.from_mapping(test_config)
+    
+    from flask_login import LoginManager
+    login_manager = LoginManager()
+    login_manager.init_app(app)
 
     from . import database as db
     db.init_app(app)
@@ -37,3 +42,4 @@ def create_app(test_config=None):
     app.add_url_rule('/', endpoint='index')
 
     return app
+
