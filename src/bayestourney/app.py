@@ -18,6 +18,7 @@ from flask import (
     Blueprint, flash, g, render_template, request, url_for,
     send_from_directory, send_file, session, redirect, current_app
 )
+from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import abort
@@ -32,7 +33,6 @@ from pathlib import Path
 from pprint import pprint
 
 from .database import get_db
-from .auth import login_required
 from .models import Tourney, LogitPlayer, Bout
 from .settings import get_settings, set_settings, SettingsError
 from . import stat_utils

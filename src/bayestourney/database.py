@@ -14,7 +14,7 @@ Base = declarative_base()
 def _initialize_session_db():
     database_file_path = current_app.config.get('DATABASE', DEFAULT_DATABASE_PATH)
     dbURI = f"sqlite:///{database_file_path}"
-    print(f'##### DBURI: {dbURI}')
+    current_app.logger.info(f'##### DBURI: {dbURI}')
     engine= create_engine(dbURI, echo=True)
     db_session = scoped_session(sessionmaker(autocommit=False,
                                              autoflush=False,
@@ -54,3 +54,13 @@ def init_db_command():
 def init_app(app):
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
+    from .models import User
+    def load_user(user_id):
+        try:
+            user = get_db().query(User).filter_by(id=int(user_id)).one()
+            return user
+        except Exception as e:
+            current_app.logger.warning(f'LOAD_USER exception {e} on {user_id} {type(user_id)}')
+            return None
+    app.login_manager.user_loader(load_user)
+    app.login_manager.login_view = "auth.login"

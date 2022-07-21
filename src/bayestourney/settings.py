@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 from copy import deepcopy
-from flask import g
+from flask_login import current_user
 
 from .database import get_db
 
@@ -17,8 +17,8 @@ def get_settings() -> dict:
     A convenient method to get user-specific settings
     """
     rslt = deepcopy(DEFAULT_SETTINGS)
-    if g.user.prefs is not None:
-        rslt.update(g.user.prefs)
+    if current_user.prefs is not None:
+        rslt.update(current_user.prefs)
     return rslt
 
 
@@ -32,7 +32,7 @@ def set_settings(key: str, value: str):
         raise SettingsError(f"Value {value} is invalid for setting {key}")
     settings_copy = deepcopy(get_settings())
     settings_copy[key] = value
-    g.user.prefs = settings_copy
-    get_db().add(g.user)
+    current_user.prefs = settings_copy
+    get_db().add(current_user)
 
     
