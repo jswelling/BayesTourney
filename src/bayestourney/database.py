@@ -10,10 +10,11 @@ from sqlalchemy.orm import sessionmaker, column_property, scoped_session
 DEFAULT_DATABASE_PATH = Path(__file__).parent.parent.parent / 'data' / 'mydb.db'
 
 Base = declarative_base()
+metadata = Base.metadata
 
 def _initialize_session_db():
-    database_file_path = current_app.config.get('DATABASE', DEFAULT_DATABASE_PATH)
-    dbURI = f"sqlite:///{database_file_path}"
+    default_database_uri = f"sqlite:///{DEFAULT_DATABASE_PATH}"
+    dbURI = current_app.config.get('SQLALCHEMY_DATABASE_URI', default_database_uri)
     current_app.logger.info(f'##### DBURI: {dbURI}')
     engine= create_engine(dbURI, echo=True)
     db_session = scoped_session(sessionmaker(autocommit=False,
