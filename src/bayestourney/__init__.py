@@ -40,6 +40,10 @@ def create_app(test_config=None):
     from . import database as db
     db.init_app(app)
 
+    from flask_migrate import Migrate
+    migrate = Migrate()
+    migrate.init_app(app, db)
+
     from . import auth
     app.register_blueprint(auth.bp)
     
