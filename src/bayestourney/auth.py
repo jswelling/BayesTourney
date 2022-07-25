@@ -5,7 +5,6 @@ from flask import (
 from flask_login import (
     login_user, logout_user, login_required, current_user
 )
-from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import NoResultFound
 from urllib.parse import urlparse, urljoin
 
@@ -25,7 +24,7 @@ def is_safe_url(target):
 def send_congrats_email(user):
     send_email('[Congrats] You are registered',
                sender=current_app.config['ADMINS'][0],
-               recipients=[user.username],
+               recipients=[user.email],
                text_body=render_template('email/reset_password.txt',
                                          user=user),
                html_body=render_template('email/reset_password.html',
@@ -39,6 +38,8 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        email = request.form['email']
+        verify_password = request.form['verify_password']
         db = get_db()
         error = None
 
@@ -46,12 +47,24 @@ def register():
             error = 'Username is required.'
         elif not password:
             error = 'Password is required.'
+        elif not email:
+            error = 'Email is required.'
+        elif not verify_password:
+            error = 'Verify Password is required.'
+        elif verify_password != password:
+            error = 'Passwords do not match.'
+        
+        elif (db.query(User).filter_by(email=email).first()
+              is not None):
+            error = f"There is already a user registered for {email} ."
+
         elif (db.query(User).filter_by(username=username).first()
               is not None):
-            error = f"User {username} is already registered."
-
+            error = f"The username {username} is already in use."
+        print(f'ERROR is <{error}>')
+            
         if error is None:
-            user = User(username, generate_password_hash(password))
+            user = User(username, email, password)
             db.add(user)
             db.commit()
             #send_congrats_email(user)
@@ -67,16 +80,16 @@ def register():
 @bp.route('/login', methods=('GET', 'POST'))
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        email = request.form['email']
         password = request.form['password']
         db = get_db()
         error = None
         try:
-            user = db.query(User).filter_by(username=username).one()
-            if check_password_hash(user.password, password):
+            user = db.query(User).filter_by(email=email).one()
+            if user.check_password(password):
                 login_user(user)
-                current_app.logger.info("Successful login by %s",
-                                        username)
+                current_app.logger.info("Successful login by %s %s",
+                                        user.username, user.email)
                 next = request.args.get('next')
                 if not is_safe_url(next):
                     return abort(400)
@@ -84,7 +97,7 @@ def login():
             else:
                 error = 'Incorrect password.'
         except NoResultFound:
-            error = 'Incorrect username.'
+            error = 'No known user has that email address.'
 
         flash(error)
 
