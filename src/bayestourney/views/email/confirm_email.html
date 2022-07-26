@@ -1,0 +1,5 @@
+
+<body>
+  Hello {{user.username}}!  To confirm your email address for Tournee,
+  please go to <a href={{url_for("auth.confirm_email", token=token, _external=True)}} .
+</body>

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session,
     url_for, current_app, abort
@@ -10,9 +12,13 @@ from urllib.parse import urlparse, urljoin
 
 from .models import User
 from .database import get_db
-from .email import send_email
+from .email import send_email, generate_signed_token, confirm_signed_token
+
+EMAIL_VALIDATION_SALT = "email-validation-salt"
+EMAIL_VALIDATION_TIME_LIMIT = 3600 # seconds
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
+
 
 def is_safe_url(target):
     ref_url = urlparse(request.host_url)
@@ -21,14 +27,14 @@ def is_safe_url(target):
             and ref_url.netloc == test_url.netloc)
 
 
-def send_congrats_email(user):
-    send_email('[Congrats] You are registered',
+def send_confirmation_email(user, token):
+    send_email('Please confirm your email address for Tournee',
                sender=current_app.config['ADMINS'][0],
                recipients=[user.email],
-               text_body=render_template('email/reset_password.txt',
-                                         user=user),
-               html_body=render_template('email/reset_password.html',
-                                         user=user))
+               text_body=render_template('email/confirm_email.txt',
+                                         user=user, token=token),
+               html_body=render_template('email/confirm_email.html',
+                                         user=user, token=token))
 
 
 @bp.route('/register', methods=('GET', 'POST'))
@@ -61,20 +67,51 @@ def register():
         elif (db.query(User).filter_by(username=username).first()
               is not None):
             error = f"The username {username} is already in use."
-        print(f'ERROR is <{error}>')
             
         if error is None:
             user = User(username, email, password)
             db.add(user)
             db.commit()
-            #send_congrats_email(user)
-            current_app.logger.info("Just added new user %s",
+            token = generate_signed_token(
+                current_app,
+                {"name": user.username,
+                 "email": user.email
+                 },
+                EMAIL_VALIDATION_SALT
+                )
+            send_confirmation_email(user, token)
+            current_app.logger.info("Just added new user %s and sent confirmation email",
                                     username)
             return redirect(url_for('auth.login'))
 
         flash(error)
 
     return render_template('auth/register.html')
+
+
+@bp.route('/confirm/<token>')
+@login_required
+def confirm_email(token):
+    db = get_db()
+    sig_ok, tok_info = confirm_signed_token(
+        current_app,
+        token,
+        EMAIL_VALIDATION_SALT,
+        expiration=EMAIL_VALIDATION_TIME_LIMIT
+        )
+    if sig_ok:
+        user = db.query(User).filter_by(email=tok_info["email"]).one()
+        if user.confirmed:
+            flash('Account already confirmed!  Please login.')
+        else:
+            user.confirmed = True
+            user.confirmed_on = datetime.now()
+            db.add(user)
+            db.commit()
+            flash('Thank you for confirming your email!')
+            return redirect(url_for('index'))
+    else:
+        flash('The confirmation link is invalid or has expired.')
 
 
 @bp.route('/login', methods=('GET', 'POST'))
