@@ -29,7 +29,7 @@ def is_safe_url(target):
 
 def send_confirmation_email(user, token):
     send_email('Please confirm your email address for Tournee',
-               sender=current_app.config['ADMINS'][0],
+               sender=current_app.config['ADMIN_MAIL_SENDER'],
                recipients=[user.email],
                text_body=render_template('email/confirm_email.txt',
                                          user=user, token=token),
@@ -103,6 +103,7 @@ def confirm_email(token):
         user = db.query(User).filter_by(email=tok_info["email"]).one()
         if user.confirmed:
             flash('Account already confirmed!  Please login.')
+            return redirect(url_for('index'))
         else:
             user.confirmed = True
             user.confirmed_on = datetime.now()
@@ -112,6 +113,7 @@ def confirm_email(token):
             return redirect(url_for('index'))
     else:
         flash('The confirmation link is invalid or has expired.')
+        return redirect(url_for('auth.login'))
 
 
 @bp.route('/login', methods=('GET', 'POST'))

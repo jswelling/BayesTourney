@@ -24,6 +24,8 @@ def app():
         'TEMPLATE_FOLDER': 'views',
         'UPLOAD_FOLDER': '/tmp',
         'SESSION_SCRATCH_DIR': '/tmp',
+        'ADMIN_MAIL_SENDER': 'someadmin',
+        'SERVER_NAME': 'fake.name.for.testing.org',
     })
     app.test_client_class = FlaskLoginClient
 
