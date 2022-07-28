@@ -5,7 +5,7 @@ from flask import (
     url_for, current_app, abort
 )
 from flask_login import (
-    login_user, logout_user, login_required, current_user
+    login_user, logout_user, login_required, current_user, fresh_login_required
 )
 from sqlalchemy.exc import NoResultFound
 from urllib.parse import urlparse, urljoin
@@ -121,14 +121,21 @@ def login():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        remember_me = request.form.get('remember_me', 'off')
         db = get_db()
         error = None
         try:
             user = db.query(User).filter_by(email=email).one()
             if user.check_password(password):
-                login_user(user)
-                current_app.logger.info("Successful login by %s %s",
-                                        user.username, user.email)
+                if remember_me == 'on':
+                    user.remember_me = True
+                else:
+                    user.remember_me = False
+                db.add(user)
+                db.commit()
+                login_user(user, remember=user.remember_me)
+                current_app.logger.info("Successful login by %s %s, remember = %s",
+                                        user.username, user.email, user.remember_me)
                 next = request.args.get('next')
                 if not is_safe_url(next):
                     return abort(400)
@@ -150,4 +157,26 @@ def logout():
     return redirect(url_for('auth.login'))
 
 
+@bp.route('/change_password', methods=('GET', 'POST'))
+@fresh_login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form['old_password']
+        new_password = request.form['new_password']
+        verify_new_password = request.form['verify_new_password']
+        db = get_db()
+        user = current_user
+        if not user.check_password(old_password):
+            error = 'Incorrect current password.'
+        elif new_password != verify_new_password:
+            error = 'The two copies of the new password do not match'
+        else:
+            user.set_password(new_password)
+            db.add(user)
+            db.commit()
+            flash('Your password has been updated!')
+            return redirect(url_for('index'))
 
+        flash(error)
+
+    return render_template('auth/change_password.html')

@@ -22,6 +22,7 @@ class User(UserMixin, Base):
     confirmed = Column(Boolean, nullable=False, default=False)
     confirmed_on = Column(DateTime, nullable=True)
     prefs = Column(JSON, nullable=True)
+    remember_me = Column(Boolean, nullable=False, default=False)
 
     def __init__(self, username, email, password):
         self.username = username
