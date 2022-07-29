@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Change Your Email Address{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  Your email address is currently
+  {% if user.confirmed %}
+  {{user.email}}
+  {% else %}
+  not confirmed.
+  {% endif %}
+  <br>
+  <form method="post">
+    <label for="email">New Email Address</label>
+    <input type="email" name="email" id="email" required>
+    <input type="submit" value="Send confirmation email">
+  </form>
+  An email will be sent to the address you provide.  Click the link in the email to
+  verify the new address!
+{% endblock %}

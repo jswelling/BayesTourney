@@ -169,7 +169,7 @@ def change_password():
         if not user.check_password(old_password):
             error = 'Incorrect current password.'
         elif new_password != verify_new_password:
-            error = 'The two copies of the new password do not match'
+            error = 'The two copies of the new password do not match.'
         else:
             user.set_password(new_password)
             db.add(user)
@@ -180,3 +180,29 @@ def change_password():
         flash(error)
 
     return render_template('auth/change_password.html')
+
+
+@bp.route('/change_email', methods=('GET', 'POST'))
+@fresh_login_required
+def change_email():
+    if request.method == 'POST':
+        email_addr = request.form['email']
+        current_user.email = email_addr
+        current_user.confirmed = False
+        current_user.confirmed_on = None
+        db = get_db()
+        db.add(current_user)
+        db.commit()
+        token = generate_signed_token(
+            current_app,
+            {"name": current_user.username,
+             "email": current_user.email
+             },
+            EMAIL_VALIDATION_SALT
+        )
+        send_confirmation_email(current_user, token)
+        current_app.logger.info("Just updated email for user %s to %s and sent confirmation email",
+                                current_user.username, current_user.email)
+        return redirect(url_for('index'))
+
+    return render_template('auth/change_email.html', user=current_user)
