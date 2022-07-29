@@ -96,3 +96,90 @@ def test_confirm(client, auth, app):
         user = db.query(User).filter_by(email=current_user.email).one()
         assert user.confirmed
         assert user.confirmed_on - datetime.now() < timedelta(seconds=5)
+
+
+def test_change_password(client, app):
+    assert client.get('/auth/register').status_code == 200
+    with client:
+        # We have to create a new user so we know a user's actual password,
+        # because the database stores only hashes
+        response = client.post(
+            '/auth/register',
+            data={
+                'username': 'somenewuser',
+                'email': 'somenewuser@madeupname.com',
+                'password': '123abc',
+                'verify_password': '123abc',
+            }
+        )
+        assert 'http://fake.name.for.testing.org/auth/login' == response.headers['Location']
+        assert client.get('/auth/login').status_code == 200
+        response = client.post(
+            '/auth/login',
+            data={
+                'email': 'somenewuser@madeupname.com',
+                'password': '123abc',
+            }
+        )
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        user = db.query(User).filter_by(email=current_user.email).one()
+        assert user.check_password('123abc')
+        user_email_addr = user.email
+        client.get('/auth/change_password')  # forces current_user to have a value
+        response = client.post(
+            '/auth/change_password',
+            data={
+                'old_password': '123abc',
+                'new_password': '456def',
+                'verify_new_password': '456def'
+            }
+        )
+        assert 'http://fake.name.for.testing.org/' == response.headers['Location']
+        user = db.query(User).filter_by(email=user_email_addr).one()
+        assert user.check_password('456def')
+
+
+@pytest.mark.parametrize(('old_password', 'new_password', 'verify_new_password', 'message'), (
+    ('somerandomstring', '', '', b'Incorrect current password.'),
+    ('123abc', '456def', '789ghi', b'The two copies of the new password do not match.'),
+))
+def test_register_validate_input(client, app,
+                                 old_password, new_password, verify_new_password, message):
+    assert client.get('/auth/register').status_code == 200
+    with client:
+        # We have to create a new user so we know a user's actual password,
+        # because the database stores only hashes
+        response = client.post(
+            '/auth/register',
+            data={
+                'username': 'somenewuser',
+                'email': 'somenewuser@madeupname.com',
+                'password': '123abc',
+                'verify_password': '123abc',
+            }
+        )
+        assert 'http://fake.name.for.testing.org/auth/login' == response.headers['Location']
+        assert client.get('/auth/login').status_code == 200
+        response = client.post(
+            '/auth/login',
+            data={
+                'email': 'somenewuser@madeupname.com',
+                'password': '123abc',
+            }
+        )
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        user = db.query(User).filter_by(email=current_user.email).one()
+        assert user.check_password('123abc')
+        user_email_addr = user.email
+        client.get('/auth/change_password')  # forces current_user to have a value
+        response = client.post(
+            '/auth/change_password',
+            data={
+                'old_password': old_password,
+                'new_password': new_password,
+                'verify_new_password': verify_new_password
+            }
+        )
+        assert message in response.data
