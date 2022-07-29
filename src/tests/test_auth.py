@@ -144,7 +144,7 @@ def test_change_password(client, app):
     ('somerandomstring', '', '', b'Incorrect current password.'),
     ('123abc', '456def', '789ghi', b'The two copies of the new password do not match.'),
 ))
-def test_register_validate_input(client, app,
+def test_change_password_validate_input(client, app,
                                  old_password, new_password, verify_new_password, message):
     assert client.get('/auth/register').status_code == 200
     with client:
@@ -183,3 +183,28 @@ def test_register_validate_input(client, app,
             }
         )
         assert message in response.data
+
+
+def test_change_email(client, app, auth):
+    auth.login()
+    assert client.get('/auth/change_email').status_code == 200
+    with client:
+        client.get('/')
+        db = get_db()
+        user = db.query(User).filter_by(email=current_user.email).one()
+        user_email_addr = user.email
+        client.get('/auth/change_email')  # forces current_user to have a value
+        new_addr = "someuser@someplace.org"
+        response = client.post(
+            '/auth/change_email',
+            data={
+                'email': new_addr
+            }
+        )
+        assert 'http://fake.name.for.testing.org/' == response.headers['Location']
+        user = db.query(User).filter_by(email=new_addr).one()
+        assert user.email == new_addr
+        assert user.confirmed == False
+        assert user.confirmed_on == None
+
+
