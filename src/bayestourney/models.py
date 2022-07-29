@@ -1,25 +1,42 @@
-from .database import Base
+from datetime import datetime
 
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, JSON
+from sqlalchemy import (Column, Integer, Float, String, ForeignKey, JSON,
+                        DateTime, Boolean)
 from sqlalchemy import select
 from sqlalchemy.orm import column_property
 
 from flask_login import UserMixin
 
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from .database import Base
 
 class User(UserMixin, Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
+    username = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String, nullable=False)
+    date_registered = Column(DateTime, default=datetime.utcnow)
+    admin = Column(Boolean, nullable=False, default=False)
+    confirmed = Column(Boolean, nullable=False, default=False)
+    confirmed_on = Column(DateTime, nullable=True)
     prefs = Column(JSON, nullable=True)
+    remember_me = Column(Boolean, nullable=False, default=False)
 
-    def __init__(self, username, password):
+    def __init__(self, username, email, password):
         self.username = username
-        self.password = password
+        self.email = email
+        self.password_hash = generate_password_hash(password)
 
     def __str__(self):
         return "<User(%s)>"%self.username
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class Tourney(Base):

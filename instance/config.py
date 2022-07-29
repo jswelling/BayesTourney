@@ -27,4 +27,4 @@ MAIL_PORT = int(os.environ.get('MAIL_PORT') or 25)
 MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS') is not None
 MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
 MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-ADMINS = os.environ.get('ADMINS')
+ADMIN_MAIL_SENDER = os.environ.get('ADMIN_MAIL_SENDER')
