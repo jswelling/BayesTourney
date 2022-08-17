@@ -425,7 +425,7 @@ def handleEdit(path):
             notes = request.values['notes']
             if db.query(Tourney).filter_by(name=name).count() != 0:
                 raise RuntimeError('There is already a tourney named %s'%name)
-            t = Tourney(name,notes)
+            t = Tourney(name, current_user.id, notes)
             db.add(t)
             db.commit()
             return {}
@@ -856,9 +856,15 @@ def handleJSON(path, **kwargs):
     engine = db.get_bind()
     if path=='tourneys':
         tourneyList = [val for val in db.query(Tourney)]
+        for t in tourneyList:
+            print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}>')
         result = {
                   "records":len(tourneyList),  # total records
-                  "rows": [ {"id":t.tourneyId, "cell":[t.tourneyId, t.name, t.note]} 
+                  "rows": [ {"id":t.tourneyId,
+                             "cell":[t.tourneyId,
+                                     t.name,
+                                     t.ownerName or '-nobody-',
+                                     t.note]}
                            for t in tourneyList ]
                   }
     elif path=='entrants':

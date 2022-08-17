@@ -44,13 +44,17 @@ class Tourney(Base):
     tourneyId = Column(Integer, primary_key=True)
     name = Column(String)
     note = Column(String)
+    owner = Column(Integer, ForeignKey('user.id', name='tourney_owner_id_constraint'))
+    ownerName = column_property(select([User.username]).where(User.id==owner)
+                                .scalar_subquery())
     
-    def __init__(self,name,note=''):
+    def __init__(self,name, owner, note=''):
         self.name = name
+        self.owner = owner
         self.note = note
         
     def __str__(self):
-        return "<Tourney(%s)>"%self.name
+        return "<Tourney(%s) owned by %s>"%(self.name, self.ownerName)
 
 class LogitPlayer(Base):
     __tablename__ = 'players'
