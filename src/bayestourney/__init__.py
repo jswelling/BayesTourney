@@ -42,7 +42,7 @@ def create_app(test_config=None):
 
     from flask_migrate import Migrate
     migrate = Migrate()
-    migrate.init_app(app, db)
+    migrate.init_app(app, db, render_as_batch=True)
 
     from . import auth
     app.register_blueprint(auth.bp)

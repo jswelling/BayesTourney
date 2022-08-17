@@ -39,7 +39,8 @@ def parse_jqgrid_response_json(some_json):
     return rec_d
 
 
-def test_edit_tourneys_edit(client, app):
+def test_edit_tourneys_edit(client, app, auth):
+    auth.login()
     with client:
         before_response = client.get('/json/tourneys')
         assert before_response.status_code == 200
@@ -74,26 +75,30 @@ def test_edit_tourneys_edit(client, app):
     before_rec_d = parse_jqgrid_response_json(before_json)
     after_rec_d = parse_jqgrid_response_json(after_json)
     for (id1, rec1), (id2, rec2) in zip(before_rec_d.items(), after_rec_d.items()):
-        assert id1 == id2
         if id1 == 1:
             assert int(rec2[0]) == id1
             assert rec2[1] == 'new name'
             assert rec2[2] == rec1[2]
+            assert rec2[3] == rec1[3]
         elif id1 == 2:
             assert int(rec2[0]) == id1
             assert rec2[1] == rec1[1]
-            assert rec2[2] == 'new note'
+            assert rec2[2] == rec1[2]
+            assert rec2[3] == 'new note'
         elif id1 == 3:
             assert int(rec2[0]) == id1
             assert rec2[1] == 'other new name'
-            assert rec2[2] == 'other new note'
-        else:
-            assert rec2[1] == rec1[1]
-            assert rec2[0] == rec1[0]
             assert rec2[2] == rec1[2]
+            assert rec2[3] == 'other new note'
+        else:
+            assert rec2[0] == rec1[0]
+            assert rec2[1] == rec1[1]
+            assert rec2[2] == rec1[2]
+            assert rec2[3] == rec1[3]
 
 
-def test_edit_tourneys_add(client, app):
+def test_edit_tourneys_add(client, app, auth):
+    auth.login()
     with client:
         before_response = client.get('/json/tourneys')
         assert before_response.status_code == 200
@@ -129,7 +134,8 @@ def test_edit_tourneys_add(client, app):
             assert rec == before_rec_d[id]
         else:
             assert rec[1] == 'test_tourney_extra'
-            assert rec[2] == 'watch me not fail'
+            assert rec[2] == 'test'
+            assert rec[3] == 'watch me not fail'
 
 
 def test_edit_tourneys_del(client, app):
