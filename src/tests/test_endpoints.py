@@ -80,21 +80,25 @@ def test_edit_tourneys_edit(client, app, auth):
             assert rec2[1] == 'new name'
             assert rec2[2] == rec1[2]
             assert rec2[3] == rec1[3]
+            assert rec2[4] == rec1[4]
         elif id1 == 2:
             assert int(rec2[0]) == id1
             assert rec2[1] == rec1[1]
             assert rec2[2] == rec1[2]
-            assert rec2[3] == 'new note'
+            assert rec2[3] == rec1[3]
+            assert rec2[4] == 'new note'
         elif id1 == 3:
             assert int(rec2[0]) == id1
             assert rec2[1] == 'other new name'
             assert rec2[2] == rec1[2]
-            assert rec2[3] == 'other new note'
+            assert rec2[3] == rec1[3]
+            assert rec2[4] == 'other new note'
         else:
             assert rec2[0] == rec1[0]
             assert rec2[1] == rec1[1]
             assert rec2[2] == rec1[2]
             assert rec2[3] == rec1[3]
+            assert rec2[4] == rec1[4]
 
 
 def test_edit_tourneys_add(client, app, auth):
@@ -135,7 +139,8 @@ def test_edit_tourneys_add(client, app, auth):
         else:
             assert rec[1] == 'test_tourney_extra'
             assert rec[2] == 'test'
-            assert rec[3] == 'watch me not fail'
+            assert rec[3] == 'test'
+            assert rec[4] == 'watch me not fail'
 
 
 def test_edit_tourneys_del(client, app):

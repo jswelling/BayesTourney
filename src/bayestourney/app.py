@@ -33,7 +33,7 @@ from pathlib import Path
 from pprint import pprint
 
 from .database import get_db
-from .models import Tourney, LogitPlayer, Bout
+from .models import Tourney, LogitPlayer, Bout, User, Group
 from .settings import get_settings, set_settings, SettingsError
 from . import stat_utils
 
@@ -425,7 +425,10 @@ def handleEdit(path):
             notes = request.values['notes']
             if db.query(Tourney).filter_by(name=name).count() != 0:
                 raise RuntimeError('There is already a tourney named %s'%name)
-            t = Tourney(name, current_user.id, notes)
+            current_user_group = (db.query(Group)
+                                  .filter_by(name=current_user.username)
+                                  .one())
+            t = Tourney(name, current_user.id, current_user_group.id, notes)
             db.add(t)
             db.commit()
             return {}
@@ -857,13 +860,14 @@ def handleJSON(path, **kwargs):
     if path=='tourneys':
         tourneyList = [val for val in db.query(Tourney)]
         for t in tourneyList:
-            print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}>')
+            print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}> <{t.groupName}>')
         result = {
                   "records":len(tourneyList),  # total records
                   "rows": [ {"id":t.tourneyId,
                              "cell":[t.tourneyId,
                                      t.name,
                                      t.ownerName or '-nobody-',
+                                     t.groupName or '-no group-',
                                      t.note]}
                            for t in tourneyList ]
                   }

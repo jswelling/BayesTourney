@@ -1,15 +1,30 @@
-INSERT INTO user (username, email, password_hash, admin, confirmed, remember_me)
+INSERT INTO user (id, username, email, password_hash, admin, confirmed, remember_me)
 VALUES
-  ('test', 'foo@bar.baz', 'pbkdf2:sha256:50000$TCI4GzcX$0de171a4f4dac32e3364c7ddc7c14f3e2fa61f2d17574483f7ffbb431b4acb2f', False, True, True),
-  ('other', 'blrfl@bar.baz', 'pbkdf2:sha256:50000$kJPKsz6N$d2d4784f1b030a9761f5ccaeeaca413f27f2ecb76d6168407af962ddce849f79', False, True, False);
+  (1, 'test', 'foo@bar.baz', 'pbkdf2:sha256:50000$TCI4GzcX$0de171a4f4dac32e3364c7ddc7c14f3e2fa61f2d17574483f7ffbb431b4acb2f', False, True, True),
+  (2, 'other', 'blrfl@bar.baz', 'pbkdf2:sha256:50000$kJPKsz6N$d2d4784f1b030a9761f5ccaeeaca413f27f2ecb76d6168407af962ddce849f79', False, True, False);
 
-INSERT INTO tourneys (name, note)
+INSERT INTO "group" (id, name)
 VALUES
-  ('test_tourney_1', 'first test tourney'),
-  ('test_tourney_2', 'second test tourney'),
-  ('test_tourney_3', 'third test tourney'),
-  ('test_tourney_4', 'fourth test tourney'),
-  ('test_tourney_5', 'fifth test tourney');
+  (1, 'groupone'),
+  (2, 'grouptwo'),
+  (3, 'test'),
+  (4, 'other'),
+  (5, 'everyone');
+
+INSERT INTO user_group_pair (id, user_id, group_id)
+VALUES
+  (1, 1, 3),
+  (2, 1, 5),
+  (3, 2, 4),
+  (4, 2, 5);
+
+INSERT INTO tourneys (name, note, owner, 'group')
+VALUES
+  ('test_tourney_1', 'first test tourney', 1, 3),
+  ('test_tourney_2', 'second test tourney', 1, 5),
+  ('test_tourney_3', 'third test tourney', 2, 4),
+  ('test_tourney_4', 'fourth test tourney', 2, 5),
+  ('test_tourney_5', 'fifth test tourney', 2, 4);
 
 INSERT INTO players (name, note)
 VALUES

@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import (Column, Integer, Float, String, ForeignKey, JSON,
                         DateTime, Boolean)
 from sqlalchemy import select
-from sqlalchemy.orm import column_property
+from sqlalchemy.orm import Query, column_property
 
 from flask_login import UserMixin
 
@@ -38,6 +38,47 @@ class User(UserMixin, Base):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    def get_groups(self, db):
+        return (db.query(Group).join(UserGroupPair)
+                .filter(UserGroupPair.user_id == self.id)
+                .all())
+
+    def add_group(self, db, group):
+        db.add(UserGroupPair(self.id, group.id))
+
+    def remove_group(self, db, group):
+        (db.query(UserGroupPair)
+         .filter(UserGroupPair.user_id == self.id)
+         .filter(UserGroupPair.group_id == group.id)
+         .delete())
+
+
+class Group(Base):
+    __tablename__ = 'group'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False, index=True)
+
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return(f'<Group({self.id}, name={self.name})>')
+
+
+class UserGroupPair(Base):
+    __tablename__ = "user_group_pair"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer,
+                     ForeignKey('user.id', name='user_group_pair_user_id_constraint'),
+                     nullable=False, index=True)
+    group_id = Column(Integer,
+                      ForeignKey('group.id', name='user_group_pair_group_id_constraint'),
+                      nullable=False, index=True)
+
+    def __init__(self, user_id, group_id):
+        self.user_id = user_id
+        self.group_id = group_id
+
 
 class Tourney(Base):
     __tablename__ = 'tourneys'
@@ -45,16 +86,21 @@ class Tourney(Base):
     name = Column(String)
     note = Column(String)
     owner = Column(Integer, ForeignKey('user.id', name='tourney_owner_id_constraint'))
+    group = Column(Integer, ForeignKey('group.id', name='tourney_group_id_constraint'))
     ownerName = column_property(select([User.username]).where(User.id==owner)
                                 .scalar_subquery())
+    groupName = column_property(select([Group.name]).where(Group.id==group)
+                                .scalar_subquery())
     
-    def __init__(self,name, owner, note=''):
+    def __init__(self, name, owner, group, note=''):
         self.name = name
         self.owner = owner
+        self.group = group
         self.note = note
         
     def __str__(self):
-        return "<Tourney(%s) owned by %s>"%(self.name, self.ownerName)
+        return "<Tourney(%s) owned by %s, group %s>"%(self.name,
+                                                      self.ownerName, self.groupName)
 
 class LogitPlayer(Base):
     __tablename__ = 'players'
