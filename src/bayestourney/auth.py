@@ -10,7 +10,7 @@ from flask_login import (
 from sqlalchemy.exc import NoResultFound
 from urllib.parse import urlparse, urljoin
 
-from .models import User
+from .models import User, Group
 from .database import get_db
 from .email import send_email, generate_signed_token, confirm_signed_token
 
@@ -67,10 +67,17 @@ def register():
         elif (db.query(User).filter_by(username=username).first()
               is not None):
             error = f"The username {username} is already in use."
+        elif (db.query(Group).filter_by(name=username).first()
+              is not None):
+            error = f"There is already a group with the name {username}."
             
         if error is None:
             user = User(username, email, password)
             db.add(user)
+            user_grp = Group(username)
+            db.add(user_grp)
+            db.commit()
+            user.add_group(db, user_grp)
             db.commit()
             token = generate_signed_token(
                 current_app,

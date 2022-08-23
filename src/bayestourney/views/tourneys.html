@@ -10,11 +10,12 @@ $(function () {
   jQuery("#tourneys_table").jqGrid({
     url:'json/tourneys',
     editurl:'edit/tourneys',
-    colNames:['Id', 'Name', 'Owner', 'Notes'],
+    colNames:['Id', 'Name', 'Owner', 'Group', 'Notes'],
     colModel:[
       {name:'id',index:'id', width:55, sortable:true, sorttype:'integer'},
       {name:'name',index:'name', width:100, editable:true, edittype:'text', sortable:true},
       {name:'owner', index:'owner', width:100, editable:false, sortable:true},
+      {name:'group', index:'group', width:100, editable:false, sortable:true},
       {name:'notes',index:'notes', width:100, editable:true, edittype:'textarea', sortable:true}
     ],
     onSelectRow: function(id){
