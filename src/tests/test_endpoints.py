@@ -487,5 +487,43 @@ def test_edit_bouts_del(client, app):
         assert rec == before_rec_d[id]
 
 
+def test_ajax_tourneys_settings_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        values = response_json['value']
+        for elt in ['current_user_groups', 'form_name', 'group_name', 'id',
+                    'name', 'note', 'owner_name', 'dlg_html']:
+            assert elt in values
+        assert values['id'] == 1
+        assert values['current_user_groups'] == ['test', 'everyone']
+        assert '</form>' in values['dlg_html']
+        assert values['group_name'] == 'test'
+        assert values['name'] == 'test_tourney_1'
+        assert values['note'] == 'first test tourney'
+        assert values['owner_name'] == 'test'
 
 
+def test_ajax_tourneys_settings_put(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        values = response_json['value']
+        put_response = client.put('/ajax/tourneys/settings',
+                                  data={'tourney_id': '1',
+                                        'group': 'everyone'
+                                        })
+        put_json = json.loads(put_response.data.decode('utf-8'))
+        assert put_json['status'] == 'success'
+        after_response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        after_response_json = json.loads(after_response.data.decode('utf-8'))
+        assert after_response_json['status'] == 'success'
+        assert 'value' in after_response_json
+        after_values = after_response_json['value']
+        assert after_values['group_name'] == 'everyone'

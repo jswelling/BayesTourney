@@ -48,6 +48,10 @@ LOGGER.setLevel(logging.DEBUG)
 bp = Blueprint('', __name__)
 
 
+class DBException(Exception):
+    pass
+
+
 def logMessage(txt):
     LOGGER.info(txt)
 
@@ -139,10 +143,6 @@ def upload_entrants_file():
     file_fullpath.unlink()
     LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
-
-
-class DBException(Exception):
-    pass
 
 
 def player_name_to_id(row, key, db):
@@ -772,6 +772,59 @@ def horserace_get_bouts_graph(**kwargs):
     return result
     
 
+def _tourney_json_rep(db, tourney):
+    owner = db.query(User).filter_by(id=tourney.owner).one()
+    group = db.query(Group).filter_by(id=tourney.group).one()
+    rslt = {'id': tourney.tourneyId,
+            'name': tourney.name,
+            'note': tourney.note,
+            'owner_name': owner.username,
+            'group_name': group.name,
+            }
+    return rslt
+
+
+@bp.route('/ajax/tourneys/settings', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_tourneys_settings(**kwargs):
+    assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
+    if request.method == 'GET':
+        tourney_id = int(request.values['tourney_id'])
+        db = get_db()
+        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+        response_data = _tourney_json_rep(db, tourney)
+        response_data.update({
+            'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
+            'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}'
+        })
+        response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
+                                                    **response_data)
+        return {'status': 'success',
+                'value': response_data
+                }
+    elif request.method == 'PUT':
+        tourney_id = int(request.values['tourney_id'])
+        db = get_db()
+        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+        json_rep = _tourney_json_rep(db, tourney)
+        changed = 0
+        if json_rep['group_name'] != request.values['group']:
+            new_group = db.query(Group).filter_by(name=request.values['group']).one()
+            tourney.group = new_group.id
+            json_rep['group_name'] = new_group.name
+            changed += 1
+        if changed:
+            db.add(tourney)
+            db.commit()
+        else:
+            logMessage(f'The tournament {tourney.name} was not changed')
+        return {'status': 'success',
+                'value': json_rep}
+    else:
+        return f"unsupported method {request.method}", 405
+
+
 @bp.route('/ajax/settings', methods=["GET", "PUT"])
 @login_required
 @debug_page_wrapper
@@ -868,7 +921,8 @@ def handleJSON(path, **kwargs):
                                      t.name,
                                      t.ownerName or '-nobody-',
                                      t.groupName or '-no group-',
-                                     t.note]}
+                                     t.note,
+                                     t.tourneyId]}
                            for t in tourneyList ]
                   }
     elif path=='entrants':
