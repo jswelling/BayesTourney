@@ -7,16 +7,27 @@
 var lastsel_tourneys;
 $(function () {
   "use strict";
+  function tourneySettingsButtonFormatter(cellvalue, options, rowObject)
+  {
+    // some business logic for each row
+    let rslt = "<button class='trny_settings_btn' style='text-align:center;' id='trny_settings_";
+    rslt = rslt.concat(cellvalue);
+    rslt = rslt.concat("'><img src='static/gear.svg' style='height:18px;'></img></button>");
+    return rslt;
+    //return "<button class='btn' style='height:22px;'><img src='static/gear.svg' style='height:10px;'></img></button>";
+    //return "<input style='height:22px;' class='ui-icon-gear' type='button' value='clickme'/>";
+  }
   jQuery("#tourneys_table").jqGrid({
     url:'json/tourneys',
     editurl:'edit/tourneys',
-    colNames:['Id', 'Name', 'Owner', 'Group', 'Notes'],
+    colNames:['Id', 'Name', 'Owner', 'Group', 'Notes', 'Settings'],
     colModel:[
       {name:'id',index:'id', width:55, sortable:true, sorttype:'integer'},
       {name:'name',index:'name', width:100, editable:true, edittype:'text', sortable:true},
       {name:'owner', index:'owner', width:100, editable:false, sortable:true},
       {name:'group', index:'group', width:100, editable:false, sortable:true},
-      {name:'notes',index:'notes', width:100, editable:true, edittype:'textarea', sortable:true}
+      {name:'notes', index:'notes', width:100, editable:true, edittype:'textarea', sortable:true},
+      {name:'settings', index:'settings', editable:false, width:100, sortable:false, formatter:tourneySettingsButtonFormatter}
     ],
     onSelectRow: function(id){
       if(id && id!==lastsel_tourneys){
@@ -24,6 +35,63 @@ $(function () {
 	$(this).jqGrid('editRow', id, true);
 	lastsel_tourneys=id;
       }
+    },
+    gridComplete: function() {
+      jQuery(".trny_settings_btn").click(function(event) {
+	event.stopPropagation();
+	let tourney_id = this.id.substr('trny_settings_'.length);
+	$.ajax({type:'GET',
+		url:'ajax/tourneys/settings',
+		data:{'tourney_id':tourney_id}
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert('The server did not respond as expected to the request for data on this tourney.');
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      $('<div />').html(data['value']['dlg_html']).dialog({
+		buttons: {
+		  "Cancel": function() {
+		    $(this).dialog("close");
+		    // no action required
+		  },
+		  "Save": function() {
+		    let form_data = $('#' + data['value']['form_name']).serializeArray();
+		    form_data.push({'name':'tourney_id', 'value':tourney_id});
+		    $(this).dialog("close");
+		    $.ajax({
+		      type:'PUT',
+		      url:'ajax/tourneys/settings',
+		      data:form_data
+		    })
+		      .fail(function(jqXHR, textStatus, errorThrown) {
+			alert('The server did not respond as expected to the update request for this tourney.');
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		      })
+		      .done(function(data, textStatus, jqXHR) {
+			if (data['status'] == 'success') {
+			  $("#tourneys_table").trigger('reloadGrid',{ fromServer: true });
+			}
+			else {
+			  alert('The server did not report success in response to the update of tourney data.')
+			  console.log('non-success data:', data)
+			}
+		      })
+		  }
+		}
+	      })
+	    }
+	    else {
+	      alert('The server did not report success in response to the request for tourney data.')
+	      console.log(data);
+	    }
+	  })
+      });
     },
     sortname: 'id',
     caption:"Tourneys",
