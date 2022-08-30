@@ -87,16 +87,33 @@ class Tourney(Base):
     note = Column(String)
     owner = Column(Integer, ForeignKey('user.id', name='tourney_owner_id_constraint'))
     group = Column(Integer, ForeignKey('group.id', name='tourney_group_id_constraint'))
+    owner_read = Column(Boolean)
+    owner_write = Column(Boolean)
+    owner_delete = Column(Boolean)
+    group_read = Column(Boolean)
+    group_write = Column(Boolean)
+    group_delete = Column(Boolean)
+    other_read = Column(Boolean)
+    other_write = Column(Boolean)
+    other_delete = Column(Boolean)
     ownerName = column_property(select([User.username]).where(User.id==owner)
                                 .scalar_subquery())
     groupName = column_property(select([Group.name]).where(Group.id==group)
                                 .scalar_subquery())
     
-    def __init__(self, name, owner, group, note=''):
+    def __init__(self, name, owner, group, note='', permissions={}):
         self.name = name
         self.owner = owner
         self.group = group
         self.note = note
+        all_permissions = {
+            'owner_read': True, 'owner_write': True, 'owner_delete': True,
+            'group_read': True, 'group_write': False, 'group_delete': False,
+            'other_read': False, 'other_write': False, 'other_delete': False,
+            }
+        all_permissions.update(permissions)
+        for key in all_permissions:
+            setattr(self, key, all_permissions[key])
         
     def __str__(self):
         return "<Tourney(%s) owned by %s, group %s>"%(self.name,

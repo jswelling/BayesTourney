@@ -78,7 +78,12 @@ $(function () {
 			  $("#tourneys_table").trigger('reloadGrid',{ fromServer: true });
 			}
 			else {
-			  alert('The server did not report success in response to the update of tourney data.')
+			  if (data['msg']) {
+			    alert(data['msg'])
+			  }
+			  else {
+			    alert('The server did not report success in response to the update of tourney data.')
+			  }
 			  console.log('non-success data:', data)
 			}
 		      })
@@ -87,7 +92,12 @@ $(function () {
 	      })
 	    }
 	    else {
-	      alert('The server did not report success in response to the request for tourney data.')
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert('The server did not report success in response to the request for tourney data.')
+	      }
 	      console.log(data);
 	    }
 	  })

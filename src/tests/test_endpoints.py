@@ -15,6 +15,8 @@ def test_list_select_tourney(client, app):
 <option value=3>test_tourney_3<option>
 <option value=4>test_tourney_4<option>
 <option value=5>test_tourney_5<option>
+<option value=6>test_tourney_6<option>
+<option value=7>test_tourney_7<option>
 </select>
 """
     assert rslt.data.decode('utf-8').strip() == expected.strip()

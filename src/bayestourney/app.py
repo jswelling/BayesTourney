@@ -35,6 +35,11 @@ from pprint import pprint
 from .database import get_db
 from .models import Tourney, LogitPlayer, Bout, User, Group
 from .settings import get_settings, set_settings, SettingsError
+from .permissions import (
+    get_readable_tourneys,
+    PermissionException,
+    check_can_read, check_can_write, check_can_delete
+    )
 from . import stat_utils
 
 
@@ -47,9 +52,14 @@ LOGGER.setLevel(logging.DEBUG)
 
 bp = Blueprint('', __name__)
 
-
 class DBException(Exception):
     pass
+
+
+@bp.app_errorhandler(PermissionException)
+def handle_permission_exception(e):
+    LOGGER.error(f"PermissionException: {e}")
+    return f"{e}", 403
 
 
 def logMessage(txt):
@@ -789,38 +799,43 @@ def _tourney_json_rep(db, tourney):
 @debug_page_wrapper
 def ajax_tourneys_settings(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
-    if request.method == 'GET':
-        tourney_id = int(request.values['tourney_id'])
-        db = get_db()
-        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
-        response_data = _tourney_json_rep(db, tourney)
-        response_data.update({
-            'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
-            'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}'
-        })
-        response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
-                                                    **response_data)
-        return {'status': 'success',
-                'value': response_data
+    tourney_id = int(request.values['tourney_id'])
+    db = get_db()
+    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(tourney)
+            response_data = _tourney_json_rep(db, tourney)
+            response_data.update({
+                'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
+                'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}'
+            })
+            response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        elif request.method == 'PUT':
+            check_can_write(tourney)
+            json_rep = _tourney_json_rep(db, tourney)
+            changed = 0
+            if json_rep['group_name'] != request.values['group']:
+                new_group = db.query(Group).filter_by(name=request.values['group']).one()
+                tourney.group = new_group.id
+                json_rep['group_name'] = new_group.name
+                changed += 1
+            if changed:
+                db.add(tourney)
+                db.commit()
+            else:
+                logMessage(f'The tournament {tourney.name} was not changed')
+            return {'status': 'success',
+                    'value': json_rep
+                    }
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
                 }
-    elif request.method == 'PUT':
-        tourney_id = int(request.values['tourney_id'])
-        db = get_db()
-        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
-        json_rep = _tourney_json_rep(db, tourney)
-        changed = 0
-        if json_rep['group_name'] != request.values['group']:
-            new_group = db.query(Group).filter_by(name=request.values['group']).one()
-            tourney.group = new_group.id
-            json_rep['group_name'] = new_group.name
-            changed += 1
-        if changed:
-            db.add(tourney)
-            db.commit()
-        else:
-            logMessage(f'The tournament {tourney.name} was not changed')
-        return {'status': 'success',
-                'value': json_rep}
     else:
         return f"unsupported method {request.method}", 405
 
@@ -911,7 +926,7 @@ def handleJSON(path, **kwargs):
     db = get_db()
     engine = db.get_bind()
     if path=='tourneys':
-        tourneyList = [val for val in db.query(Tourney)]
+        tourneyList = get_readable_tourneys(db)
         for t in tourneyList:
             print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}> <{t.groupName}>')
         result = {
@@ -927,6 +942,8 @@ def handleJSON(path, **kwargs):
                   }
     elif path=='entrants':
         tourneyId = int(request.values.get('tourneyId', -1))
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         session['sel_tourney_id'] = tourneyId
         with engine.connect() as conn:
             rs1 = conn.execute(  # This gets the players with bouts
