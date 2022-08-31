@@ -9,4 +9,47 @@
     {% endfor %}
   </select>
   </fieldset>
+  <fieldset>
+    <table>
+      <tr>
+	<th></th><th>Read</th><th>Write</th><th>Delete</th>
+      </tr>
+      <tr>
+	<th>Owner</th>
+	<td>
+	  <input type="checkbox" name="owner_read" {% if owner_read %}checked{%endif%} >
+	</td>
+	<td>
+	  <input type="checkbox" name="owner_write" {% if owner_write %}checked{%endif%}>
+	</td>
+	<td>
+	  <input type="checkbox" name="owner_delete" {% if owner_delete %}checked{%endif%}>
+	</td>
+      </tr>
+      <tr>
+	<th>Group</th>
+	<td>
+	  <input type="checkbox" name="group_read" {% if group_read %}checked{%endif%} >
+	</td>
+	<td>
+	  <input type="checkbox" name="group_write" {% if group_write %}checked{%endif%}>
+	</td>
+	<td>
+	  <input type="checkbox" name="group_delete" {% if group_delete %}checked{%endif%}>
+	</td>
+      </tr>
+      <tr>
+	<th>Others</th>
+	<td>
+	  <input type="checkbox" name="other_read" {% if other_read %}checked{%endif%} >
+	</td>
+	<td>
+	  <input type="checkbox" name="other_write" {% if other_write %}checked{%endif%}>
+	</td>
+	<td>
+	  <input type="checkbox" name="other_delete" {% if other_delete %}checked{%endif%}>
+	</td>
+      </tr>
+    </table>
+  </fieldset>
 </form>

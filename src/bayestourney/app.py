@@ -38,7 +38,7 @@ from .settings import get_settings, set_settings, SettingsError
 from .permissions import (
     get_readable_tourneys,
     PermissionException,
-    check_can_read, check_can_write, check_can_delete
+    check_can_read, check_can_write, check_can_delete,
     )
 from . import stat_utils
 
@@ -791,7 +791,22 @@ def _tourney_json_rep(db, tourney):
             'note': tourney.note,
             'owner_name': owner.username,
             'group_name': group.name,
+            'owner_read': tourney.owner_read,
+            'owner_write': tourney.owner_write,
+            'owner_delete': tourney.owner_delete,
+            'group_read': tourney.group_read,
+            'group_write': tourney.group_write,
+            'group_delete': tourney.group_delete,
+            'other_read': tourney.other_read,
+            'other_write': tourney.other_write,
+            'other_delete': tourney.other_delete,
             }
+    return rslt
+
+
+def _checkbox_value_map(map, key):
+    rslt = key in map and map[key] and map[key] == 'on'
+    print(f'RESULT {rslt} {type(rslt)}')
     return rslt
 
 
@@ -809,7 +824,7 @@ def ajax_tourneys_settings(**kwargs):
             response_data = _tourney_json_rep(db, tourney)
             response_data.update({
                 'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
-                'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}'
+                'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}',
             })
             response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
                                                         **response_data)
@@ -820,11 +835,20 @@ def ajax_tourneys_settings(**kwargs):
             check_can_write(tourney)
             json_rep = _tourney_json_rep(db, tourney)
             changed = 0
-            if json_rep['group_name'] != request.values['group']:
+            if ('group' in request.values
+                and json_rep['group_name'] != request.values['group']):
                 new_group = db.query(Group).filter_by(name=request.values['group']).one()
                 tourney.group = new_group.id
                 json_rep['group_name'] = new_group.name
                 changed += 1
+            for key in ['owner_read', 'owner_write', 'owner_delete',
+                        'group_read', 'group_write', 'group_delete',
+                        'other_read', 'other_write', 'other_delete']:
+                assert key in json_rep, "inconsistent keys"
+                req_key_val = _checkbox_value_map(request.values, key)
+                if json_rep[key] != req_key_val:
+                    setattr(tourney, key, req_key_val)
+                    changed += 1
             if changed:
                 db.add(tourney)
                 db.commit()

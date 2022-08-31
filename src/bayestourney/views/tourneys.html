@@ -52,11 +52,12 @@ $(function () {
 	  })
 	  .done(function(data, textStatus, jqXHR) {
 	    if (data['status'] == 'success') {
-	      $('<div />').html(data['value']['dlg_html']).dialog({
+	      let this_div = $('<div />');
+	      this_div.html(data['value']['dlg_html']).dialog({
 		buttons: {
 		  "Cancel": function() {
 		    $(this).dialog("close");
-		    // no action required
+		    this_div.remove();
 		  },
 		  "Save": function() {
 		    let form_data = $('#' + data['value']['form_name']).serializeArray();
@@ -86,6 +87,9 @@ $(function () {
 			  }
 			  console.log('non-success data:', data)
 			}
+		      })
+		      .always(function() {
+			this_div.remove();
 		      })
 		  }
 		}
