@@ -3,6 +3,7 @@ from bayestourney.database import get_db
 from bayestourney.models import User, Group, Tourney
 from sqlalchemy.exc import IntegrityError
 from bayestourney.permissions import (PermissionException,
+                                      get_readable_tourneys,
                                       current_user_can_read,
                                       current_user_can_write,
                                       current_user_can_delete,
@@ -11,28 +12,28 @@ from bayestourney.permissions import (PermissionException,
                                       check_can_delete
                                       )
 
-# def test_perms_on_creation(app):
-#     with app.app_context():
-#         db = get_db()
-#         user = db.query(User).filter_by(id=1).one()
-#         group = db.query(Group).filter_by(name=user.username).one()
-#         tourney = Tourney('new_test_tourney', user.id, group.id,
-#                           permissions={'other_read':True, 'group_write':True})
-#         db.add(tourney)
-#         db.commit()
-#         tourney = db.query(Tourney).filter_by(name='new_test_tourney').one()
-#         print(f"USER PERMS {tourney.owner_write} {tourney.owner_read} {tourney.owner_delete}")
-#         print(f"GROUP PERMS {tourney.group_write} {tourney.group_read} {tourney.group_delete}")
-#         print(f"OTHER PERMS {tourney.other_write} {tourney.other_read} {tourney.other_delete}")
-#         assert tourney.owner_write == True
-#         assert tourney.owner_read == True
-#         assert tourney.owner_delete == True
-#         assert tourney.group_write == True
-#         assert tourney.group_read == True
-#         assert tourney.group_delete == False
-#         assert tourney.other_write == False
-#         assert tourney.other_read == True
-#         assert tourney.other_delete == False
+def test_perms_on_creation(app):
+    with app.app_context():
+        db = get_db()
+        user = db.query(User).filter_by(id=1).one()
+        group = db.query(Group).filter_by(name=user.username).one()
+        tourney = Tourney('new_test_tourney', user.id, group.id,
+                          permissions={'other_read':True, 'group_write':True})
+        db.add(tourney)
+        db.commit()
+        tourney = db.query(Tourney).filter_by(name='new_test_tourney').one()
+        print(f"USER PERMS {tourney.owner_write} {tourney.owner_read} {tourney.owner_delete}")
+        print(f"GROUP PERMS {tourney.group_write} {tourney.group_read} {tourney.group_delete}")
+        print(f"OTHER PERMS {tourney.other_write} {tourney.other_read} {tourney.other_delete}")
+        assert tourney.owner_write == True
+        assert tourney.owner_read == True
+        assert tourney.owner_delete == True
+        assert tourney.group_write == True
+        assert tourney.group_read == True
+        assert tourney.group_delete == False
+        assert tourney.other_write == False
+        assert tourney.other_read == True
+        assert tourney.other_delete == False
 
 
 def test_permission_bool_funcs(app, client, auth):
@@ -91,3 +92,12 @@ def test_permission_exceptions(app, client, auth):
                     check_can_delete(tourney)
                     assert name in excinfo.value
                     assert 'delete' in excinfo.value
+
+def test_get_readable_tourneys(app, client, auth):
+    auth.login()
+    with client:
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        tourney_list = get_readable_tourneys(db)
+        for tourney in tourney_list:
+            assert current_user_can_read(tourney)

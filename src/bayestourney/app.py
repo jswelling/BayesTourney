@@ -486,7 +486,8 @@ def handleEdit(path):
             rWins = int(request.values.get('rwins', '0'))
             draws = int(request.values.get('draws', '0'))
             note = request.values.get('notes', '')
-            b = Bout(tourneyId,lWins,lPlayerId,draws,rPlayerId,rWins,note)
+            b = Bout(tourneyId, lWins, lPlayerId, draws,
+                     rPlayerId, rWins, note)
             db.add(b)
             db.commit()
             return {}
@@ -927,8 +928,6 @@ def handleJSON(path, **kwargs):
     engine = db.get_bind()
     if path=='tourneys':
         tourneyList = get_readable_tourneys(db)
-        for t in tourneyList:
-            print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}> <{t.groupName}>')
         result = {
                   "records":len(tourneyList),  # total records
                   "rows": [ {"id":t.tourneyId,
@@ -942,8 +941,13 @@ def handleJSON(path, **kwargs):
                   }
     elif path=='entrants':
         tourneyId = int(request.values.get('tourneyId', -1))
-        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
-        check_can_read(tourney)
+        if tourneyId != -1:
+            # we are dealing with a specific tourney
+            tourney = (db.query(Tourney)
+                       .filter_by(tourneyId=tourneyId)
+                       .one()
+                       )
+            check_can_read(tourney)
         session['sel_tourney_id'] = tourneyId
         with engine.connect() as conn:
             rs1 = conn.execute(  # This gets the players with bouts
@@ -971,7 +975,6 @@ def handleJSON(path, **kwargs):
                 )
                 player_rs = conn.execute(stxt, t_id=tourneyId)
                 player_id_set = set([val.id for val in player_rs])
-                print("player_id_set:",player_id_set)
                 playerList = [val for val in rs1 if val.id in player_id_set]
             else:
                 rs2 = conn.execute(  # This gets the players without bouts
@@ -998,15 +1001,29 @@ def handleJSON(path, **kwargs):
         tourneyId = int(request.values.get('tourneyId', -1))
         session['sel_tourney_id'] = tourneyId
         if tourneyId >= 0:
-            boutList = [b for b in db.query(Bout).filter_by(tourneyId=tourneyId)]
+            tourney = (db.query(Tourney)
+                       .filter_by(tourneyId=tourneyId)
+                       .one()
+                       )
+            check_can_read(tourney)
+            bout_list = [b for b in (db.query(Bout)
+                                     .filter_by(tourneyId=tourneyId)
+                                     .all())]
         else:
-            boutList = [b for b in db.query(Bout)]
+            tourney_list = get_readable_tourneys(db)
+            tourney_id_list = [tourney.tourneyId
+                               for tourney in tourney_list]
+            bout_list = (db.query(Bout)
+                         .filter(Bout.tourneyId.in_(tourney_id_list))
+                         .all()
+                         )
+            bout_id_list = [b.boutId for b in list(bout_list)]
         result = {
-                  "records":len(boutList),  # total records
+                  "records":len(bout_list),  # total records
                   "rows": [ {"id":p.boutId, "cell":[p.tourneyName, 
                                                     p.leftWins, p.lName, p.draws,
                                                     p.rName, p.rightWins, p.note] } 
-                           for p in boutList ]
+                            for p in bout_list]
                   }
     elif path == 'horserace':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
