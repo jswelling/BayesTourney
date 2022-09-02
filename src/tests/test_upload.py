@@ -46,7 +46,7 @@ def test_upload_bouts(auth, client, app):
     auth.login()
     with client:
         before_dict = _get_rec_dict(client, '/json/bouts')
-        data = {'tournament':str(3)}
+        data = {'tournament':str(2)}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
             '/upload/entrants', data=data, follow_redirects=True,

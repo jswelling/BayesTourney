@@ -15,6 +15,8 @@ def test_list_select_tourney(client, app):
 <option value=3>test_tourney_3<option>
 <option value=4>test_tourney_4<option>
 <option value=5>test_tourney_5<option>
+<option value=6>test_tourney_6<option>
+<option value=7>test_tourney_7<option>
 </select>
 """
     assert rslt.data.decode('utf-8').strip() == expected.strip()
@@ -42,6 +44,7 @@ def parse_jqgrid_response_json(some_json):
 def test_edit_tourneys_edit(client, app, auth):
     auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/tourneys')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -104,6 +107,7 @@ def test_edit_tourneys_edit(client, app, auth):
 def test_edit_tourneys_add(client, app, auth):
     auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/tourneys')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -143,8 +147,10 @@ def test_edit_tourneys_add(client, app, auth):
             assert rec[4] == 'watch me not fail'
 
 
-def test_edit_tourneys_del(client, app):
+def test_edit_tourneys_del(client, app, auth):
+    auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/tourneys')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -180,8 +186,10 @@ def test_edit_tourneys_del(client, app):
         assert rec == before_bouts_rec_d[id]
 
 
-def test_edit_entrants_edit(client, app):
+def test_edit_entrants_edit(client, app, auth):
+    auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/entrants')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -237,8 +245,10 @@ def test_edit_entrants_edit(client, app):
             assert rec2[4] == rec1[4]
 
 
-def test_edit_entrants_add(client, app):
+def test_edit_entrants_add(client, app, auth):
+    auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/entrants')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -312,8 +322,10 @@ def test_edit_entrants_del(client, app):
         assert rec == before_rec_d[id]
 
 
-def test_edit_bouts_edit(client, app):
+def test_edit_bouts_edit(client, app, auth):
+    auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/bouts')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -334,7 +346,7 @@ def test_edit_bouts_edit(client, app):
             '/edit/bouts',
             data={'oper': 'edit',
                   'id': 1,
-                  'tourney': 3
+                  'tourney': 4
             })
         response = client.post(
             '/edit/bouts',
@@ -380,7 +392,7 @@ def test_edit_bouts_edit(client, app):
         rec2 = after_rec_d[id]
         changed_set = set()
         if id == 1:
-            assert rec2[0] == tourney_d[3][1]  # = name of tourney 3
+            assert rec2[0] == tourney_d[4][1]  # = name of tourney 4
             changed_set.add(0)
         elif id == 2:
             assert rec2[4] == entrant_d[3][1]  # = name of player 3
@@ -402,8 +414,10 @@ def test_edit_bouts_edit(client, app):
                 assert v1 == v2, f'mismatch for idx {idx} of id {id}'
         
 
-def test_edit_bouts_add(client, app):
+def test_edit_bouts_add(client, app, auth):
+    auth.login()
     with client:
+        client.get('/')  # forces current_user to have a value
         before_response = client.get('/json/bouts')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
@@ -453,8 +467,10 @@ def test_edit_bouts_add(client, app):
             assert rec[6] == 'tourney 2 extra bout'
 
 
-def test_edit_bouts_del(client, app):
+def test_edit_bouts_del(client, app, auth):
+    auth.login()
     with client:
+        client.get('/') # force current_user to have a value
         before_response = client.get('/json/bouts')
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))

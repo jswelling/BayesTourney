@@ -35,6 +35,12 @@ from pprint import pprint
 from .database import get_db
 from .models import Tourney, LogitPlayer, Bout, User, Group
 from .settings import get_settings, set_settings, SettingsError
+from .permissions import (
+    get_readable_tourneys,
+    PermissionException,
+    check_can_read, check_can_write, check_can_delete,
+    current_user_can_read, current_user_can_write,
+    )
 from . import stat_utils
 
 
@@ -47,9 +53,14 @@ LOGGER.setLevel(logging.DEBUG)
 
 bp = Blueprint('', __name__)
 
-
 class DBException(Exception):
     pass
+
+
+@bp.app_errorhandler(PermissionException)
+def handle_permission_exception(e):
+    LOGGER.error(f"PermissionException: {e}")
+    return f"{e}", 403
 
 
 def logMessage(txt):
@@ -238,6 +249,7 @@ def upload_bouts_file():
     except NoResultFound:
         raise RuntimeError("No such tourney")
     LOGGER.info(f'Tourney is {tourney}')
+    check_can_write(tourney)
     try:
         insert_bouts_from_df(df, tourney)
     except DBException as e:
@@ -288,7 +300,7 @@ def tourneys():
 @login_required
 @debug_page_wrapper
 def entrants():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("entrants.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -298,7 +310,7 @@ def entrants():
 @login_required
 @debug_page_wrapper
 def bouts():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("bouts.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -317,7 +329,7 @@ def experiment():
 @login_required
 @debug_page_wrapper
 def horserace():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("horserace.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -388,7 +400,7 @@ def handleList(path):
         s += "</select>\n"
         return s
     elif path=='select_tourney':
-        tourneyList = db.query(Tourney)
+        tourneyList = get_readable_tourneys(db)
         pairs = [((t.tourneyId,t.name)) for t in tourneyList]
         pairs.sort()
         s = "<select>\n"
@@ -414,6 +426,7 @@ def handleEdit(path):
                 t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError("No such tourney")
+            check_can_write(t)
             if 'name' in request.values:
                 t.name = request.values['name']
             if 'notes' in request.values:
@@ -429,6 +442,7 @@ def handleEdit(path):
                                   .filter_by(name=current_user.username)
                                   .one())
             t = Tourney(name, current_user.id, current_user_group.id, notes)
+            check_can_write(t)
             db.add(t)
             db.commit()
             return {}
@@ -438,6 +452,7 @@ def handleEdit(path):
                 tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
             except NoResultFound:
                 raise RuntimeError("no such tourney")
+            check_can_delete(tourney)
             bouts = db.query(Bout).filter_by(tourneyId=tourneyId)
             for bout in bouts:
                 db.delete(bout)
@@ -452,6 +467,8 @@ def handleEdit(path):
                 b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError("no such bout")
+            tourney = db.query(Tourney).filter_by(tourneyId=b.tourneyId).one()
+            check_can_write(tourney)
             if 'tourney' in request.values:
                 b.tourneyId = int(request.values['tourney'])
             if 'rightplayer' in request.values:
@@ -470,13 +487,16 @@ def handleEdit(path):
             return {}
         elif request.values['oper']=='add':
             tourneyId = int(request.values['tourney'])
+            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+            check_can_write(tourney)
             lPlayerId = int(request.values['leftplayer'])
             rPlayerId = int(request.values['rightplayer'])
             lWins = int(request.values.get('lwins', '0'))
             rWins = int(request.values.get('rwins', '0'))
             draws = int(request.values.get('draws', '0'))
             note = request.values.get('notes', '')
-            b = Bout(tourneyId,lWins,lPlayerId,draws,rPlayerId,rWins,note)
+            b = Bout(tourneyId, lWins, lPlayerId, draws,
+                     rPlayerId, rWins, note)
             db.add(b)
             db.commit()
             return {}
@@ -485,6 +505,8 @@ def handleEdit(path):
                 b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError(f"No such bout")
+            tourney = db.query(Tourney).filter_by(tourneyId=b.tourneyId).one()
+            check_can_write(tourney)
             db.delete(b)
             db.commit()
             return {}
@@ -545,6 +567,8 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
     db = get_db()
     engine = db.get_bind()
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         if include_ids:
             boutDF = pd.read_sql(
                 f"""
@@ -575,6 +599,9 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 and bouts.tourneyId = {tourneyId}
                 """, engine, coerce_float=True)
     else:
+        raise RuntimeError('getting bouts from all tourneys is not implemented'
+                           ' because it needs to support accessing only readable'
+                           ' tournaments')
         if include_ids:
             boutDF = pd.read_sql(
                 """
@@ -622,6 +649,8 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
     db = get_db()
     engine = db.get_bind()
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         if include_ids:
             entrantDF = pd.read_sql(
                 f"""
@@ -682,6 +711,8 @@ def _horserace_fetch_dataframes(data, **kwargs):
     engine = db.get_bind()
     tourneyId = int(data['tourney'])
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         boutDF = pd.read_sql(f'select * from bouts'
                              f' where tourneyId={tourneyId}',
                              engine, coerce_float=True)
@@ -755,6 +786,7 @@ def horserace_get_bouts_graph(**kwargs):
         tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
     except NoResultFound:
         raise RuntimeError("No such tourney")
+    check_can_read(tourney)
 
     try:
         fit_info = stat_utils.ModelFit.from_raw_bouts(
@@ -780,7 +812,22 @@ def _tourney_json_rep(db, tourney):
             'note': tourney.note,
             'owner_name': owner.username,
             'group_name': group.name,
+            'owner_read': tourney.owner_read,
+            'owner_write': tourney.owner_write,
+            'owner_delete': tourney.owner_delete,
+            'group_read': tourney.group_read,
+            'group_write': tourney.group_write,
+            'group_delete': tourney.group_delete,
+            'other_read': tourney.other_read,
+            'other_write': tourney.other_write,
+            'other_delete': tourney.other_delete,
             }
+    return rslt
+
+
+def _checkbox_value_map(map, key):
+    rslt = key in map and map[key] and map[key] == 'on'
+    print(f'RESULT {rslt} {type(rslt)}')
     return rslt
 
 
@@ -789,38 +836,68 @@ def _tourney_json_rep(db, tourney):
 @debug_page_wrapper
 def ajax_tourneys_settings(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
-    if request.method == 'GET':
-        tourney_id = int(request.values['tourney_id'])
-        db = get_db()
-        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
-        response_data = _tourney_json_rep(db, tourney)
-        response_data.update({
-            'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
-            'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}'
-        })
-        response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
-                                                    **response_data)
-        return {'status': 'success',
-                'value': response_data
+    tourney_id = int(request.values['tourney_id'])
+    db = get_db()
+    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(tourney)
+            response_data = _tourney_json_rep(db, tourney)
+            response_data.update({
+                'current_user_groups': [grp.name for grp in current_user.get_groups(db)],
+                'form_name': f'tourney_settings_dlg_form_{tourney.tourneyId}',
+            })
+            response_data['dlg_html'] = render_template("tourneys_settings_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        elif request.method == 'PUT':
+            check_can_write(tourney)
+            json_rep = _tourney_json_rep(db, tourney)
+            changed = 0
+            new_prot_state = {
+                'group_name': request.values.get('group', tourney.groupName)
+            }
+            prot_keys = ['owner_read', 'owner_write', 'owner_delete',
+                         'group_read', 'group_write', 'group_delete',
+                         'other_read', 'other_write', 'other_delete']
+            for key in prot_keys:
+                req_key_val = _checkbox_value_map(request.values, key)
+                new_prot_state[key] = req_key_val
+            if ((current_user_can_read(tourney, **new_prot_state)
+                 and current_user_can_write(tourney, **new_prot_state))
+                or request.values.get('confirm', 'false') == 'true'
+                ):
+                assert key in json_rep, "inconsistent protection keys"
+                for key in prot_keys:
+                    if json_rep[key] != new_prot_state[key]:
+                        setattr(tourney, key, new_prot_state[key])
+                        changed += 1
+            else:
+                return {'status': 'confirm',
+                        'msg': ("This change will make it impossible for you"
+                                " to read or write this tournament. Are you sure?"
+                                )
+                        }
+            if ('group' in request.values
+                and json_rep['group_name'] != request.values['group']):
+                new_group = db.query(Group).filter_by(name=request.values['group']).one()
+                tourney.group = new_group.id
+                json_rep['group_name'] = new_group.name
+                changed += 1
+            if changed:
+                db.add(tourney)
+                db.commit()
+            else:
+                logMessage(f'The tournament {tourney.name} was not changed')
+            return {'status': 'success',
+                    'value': json_rep
+                    }
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
                 }
-    elif request.method == 'PUT':
-        tourney_id = int(request.values['tourney_id'])
-        db = get_db()
-        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
-        json_rep = _tourney_json_rep(db, tourney)
-        changed = 0
-        if json_rep['group_name'] != request.values['group']:
-            new_group = db.query(Group).filter_by(name=request.values['group']).one()
-            tourney.group = new_group.id
-            json_rep['group_name'] = new_group.name
-            changed += 1
-        if changed:
-            db.add(tourney)
-            db.commit()
-        else:
-            logMessage(f'The tournament {tourney.name} was not changed')
-        return {'status': 'success',
-                'value': json_rep}
     else:
         return f"unsupported method {request.method}", 405
 
@@ -911,9 +988,7 @@ def handleJSON(path, **kwargs):
     db = get_db()
     engine = db.get_bind()
     if path=='tourneys':
-        tourneyList = [val for val in db.query(Tourney)]
-        for t in tourneyList:
-            print(f'TOURNEY {t.name} <{t.owner}> {type(t.owner)} <{t.ownerName}> <{t.groupName}>')
+        tourneyList = get_readable_tourneys(db)
         result = {
                   "records":len(tourneyList),  # total records
                   "rows": [ {"id":t.tourneyId,
@@ -927,6 +1002,13 @@ def handleJSON(path, **kwargs):
                   }
     elif path=='entrants':
         tourneyId = int(request.values.get('tourneyId', -1))
+        if tourneyId != -1:
+            # we are dealing with a specific tourney
+            tourney = (db.query(Tourney)
+                       .filter_by(tourneyId=tourneyId)
+                       .one()
+                       )
+            check_can_read(tourney)
         session['sel_tourney_id'] = tourneyId
         with engine.connect() as conn:
             rs1 = conn.execute(  # This gets the players with bouts
@@ -954,7 +1036,6 @@ def handleJSON(path, **kwargs):
                 )
                 player_rs = conn.execute(stxt, t_id=tourneyId)
                 player_id_set = set([val.id for val in player_rs])
-                print("player_id_set:",player_id_set)
                 playerList = [val for val in rs1 if val.id in player_id_set]
             else:
                 rs2 = conn.execute(  # This gets the players without bouts
@@ -981,15 +1062,29 @@ def handleJSON(path, **kwargs):
         tourneyId = int(request.values.get('tourneyId', -1))
         session['sel_tourney_id'] = tourneyId
         if tourneyId >= 0:
-            boutList = [b for b in db.query(Bout).filter_by(tourneyId=tourneyId)]
+            tourney = (db.query(Tourney)
+                       .filter_by(tourneyId=tourneyId)
+                       .one()
+                       )
+            check_can_read(tourney)
+            bout_list = [b for b in (db.query(Bout)
+                                     .filter_by(tourneyId=tourneyId)
+                                     .all())]
         else:
-            boutList = [b for b in db.query(Bout)]
+            tourney_list = get_readable_tourneys(db)
+            tourney_id_list = [tourney.tourneyId
+                               for tourney in tourney_list]
+            bout_list = (db.query(Bout)
+                         .filter(Bout.tourneyId.in_(tourney_id_list))
+                         .all()
+                         )
+            bout_id_list = [b.boutId for b in list(bout_list)]
         result = {
-                  "records":len(boutList),  # total records
+                  "records":len(bout_list),  # total records
                   "rows": [ {"id":p.boutId, "cell":[p.tourneyName, 
                                                     p.leftWins, p.lName, p.draws,
                                                     p.rName, p.rightWins, p.note] } 
-                           for p in boutList ]
+                            for p in bout_list]
                   }
     elif path == 'horserace':
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]

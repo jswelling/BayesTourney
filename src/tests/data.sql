@@ -18,13 +18,26 @@ VALUES
   (3, 2, 4),
   (4, 2, 5);
 
-INSERT INTO tourneys (name, note, owner, 'group')
+INSERT INTO tourneys (name, note, owner, 'group',
+owner_read, owner_write, owner_delete,
+group_read, group_write, group_delete,
+other_read, other_write, other_delete
+)
 VALUES
-  ('test_tourney_1', 'first test tourney', 1, 3),
-  ('test_tourney_2', 'second test tourney', 1, 5),
-  ('test_tourney_3', 'third test tourney', 2, 4),
-  ('test_tourney_4', 'fourth test tourney', 2, 5),
-  ('test_tourney_5', 'fifth test tourney', 2, 4);
+  ('test_tourney_1', 'first test tourney', 1, 3,
+  True, True, True, True, False, False, False, False, False),
+  ('test_tourney_2', 'second test tourney', 1, 5,
+  True, True, True, True, False, False, False, False, False),
+  ('test_tourney_3', 'third test tourney', 2, 4,
+  True, True, True, True, False, False, False, False, False),
+  ('test_tourney_4', 'fourth test tourney', 2, 5,
+  True, True, True, True, False, False, False, False, False),
+  ('test_tourney_5', 'fifth test tourney', 2, 4,
+  True, True, True, True, False, False, False, False, False),
+  ('test_tourney_6', 'sixth test tourney', 2, 4,
+  True, True, True, True, False, False, True, True, True),
+  ('test_tourney_7', 'seventh test tourney', 2, 5,
+  True, True, True, True, True, True, False, False, False);
 
 INSERT INTO players (name, note)
 VALUES
