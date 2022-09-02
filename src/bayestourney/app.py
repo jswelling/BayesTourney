@@ -249,6 +249,7 @@ def upload_bouts_file():
     except NoResultFound:
         raise RuntimeError("No such tourney")
     LOGGER.info(f'Tourney is {tourney}')
+    check_can_write(tourney)
     try:
         insert_bouts_from_df(df, tourney)
     except DBException as e:
@@ -299,7 +300,7 @@ def tourneys():
 @login_required
 @debug_page_wrapper
 def entrants():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("entrants.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -309,7 +310,7 @@ def entrants():
 @login_required
 @debug_page_wrapper
 def bouts():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("bouts.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -328,7 +329,7 @@ def experiment():
 @login_required
 @debug_page_wrapper
 def horserace():
-    tourneyDict = {t.tourneyId: t.name for t in get_db().query(Tourney)}
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("horserace.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
                            tourneyDict=tourneyDict)
@@ -399,7 +400,7 @@ def handleList(path):
         s += "</select>\n"
         return s
     elif path=='select_tourney':
-        tourneyList = db.query(Tourney)
+        tourneyList = get_readable_tourneys(db)
         pairs = [((t.tourneyId,t.name)) for t in tourneyList]
         pairs.sort()
         s = "<select>\n"
@@ -425,6 +426,7 @@ def handleEdit(path):
                 t = db.query(Tourney).filter_by(tourneyId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError("No such tourney")
+            check_can_write(t)
             if 'name' in request.values:
                 t.name = request.values['name']
             if 'notes' in request.values:
@@ -440,6 +442,7 @@ def handleEdit(path):
                                   .filter_by(name=current_user.username)
                                   .one())
             t = Tourney(name, current_user.id, current_user_group.id, notes)
+            check_can_write(t)
             db.add(t)
             db.commit()
             return {}
@@ -449,6 +452,7 @@ def handleEdit(path):
                 tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
             except NoResultFound:
                 raise RuntimeError("no such tourney")
+            check_can_delete(tourney)
             bouts = db.query(Bout).filter_by(tourneyId=tourneyId)
             for bout in bouts:
                 db.delete(bout)
@@ -463,6 +467,8 @@ def handleEdit(path):
                 b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError("no such bout")
+            tourney = db.query(Tourney).filter_by(tourneyId=b.tourneyId).one()
+            check_can_write(tourney)
             if 'tourney' in request.values:
                 b.tourneyId = int(request.values['tourney'])
             if 'rightplayer' in request.values:
@@ -481,6 +487,8 @@ def handleEdit(path):
             return {}
         elif request.values['oper']=='add':
             tourneyId = int(request.values['tourney'])
+            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+            check_can_write(tourney)
             lPlayerId = int(request.values['leftplayer'])
             rPlayerId = int(request.values['rightplayer'])
             lWins = int(request.values.get('lwins', '0'))
@@ -497,6 +505,8 @@ def handleEdit(path):
                 b = db.query(Bout).filter_by(boutId=int(request.values['id'])).one()
             except NoResultFound:
                 raise RuntimeError(f"No such bout")
+            tourney = db.query(Tourney).filter_by(tourneyId=b.tourneyId).one()
+            check_can_write(tourney)
             db.delete(b)
             db.commit()
             return {}
@@ -557,6 +567,8 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
     db = get_db()
     engine = db.get_bind()
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         if include_ids:
             boutDF = pd.read_sql(
                 f"""
@@ -587,6 +599,9 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                 and bouts.tourneyId = {tourneyId}
                 """, engine, coerce_float=True)
     else:
+        raise RuntimeError('getting bouts from all tourneys is not implemented'
+                           ' because it needs to support accessing only readable'
+                           ' tournaments')
         if include_ids:
             boutDF = pd.read_sql(
                 """
@@ -634,6 +649,8 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
     db = get_db()
     engine = db.get_bind()
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         if include_ids:
             entrantDF = pd.read_sql(
                 f"""
@@ -694,6 +711,8 @@ def _horserace_fetch_dataframes(data, **kwargs):
     engine = db.get_bind()
     tourneyId = int(data['tourney'])
     if tourneyId >= 0:
+        tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
+        check_can_read(tourney)
         boutDF = pd.read_sql(f'select * from bouts'
                              f' where tourneyId={tourneyId}',
                              engine, coerce_float=True)
@@ -767,6 +786,7 @@ def horserace_get_bouts_graph(**kwargs):
         tourney = get_db().query(Tourney).filter_by(tourneyId=tourney_id).one()
     except NoResultFound:
         raise RuntimeError("No such tourney")
+    check_can_read(tourney)
 
     try:
         fit_info = stat_utils.ModelFit.from_raw_bouts(
