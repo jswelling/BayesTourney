@@ -39,6 +39,7 @@ from .permissions import (
     get_readable_tourneys,
     PermissionException,
     check_can_read, check_can_write, check_can_delete,
+    current_user_can_read, current_user_can_write,
     )
 from . import stat_utils
 
@@ -835,20 +836,36 @@ def ajax_tourneys_settings(**kwargs):
             check_can_write(tourney)
             json_rep = _tourney_json_rep(db, tourney)
             changed = 0
+            new_prot_state = {
+                'group_name': request.values.get('group', tourney.groupName)
+            }
+            prot_keys = ['owner_read', 'owner_write', 'owner_delete',
+                         'group_read', 'group_write', 'group_delete',
+                         'other_read', 'other_write', 'other_delete']
+            for key in prot_keys:
+                req_key_val = _checkbox_value_map(request.values, key)
+                new_prot_state[key] = req_key_val
+            if ((current_user_can_read(tourney, **new_prot_state)
+                 and current_user_can_write(tourney, **new_prot_state))
+                or request.values.get('confirm', 'false') == 'true'
+                ):
+                assert key in json_rep, "inconsistent protection keys"
+                for key in prot_keys:
+                    if json_rep[key] != new_prot_state[key]:
+                        setattr(tourney, key, new_prot_state[key])
+                        changed += 1
+            else:
+                return {'status': 'confirm',
+                        'msg': ("This change will make it impossible for you"
+                                " to read or write this tournament. Are you sure?"
+                                )
+                        }
             if ('group' in request.values
                 and json_rep['group_name'] != request.values['group']):
                 new_group = db.query(Group).filter_by(name=request.values['group']).one()
                 tourney.group = new_group.id
                 json_rep['group_name'] = new_group.name
                 changed += 1
-            for key in ['owner_read', 'owner_write', 'owner_delete',
-                        'group_read', 'group_write', 'group_delete',
-                        'other_read', 'other_write', 'other_delete']:
-                assert key in json_rep, "inconsistent keys"
-                req_key_val = _checkbox_value_map(request.values, key)
-                if json_rep[key] != req_key_val:
-                    setattr(tourney, key, req_key_val)
-                    changed += 1
             if changed:
                 db.add(tourney)
                 db.commit()

@@ -12,44 +12,65 @@ class PermissionException(Exception):
     pass
 
 
-def current_user_can_read(tourney: Tourney) -> bool:
+def current_user_can_read(tourney: Tourney, **kwargs) -> bool:
+    owner_read = kwargs.get('owner_read', tourney.owner_read)
+    group_read = kwargs.get('group_read', tourney.group_read)
+    other_read = kwargs.get('other_read', tourney.other_read)
+    if 'group_name' in kwargs:
+        group_id = (get_db().query(Group).filter_by(name=kwargs['group_name'])
+                    .one().id)
+    else:
+        group_id = tourney.group
     if current_user.admin:
         return True
-    elif tourney.owner == current_user.id and tourney.owner_read:
+    elif tourney.owner == current_user.id and owner_read:
         return True
-    elif (tourney.group in [grp.id
-                            for grp in current_user.get_groups(get_db())]
-          and tourney.group_read):
+    elif (group_id in [grp.id for grp in current_user.get_groups(get_db())]
+          and group_read):
         return True
-    elif tourney.other_read:
+    elif other_read:
         return True
     return False
 
 
-def current_user_can_write(tourney: Tourney) -> bool:
+def current_user_can_write(tourney: Tourney, **kwargs) -> bool:
+    owner_write = kwargs.get('owner_write', tourney.owner_write)
+    group_write = kwargs.get('group_write', tourney.group_write)
+    other_write = kwargs.get('other_write', tourney.other_write)
+    if 'group_name' in kwargs:
+        group_id = (get_db().query(Group).filter_by(name=kwargs['group_name'])
+                    .one().id)
+    else:
+        group_id = tourney.group
     if current_user.admin:
         return True
-    elif tourney.owner == current_user.id and tourney.owner_write:
+    elif tourney.owner == current_user.id and owner_write:
         return True
-    elif (tourney.group in [grp.id
-                            for grp in current_user.get_groups(get_db())]
-          and tourney.group_write):
+    elif (group_id in [grp.id for grp in current_user.get_groups(get_db())]
+          and group_write):
         return True
-    elif tourney.other_write:
+    elif other_write:
         return True
     return False
 
 
-def current_user_can_delete(tourney: Tourney) -> bool:
+def current_user_can_delete(tourney: Tourney, **kwargs) -> bool:
+    owner_delete = kwargs.get('owner_delete', tourney.owner_delete)
+    group_delete = kwargs.get('group_delete', tourney.group_delete)
+    other_delete = kwargs.get('other_delete', tourney.other_delete)
+    if 'group_name' in kwargs:
+        group_id = (get_db().query(Group).filter_by(name=kwargs['group_name'])
+                    .one().id)
+    else:
+        group_id = tourney.group
     if current_user.admin:
         return True
-    elif tourney.owner == current_user.id and tourney.owner_delete:
+    elif tourney.owner == current_user.id and owner_delete:
         return True
-    elif (tourney.group in [grp.id
-                            for grp in current_user.get_groups(get_db())]
-          and tourney.group_delete):
+    elif (group_id in [grp.id for grp in current_user.get_groups(get_db())]
+          and group_delete):
         return True
-    elif tourney.other_delete:
+    elif other_delete:
         return True
     return False
 
@@ -76,7 +97,10 @@ def check_can_delete(tourney: Tourney) -> None:
 
 
 def get_readable_tourneys(db) -> Iterable[Tourney]:
-    tourneyList1 = db.query(Tourney).filter_by(owner=current_user.id)
+    tourneyList1 = (db.query(Tourney)
+                    .filter(Tourney.owner == current_user.id,
+                            Tourney.owner_read == True)
+                    )
     group_id_list = [gp.id for gp in current_user.get_groups(db)]
     tourneyList2 = (db.query(Tourney)
                     .filter(Tourney.group.in_(group_id_list),

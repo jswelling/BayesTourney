@@ -78,6 +78,50 @@ $(function () {
 			if (data['status'] == 'success') {
 			  $("#tourneys_table").trigger('reloadGrid',{ fromServer: true });
 			}
+			else if (data['status'] == 'confirm') {
+			  //alert('confirm clause' + data['msg']);
+			  let this_confirm_div = $('<div title="Confirmation Required"/>');
+			  this_confirm_div.html(data['msg']).dialog({
+			    buttons: {
+			      "Cancel": function() {
+				$(this).dialog("close");
+				this_confirm_div.remove();
+			      },
+			      "Confirm": function() {
+				$(this).dialog("close");
+				form_data.push({'name': 'confirm', 'value': 'true'});
+				$.ajax({
+				  type:'PUT',
+				  url:'ajax/tourneys/settings',
+				  data:form_data
+				})
+				  .fail(function(jqXHR, textStatus, errorThrown) {
+				    alert('The server did not respond as expected to the update request for this tourney.');
+				    console.log('failure jqXHR: ', jqXHR);
+				    console.log('failure textStatus: ', textStatus);
+				    console.log('failure thrown: ', errorThrown)
+				  })
+				  .done(function(data, textStatus, jqXHR) {
+				    if (data['status'] == 'success') {
+				      $("#tourneys_table").trigger('reloadGrid',{ fromServer: true });
+				    }
+				    else {
+				      if (data['msg']) {
+					alert(data['msg'])
+				      }
+				      else {
+					alert('The server did not report success in response to the update of tourney data.')
+				      }
+				      console.log('non-success data:', data)
+				    }
+				  })
+				  .always(function() {
+				    this_confirm_div.remove();
+				  })
+			      }
+			    }
+			  });
+			}
 			else {
 			  if (data['msg']) {
 			    alert(data['msg'])
