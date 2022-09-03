@@ -53,3 +53,12 @@ VALUES
   (1, 4, 3, 1, 2, 0, 'tourney 1 set 3'),
   (2, 3, 2, 3, 5, 1, 'tourney 2 set 1');
 
+-- The following block construct player_tourney_pair entries appropriate for these bouts --
+CREATE TEMPORARY TABLE t1 AS SELECT tourneyId AS tourney_id, leftPlayerId AS player_id FROM bouts;
+CREATE TEMPORARY TABLE t2 AS SELECT tourneyId AS tourney_id, rightPlayerId AS player_id FROM bouts;
+CREATE TEMPORARY TABLE t3 AS SELECT * FROM t1 UNION SELECT * FROM t2;
+INSERT INTO 'player_tourney_pair' (tourney_id, player_id) SELECT DISTINCT tourney_id, player_id FROM t3;
+DROP TABLE t3;
+DROP TABLE t2;
+DROP TABLE t1;
+

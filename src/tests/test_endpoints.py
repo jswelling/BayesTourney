@@ -4,7 +4,8 @@ from pprint import pprint
 from flask import g, session
 from bayestourney.database import get_db
 
-def test_list_select_tourney(client, app):
+def test_list_select_tourney(client, app, auth):
+    auth.login()
     with client:
         rslt = client.get('/list/select_tourney')
     assert rslt.status_code == 200
@@ -12,9 +13,7 @@ def test_list_select_tourney(client, app):
 <select>
 <option value=1>test_tourney_1<option>
 <option value=2>test_tourney_2<option>
-<option value=3>test_tourney_3<option>
 <option value=4>test_tourney_4<option>
-<option value=5>test_tourney_5<option>
 <option value=6>test_tourney_6<option>
 <option value=7>test_tourney_7<option>
 </select>
@@ -66,7 +65,7 @@ def test_edit_tourneys_edit(client, app, auth):
         response = client.post(
             '/edit/tourneys',
             data={'oper': 'edit',
-                  'id': 3,
+                  'id': 2,
                   'name': 'other new name',
                   'notes': 'other new note'
             })
@@ -85,12 +84,6 @@ def test_edit_tourneys_edit(client, app, auth):
             assert rec2[3] == rec1[3]
             assert rec2[4] == rec1[4]
         elif id1 == 2:
-            assert int(rec2[0]) == id1
-            assert rec2[1] == rec1[1]
-            assert rec2[2] == rec1[2]
-            assert rec2[3] == rec1[3]
-            assert rec2[4] == 'new note'
-        elif id1 == 3:
             assert int(rec2[0]) == id1
             assert rec2[1] == 'other new name'
             assert rec2[2] == rec1[2]
@@ -531,15 +524,99 @@ def test_ajax_tourneys_settings_put(client, app, auth):
         assert response_json['status'] == 'success'
         assert 'value' in response_json
         values = response_json['value']
-        put_response = client.put('/ajax/tourneys/settings',
-                                  data={'tourney_id': '1',
-                                        'group': 'everyone'
-                                        })
+        data={'tourney_id': '1',
+              'group': 'everyone'
+              }
+        put_response = client.put('/ajax/tourneys/settings', data=data)
         put_json = json.loads(put_response.data.decode('utf-8'))
-        assert put_json['status'] == 'success'
+        assert put_json['status'] == 'confirm'
         after_response = client.get('/ajax/tourneys/settings?tourney_id=1')
         after_response_json = json.loads(after_response.data.decode('utf-8'))
         assert after_response_json['status'] == 'success'
         assert 'value' in after_response_json
         after_values = after_response_json['value']
-        assert after_values['group_name'] == 'everyone'
+        assert after_values['group_name'] == 'test'
+        data['confirm'] = 'true'
+        put_response = client.put('/ajax/tourneys/settings', data=data)
+        put_json = json.loads(put_response.data.decode('utf-8'))
+        assert put_json['status'] == 'success'
+        after_response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        after_response_json = json.loads(after_response.data.decode('utf-8'))
+        assert after_response_json['status'] == 'failure'
+        assert 'msg' in after_response_json
+        after_msg = after_response_json['msg']
+        assert 'does not have read access' in after_msg
+
+
+def test_ajax_entrants_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/entrants?tourney_id=3')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'failure'
+        assert 'msg' in response_json
+        assert 'does not have read access' in response_json['msg']
+        response = client.get('/ajax/entrants?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        player_id_set = set(elt['id'] for elt in response_json['value'])
+        assert player_id_set == set([1, 2, 3])
+
+
+def test_ajax_entrants_put(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/entrants?tourney_id=4')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.put('/ajax/entrants',
+                              data={'tourney_id': 4,
+                                    'action': 'add',
+                                    'player_id': 1
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'failure'
+        assert 'msg' in response_json
+        assert 'does not have write access' in response_json['msg']
+        response = client.get('/ajax/entrants?tourney_id=1')
+        before_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in before_json
+        assert before_json['status'] == 'success'
+        before_set = set(elt['id'] for elt in before_json['value'])
+        response = client.put('/ajax/entrants',
+                              data={'tourney_id': 1,
+                                    'action': 'add',
+                                    'player_id': 4
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.get('/ajax/entrants?tourney_id=1')
+        after_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in after_json
+        assert after_json['status'] == 'success'
+        after_set = set(elt['id'] for elt in after_json['value'])
+        assert len(after_json['value']) == len(before_json['value']) + 1
+        assert after_set ^ before_set == set([4])
+        response = client.put('/ajax/entrants',
+                              data={'tourney_id': 1,
+                                    'action': 'delete',
+                                    'player_id': 4
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.get('/ajax/entrants?tourney_id=1')
+        after_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in after_json
+        assert after_json['status'] == 'success'
+        after_set = set(elt['id'] for elt in after_json['value'])
+        assert after_set == before_set
