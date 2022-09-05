@@ -827,7 +827,6 @@ def _tourney_json_rep(db, tourney):
 
 def _checkbox_value_map(map, key):
     rslt = key in map and map[key] and map[key] == 'on'
-    print(f'RESULT {rslt} {type(rslt)}')
     return rslt
 
 
@@ -894,12 +893,12 @@ def ajax_tourneys_settings(**kwargs):
             return {'status': 'success',
                     'value': json_rep
                     }
+        else:
+            return f"unsupported method {request.method}", 405
     except PermissionException as excinfo:
         return {'status': 'failure',
                 'msg': f"{excinfo}"
                 }
-    else:
-        return f"unsupported method {request.method}", 405
 
 
 @bp.route('/ajax/settings', methods=["GET", "PUT"])
@@ -928,6 +927,56 @@ def ajax_settings(**kwargs):
                     }
     else:
         return f"unsupported method {request.method}", 405
+
+
+@bp.route('/ajax/entrants', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_entrants(**kwargs):
+    assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
+    tourney_id = int(request.values['tourney_id'])
+    db = get_db()
+    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(tourney)
+            return {
+                'status': 'success',
+                'value': [player.as_dict() for player in tourney.get_players(db)]
+                }
+        elif request.method == 'PUT':
+            check_can_write(tourney)
+            assert 'action' in request.values, 'action is required for PUT requests'
+            assert 'player_id' in request.values, 'player_id is required for PUT requests'
+            if request.values['action'] == 'add':
+                player_id = int(request.values['player_id'])
+                player = db.query(LogitPlayer).filter_by(id=player_id).one()
+                tourney.add_player(db, player)
+                db.commit()
+                return {
+                    'status': 'success',
+                    'value': {}
+                }
+            elif request.values['action'] == 'delete':
+                player_id = int(request.values['player_id'])
+                player = db.query(LogitPlayer).filter_by(id=player_id).one()
+                tourney.remove_player(db, player)
+                db.commit()
+                return {
+                    'status': 'success',
+                    'value': {}
+                }
+            else:
+                return {
+                    'status': 'failure',
+                    'msg': f'unknown action "{action}" was requested'
+                }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
 
 
 def _get_hr_include(tourney_id, player_id):

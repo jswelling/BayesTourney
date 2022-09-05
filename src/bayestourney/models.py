@@ -48,8 +48,9 @@ class User(UserMixin, Base):
 
     def remove_group(self, db, group):
         (db.query(UserGroupPair)
-         .filter(UserGroupPair.user_id == self.id)
-         .filter(UserGroupPair.group_id == group.id)
+         .filter(UserGroupPair.user_id == self.id,
+                 UserGroupPair.group_id == group.id
+                 )
          .delete())
 
 
@@ -119,6 +120,22 @@ class Tourney(Base):
         return "<Tourney(%s) owned by %s, group %s>"%(self.name,
                                                       self.ownerName, self.groupName)
 
+    def add_player(self, db, player):
+        db.add(TourneyPlayerPair(self.tourneyId, player.id))
+
+    def remove_player(self, db, player):
+        (db.query(TourneyPlayerPair)
+         .filter(TourneyPlayerPair.tourney_id == self.tourneyId,
+                 TourneyPlayerPair.player_id == player.id
+                 )
+         .delete())
+
+    def get_players(self, db):
+        return (db.query(LogitPlayer).join(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.tourney_id == self.tourneyId)
+                .all())
+
+
 class LogitPlayer(Base):
     __tablename__ = 'players'
     id = Column(Integer, primary_key=True)
@@ -128,10 +145,42 @@ class LogitPlayer(Base):
     def __init__(self,name,note):
         self.name = name
         self.note = note
+
     def __str__(self): return self.name
+
     def fight(self,otherPlayer):
-        raise RuntimeError('since LogitPlayer no longer has a weight, fight is no longer implemented')
+        raise RuntimeError('since LogitPlayer no longer has a weight,'
+                           ' fight is no longer implemented')
+
+    def get_tourneys(self, db):
+        return (db.query(Tourney).join(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.player_id == self.id)
+                .all())
+
+    def as_dict(self):
+        return {'id': self.id, 'name': self.name, 'note': self.note}
+
         
+class TourneyPlayerPair(Base):
+    __tablename__ = "player_tourney_pair"
+    id = Column(Integer, primary_key=True)
+    tourney_id = Column(Integer,
+                        ForeignKey('tourneys.tourneyId',
+                                   name='tourney_player_pair_tourney_id_constraint'),
+                        nullable=False, index=True)
+    player_id = Column(Integer,
+                       ForeignKey('players.id',
+                                  name='tourney_player_pair_player_id_constraint'),
+                      nullable=False, index=True)
+
+    def __init__(self, tourney_id, player_id):
+        self.tourney_id = tourney_id
+        self.player_id = player_id
+
+    def __str__(self):
+        return f"<TourneyPlayerPair(tourney={self.tourney_id}, player={self.player_id})>"
+
+
 class Bout(Base):
     __tablename__ = 'bouts'
     boutId = Column(Integer, primary_key=True)
