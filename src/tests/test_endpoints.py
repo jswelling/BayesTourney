@@ -548,6 +548,65 @@ def test_ajax_tourneys_settings_put(client, app, auth):
         assert 'does not have read access' in after_msg
 
 
+def _htmlify_flags(dct, key_list):
+    """
+    This simulates checkbox output by replacing dct[key] with 'on' if dct[key]
+    is true, and otherwise deleting key from dct.
+    """
+    for key in key_list:  # simulate what the html map looks like
+        if dct[key]:
+            dct[key] = 'on'
+        else:
+            del dct[key]
+
+
+def test_ajax_tourneys_settings_allflags(client, app, auth):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        before_values = response_json['value']
+        prot_flags = ['owner_read', 'owner_write', 'owner_delete',
+                      'group_read', 'group_write', 'group_delete',
+                      'other_read', 'other_write', 'other_delete']
+        flip_data = {key: not before_values[key] for key in prot_flags}
+        _htmlify_flags(flip_data, prot_flags)
+        flip_data['tourney_id'] = 1
+        response = client.put('/ajax/tourneys/settings', data=flip_data)
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        flipped_values = response_json['value']
+        for key in prot_flags:
+            assert flipped_values[key] == (not before_values[key]), f'{key} does not match'
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        flipped_values = response_json['value']
+        for key in prot_flags:
+            assert flipped_values[key] == (not before_values[key]), f'{key} does not match'
+        flip_flip_data = {key: not flipped_values[key] for key in prot_flags}
+        _htmlify_flags(flip_flip_data, prot_flags)
+        flip_flip_data['tourney_id'] = 1
+        response = client.put('/ajax/tourneys/settings', data=flip_flip_data)
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        flip_flipped_values = response_json['value']
+        for key in prot_flags:
+            assert flip_flipped_values[key] == (not flipped_values[key]), f'{key}'
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        flip_flipped_values = response_json['value']
+        for key in prot_flags:
+            assert flip_flipped_values[key] == (not flipped_values[key]), f'{key}'
+
+
 def test_ajax_entrants_get(client, app, auth):
     auth.login()
     with client:

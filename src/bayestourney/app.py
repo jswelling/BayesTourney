@@ -283,6 +283,11 @@ def settings():
     return render_template("prefs.html", **(get_settings()))
 
 
+@bp.route("/admin_page")
+def admin_page():
+    return render_template("admin.html")
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -862,8 +867,7 @@ def ajax_tourneys_settings(**kwargs):
                          'group_read', 'group_write', 'group_delete',
                          'other_read', 'other_write', 'other_delete']
             for key in prot_keys:
-                req_key_val = _checkbox_value_map(request.values, key)
-                new_prot_state[key] = req_key_val
+                new_prot_state[key] = _checkbox_value_map(request.values, key)
             if ((current_user_can_read(tourney, **new_prot_state)
                  and current_user_can_write(tourney, **new_prot_state))
                 or request.values.get('confirm', 'false') == 'true'
@@ -872,6 +876,7 @@ def ajax_tourneys_settings(**kwargs):
                 for key in prot_keys:
                     if json_rep[key] != new_prot_state[key]:
                         setattr(tourney, key, new_prot_state[key])
+                        json_rep[key] = new_prot_state[key]
                         changed += 1
             else:
                 return {'status': 'confirm',
