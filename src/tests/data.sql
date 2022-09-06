@@ -1,7 +1,8 @@
 INSERT INTO user (id, username, email, password_hash, admin, confirmed, remember_me)
 VALUES
   (1, 'test', 'foo@bar.baz', 'pbkdf2:sha256:50000$TCI4GzcX$0de171a4f4dac32e3364c7ddc7c14f3e2fa61f2d17574483f7ffbb431b4acb2f', False, True, True),
-  (2, 'other', 'blrfl@bar.baz', 'pbkdf2:sha256:50000$kJPKsz6N$d2d4784f1b030a9761f5ccaeeaca413f27f2ecb76d6168407af962ddce849f79', False, True, False);
+  (2, 'other', 'blrfl@bar.baz', 'pbkdf2:sha256:50000$kJPKsz6N$d2d4784f1b030a9761f5ccaeeaca413f27f2ecb76d6168407af962ddce849f79', False, True, False),
+  (3, 'admin', 'admin@foo.bar', 'pbkdf2:sha256:260000$d5HvAo7r21kTmXSQ$2c0fefa87879115fbb1721838ab26b270f120291c49c113106372bc4e6f603f9', True, True, False);
 
 INSERT INTO "group" (id, name)
 VALUES

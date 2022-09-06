@@ -87,7 +87,10 @@
 		<button type="submit" class="btn btn-default">Submit</button>
 	      </form>
 	      -->
-	  <ul class="nav navbar-nav navbar-right">
+	      <ul class="nav navbar-nav navbar-right">
+		{% if current_user['admin'] %}
+		{{ nav_link('admin_page', 'Admin') }}
+		{% endif %}
 	    {{ nav_link('settings', 'Settings') }}
 	    {{ nav_link('help', 'Help') }}
 	    <li class="dropdown">
