@@ -3,14 +3,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-    <script crossorigin="anonymous"
-            src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
-            integrity="sha256-98vAGjEDGN79TjHkYWVD4s87rvWkdWLHPs5MC3FvFX4="></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
+            integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/js/bootstrap.min.js"
+            integrity="sha384-7VPbUDkoPSGFnVtYi0QogXtr74QeVeeIs99Qfg5YCF+TidwNdjvaKZX19NZ/e6oz"
+            crossorigin="anonymous"></script>
     <script>
       $.jgrid = $.jgrid || {};
       $.jgrid.no_legacy_api = true;
@@ -19,112 +21,106 @@
             src="https://cdnjs.cloudflare.com/ajax/libs/free-jqgrid/4.15.5/jquery.jqgrid.min.js"
             integrity="sha256-ELi2cs17gL2MqNzkRkogxZsVLmL+oWfeVOwZQLcp8ek=">
     </script>
-
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/select/1.4.0/js/dataTables.select.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.min.js"></script>
     <script>
       /*
-      * Magic to make AJAX ops like $.getJSON send the same cookies as normal fetches
-      */
+       * Magic to make AJAX ops like $.getJSON send the same cookies as normal fetches
+       */
       $(document).ajaxSend(function (event, xhr, settings) {
-	settings.xhrFields = {
-	  withCredentials: true
-	};
+        settings.xhrFields = {
+          withCredentials: true
+        };
       });
     </script>
-
+    
     {% block pagescripts %}{% endblock %}
-
+    
     <title>{% block title %}{% endblock %} - Tournee</title>
-
+    
     <link rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/redmond/jquery-ui.min.css"/>
+          href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/redmond/jquery-ui.min.css"/>
     <link rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
-    <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css"
-	  rel="stylesheet" media="screen" />
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
     <link rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap-theme.min.css"/>
+          href="https://cdnjs.cloudflare.com/ajax/libs/free-jqgrid/4.15.5/css/ui.jqgrid.min.css"/>
     <link rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/free-jqgrid/4.15.5/css/ui.jqgrid.min.css"/>
-    <link rel="stylesheet"
-	  href="{{ url_for('static', filename='style.css') }}" />
+          href="{{ url_for('static', filename='style.css') }}" />
     <link rel="apple-touch-icon" sizes="180x180"
-	  href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
+          href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
     <link rel="icon" type="image/png"
-	  sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}" />
+          sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}" />
     <link rel="icon" type="image/png" sizes="16x16"
-	  href="{{ url_for('static', filename='favicon-16x16.png') }}" />
+          href="{{ url_for('static', filename='favicon-16x16.png') }}" />
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
-  </head>
-  <body>
-    <nav class="navbar navbar-inverse" role="navigation">
-      <div class="container-fluid">
-	<!--
-	    <h1>{% block heading %}{% endblock %} - Tournee Heading</h1>
-	    -->
-	<div class="navbar-header">
-	  <button type="button" class="navbar-toggle" data-toggle="collapse"
-		  data-target="#bs-example-navbar-collapse-1">
-	    <span class="sr-only">Toggle navigation</span>
-	    <span class="icon-bar"></span>
-	    <span class="icon-bar"></span>
-	    <span class="icon-bar"></span>
-	  </button>
-	  <a class="navbar-brand" href="/">Tournee!</a>
-	</div>
-
-	<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-	  <ul class="nav navbar-nav">
-	    {{ nav_link('tourneys', 'Tournaments') }}
-	    {{ nav_link('entrants', 'Entrants') }}
-	    {{ nav_link('bouts', 'Bouts') }}
-	    {{ nav_link('horserace', 'Horserace') }}
-	  </ul>
-	  <!--
-	      <form class="navbar-form navbar-left" role="search">
-		<div class="form-group">
-		  <input type="text" class="form-control" placeholder="Search"/>
-		</div>
-		<button type="submit" class="btn btn-default">Submit</button>
-	      </form>
-	      -->
-	      <ul class="nav navbar-nav navbar-right">
-		{% if current_user['admin'] %}
-		{{ nav_link('admin_page', 'Admin') }}
-		{% endif %}
-	    {{ nav_link('settings', 'Settings') }}
-	    {{ nav_link('help', 'Help') }}
-	    <li class="dropdown">
-	      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-		Misc <b class="caret"></b></a>
-	      <ul class="dropdown-menu">
-		{{ nav_link('site_map', 'Site Map') }}
-		<!--
-		<li><a href="#">Site Map</a></li>
-		<li><a href="#">Another action</a></li>
-		-->
-	      </ul>
-	    </li>
-	    {% if current_user and current_user.get_id() %}
-	    <li class="navbar-text"><span>{{ current_user['username'] }}</span></li>
-	    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
-	    {% else %}
-	    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-	    <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
-	    {% endif %}
-	  </ul>
-	</div><!-- /.navbar-collapse -->
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap5.min.css"/>
+    <link rel="stylesheet" href="https://cdn.datatables.net/select/1.4.0/css/select.dataTables.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.dataTables.min.css" />
+    </head>
+    <body>
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark" role="navigation">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="/">Tournee!</a>
+          <button type="button" class="navbar-toggler"
+                  data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                  aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
+            <ul class="nav navbar-nav me-auto mb-2 mb-lg-0">
+              {{ nav_link('tourneys', 'Tournaments') }}
+              {{ nav_link('entrants', 'Entrants') }}
+              {{ nav_link('bouts', 'Bouts') }}
+              {{ nav_link('horserace', 'Horserace') }}
+            </ul>
+            {#
+            <form class="d-flex">
+              <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+              </form>
+            #}
+            <ul class="nav navbar-nav ms-auto mb-2 mb-lg-0">
+              {% if current_user['admin'] %}
+              {{ nav_link('admin_page', 'Admin') }}
+              {% endif %}
+              {{ nav_link('settings', 'Settings') }}
+              {{ nav_link('help', 'Help') }}
+              <li class="nav-item dropdown">
+                <a href="#" class="nav-link dropdown-toggle" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Misc <b class="caret"></b></a>
+                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                  <li><a class="dropdown-item" href="{{url_for('site_map')}}">Site Map</a></li>
+                  {#
+                  <li><a class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="#">Another action</a></li>
+                  #}
+                </ul>
+              </li>
+              {% if current_user and current_user.get_id() %}
+              <li class="navbar-text"><span>{{ current_user['username'] }}</span></li>
+              {{ nav_link('auth.logout', 'Log Out') }}
+              {% else %}
+              {{ nav_link('auth.register', 'Register') }}
+              {{ nav_link('auth.login', 'Log In') }}
+              {% endif %}
+          </ul>
+        </div>
       </div><!-- /.container-fluid -->
     </nav>
     <section class="container">
       <header>
-	{% block header %}{% endblock %}
+        {% block header %}{% endblock %}
       </header>
       {% for message in get_flashed_messages() %}
       <div class="flash">{{ message }}</div>
       {% endfor %}
       <br>
-	{% block content %}
-	{% endblock %}
+        {% block content %}
+        {% endblock %}
       </br>
     </section>
   </body>

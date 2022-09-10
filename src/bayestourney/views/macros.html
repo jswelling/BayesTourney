@@ -1,8 +1,8 @@
 {% macro nav_link(endpoint, name) %}
 {% if request.endpoint.endswith(endpoint) %}
-<li class="active"><a href="{{ url_for(endpoint) }}">{{name}}</a></li>
+<li class="nav-item" aria-current="page"><a href="{{ url_for(endpoint) }}" class="nav-link active">{{name}}</a></li>
 {% else %}
-<li><a href="{{ url_for(endpoint) }}">{{name}}</a></li>
+<li class="nav-item"><a href="{{ url_for(endpoint) }}" class="nav-link">{{name}}</a></li>
 {% endif %}
 {% endmacro %}
 
@@ -151,6 +151,17 @@
     <option value="-1"
     {% if sel_tourney_id == -1 %} selected {% endif %}
     >All</option>
+    {% for id, name in tourneyDict | dictsort %}
+    <option value="{{id}}"
+    {% if sel_tourney_id == id %} selected {% endif %}
+    >{{name}}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+
+{% macro sel_tournaments_no_all(id) %}
+  <label for="{{ id }}">Which Tournament?</label>
+  <select id="{{ id }}">
     {% for id, name in tourneyDict | dictsort %}
     <option value="{{id}}"
     {% if sel_tourney_id == id %} selected {% endif %}

@@ -33,7 +33,7 @@ from pathlib import Path
 from pprint import pprint
 
 from .database import get_db
-from .models import Tourney, LogitPlayer, Bout, User, Group
+from .models import Tourney, LogitPlayer, Bout, User, Group, TourneyPlayerPair
 from .settings import get_settings, set_settings, SettingsError
 from .permissions import (
     get_readable_tourneys,
@@ -941,15 +941,42 @@ def ajax_entrants(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
     tourney_id = int(request.values['tourney_id'])
     db = get_db()
-    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
     try:
         if request.method == 'GET':
-            check_can_read(tourney)
-            return {
-                'status': 'success',
-                'value': [player.as_dict() for player in tourney.get_players(db)]
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                rslt = {
+                    'status': 'success',
+                    'value': [player.as_dict() for player in tourney.get_players(db)]
                 }
+            else:
+                tourneys = get_readable_tourneys(db)
+                tourney_id_list = [tourney.tourneyId for tourney in tourneys]
+                t_p_pairs = (db.query(TourneyPlayerPair)
+                             .filter(TourneyPlayerPair.tourney_id.in_(tourney_id_list))
+                             .all())
+                players = (db.query(LogitPlayer)
+                           .filter(LogitPlayer.id.in_([tpp.player_id for tpp in t_p_pairs]))
+                           .all())
+                rslt = {
+                    'status': 'success',
+                    'value': [player.as_dict() for player in players]
+                }
+            if request.values.get('counts', 'false') == 'true':
+                # Add counts info
+                for row in rslt['value']:
+                    row['bouts'] = (db.query(Bout)
+                                    .filter((Bout.leftPlayerId == row['id'])
+                                             | (Bout.rightPlayerId == row['id']))
+                                    .count())
+                    row['tournaments'] = (db.query(Tourney).join(TourneyPlayerPair)
+                                          .filter(TourneyPlayerPair.player_id == row['id'])
+                                          .count())
+            return rslt
         elif request.method == 'PUT':
+            assert tourney_id > 0, 'invalid tourney id for PUT'
+            tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
             check_can_write(tourney)
             assert 'action' in request.values, 'action is required for PUT requests'
             assert 'player_id' in request.values, 'player_id is required for PUT requests'

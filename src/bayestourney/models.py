@@ -146,7 +146,7 @@ class LogitPlayer(Base):
         self.name = name
         self.note = note
 
-    def __str__(self): return self.name
+    def __str__(self): return f"<LogitPlayer({self.name})>"
 
     def fight(self,otherPlayer):
         raise RuntimeError('since LogitPlayer no longer has a weight,'
@@ -171,7 +171,7 @@ class TourneyPlayerPair(Base):
     player_id = Column(Integer,
                        ForeignKey('players.id',
                                   name='tourney_player_pair_player_id_constraint'),
-                      nullable=False, index=True)
+                       nullable=False, index=True)
 
     def __init__(self, tourney_id, player_id):
         self.tourney_id = tourney_id

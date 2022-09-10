@@ -5,6 +5,7 @@
 {% from "macros.html" import updown_button_content with context %}
 {% from "macros.html" import jqgrid_boilerplate with context %}
 {% from "macros.html" import sel_tournaments with context %}
+{% from "macros.html" import sel_tournaments_no_all with context %}
 
 {% block pagescripts %}
 <script>
@@ -72,15 +73,59 @@ $(function() {
   });
   {{ updown_button_script('entrants', '/download/entrants',
 			  "tourneySelFun" ) }}
-
+  var source_entrants_table = $('#source_entrants_table').DataTable({
+    dom: 'Bfrtip',
+    select: true,
+    ajax: {
+      url: '/ajax/entrants?tourney_id=-1&counts=true',
+      dataSrc: 'value'
+    },
+    columns: [
+      {data: 'id'},
+      {data: 'name'},
+      {data: 'bouts', searchable: false, orderable: false},
+      {data: 'tournaments', searchable: false, orderable: false},
+      {data: 'note'}
+    ],
+    buttons: [
+      {
+        text: 'Get selected data',
+        action: function () {
+          var count = source_entrants_table.rows( { selected: true } ).count();
+	  alert('hello' + count + 'row(s) selected');
+        }
+      }
+    ]
+  });
 });
 </script>
 {% endblock %}
 
 {% block content %}
-  <h1>Entrants</h1>
+<h1>
+  Add Entrants To
+  {{ sel_tournaments_no_all('sel_entrants_tournament') }}
+</h1>
 
-  {{ sel_tournaments('sel_entrants_tournament') }}
+<label for="entrants_select_from_all_block"><h2>Select from all known players:</h2></label>
+<div id="entrants_select_from_all_block" class="border">
+  <table id="source_entrants_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Id</th>
+	<th>Name</th>
+	<th>Bouts</th>
+	<th>Tournaments</th>
+	<th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
+
+<label for="entrants_this_tourney_block"><h2>Entrants in this tourney:</h2></label>
+<div id="entrants_this_tourney_block" class="border">
   <table id="entrants_table"></table>
   <div>
     <input type="BUTTON" id="add_entrant_button" value="New Entrant">
@@ -97,7 +142,7 @@ $(function() {
        """
      )
   }}
-
+</div>
 
 
 {% endblock %}
