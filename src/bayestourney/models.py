@@ -44,7 +44,11 @@ class User(UserMixin, Base):
                 .all())
 
     def add_group(self, db, group):
-        db.add(UserGroupPair(self.id, group.id))
+        if (db.query(UserGroupPair)
+            .filter(UserGroupPair.user_id == self.id,
+                    UserGroupPair.group_id == group.id)
+            .first()) is None:
+            db.add(UserGroupPair(self.id, group.id))
 
     def remove_group(self, db, group):
         (db.query(UserGroupPair)
@@ -64,6 +68,18 @@ class Group(Base):
 
     def __str__(self):
         return(f'<Group({self.id}, name={self.name})>')
+
+    def get_users(self, db):
+        return (db.query(User).join(UserGroupPair)
+                .filter(UserGroupPair.group_id == self.id)
+                .all())
+
+    def add_user(self, db, user):
+        if (db.query(UserGroupPair)
+            .filter(UserGroupPair.group_id == self.id,
+                    UserGroupPair.user_id == user.id)
+            .first()) is None:
+            db.add(UserGroupPair(user.id, self.id))
 
 
 class UserGroupPair(Base):
@@ -121,7 +137,11 @@ class Tourney(Base):
                                                       self.ownerName, self.groupName)
 
     def add_player(self, db, player):
-        db.add(TourneyPlayerPair(self.tourneyId, player.id))
+        if (db.query(TourneyPlayerPair)
+            .filter(TourneyPlayerPair.tourney_id == self.tourneyId,
+                    TourneyPlayerPair.player_id == player.id)
+            .first()) is None:
+            db.add(TourneyPlayerPair(self.tourneyId, player.id))
 
     def remove_player(self, db, player):
         (db.query(TourneyPlayerPair)
@@ -156,6 +176,13 @@ class LogitPlayer(Base):
         return (db.query(Tourney).join(TourneyPlayerPair)
                 .filter(TourneyPlayerPair.player_id == self.id)
                 .all())
+
+    def add_tourney(self, db, tourney):
+        if (db.query(TourneyPlayerPair)
+            .filter(TourneyPlayerPair.tourney_id == tourney.tourneyId,
+                    TourneyPlayerPair.player_id == self.id)
+            .first()) is None:
+            db.add(TourneyPlayerPair(tourney.tourneyId, self.id))
 
     def as_dict(self):
         return {'id': self.id, 'name': self.name, 'note': self.note}

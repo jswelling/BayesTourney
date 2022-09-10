@@ -89,12 +89,68 @@ $(function() {
     ],
     buttons: [
       {
-        text: 'Get selected data',
-        action: function () {
-          var count = source_entrants_table.rows( { selected: true } ).count();
-	  alert('hello' + count + 'row(s) selected');
+        text: 'Enter selected in this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  console.log('evt: ', evt);
+	  console.log('dt_api: ', dt_api);
+	  console.log('jq_btn: ', jq_btn);
+	  console.log('btn_cfg: ', btn_cfg);
+	  console.log('rows: ', source_entrants_table.rows( { selected: true } ).data());
+	  let tourney_id = selEntrantsTourney.val();
+	  source_entrants_table.rows({selected:true}).data().each(
+	    function(row, idx) {
+	      console.log(idx, row, tourney_id);
+	      $.ajax({
+		type:'PUT',
+		url:'ajax/entrants',
+		data: {
+		  tourney_id: tourney_id,
+		  action: 'add',
+		  player_id: row['id']
+		}
+	      })
+		.fail(function(jqXHR, textStatus, errorThrown) {
+		  alert('The server did not respond as expected to the update request for this tourney.');
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		  })
+		.done(function(data, textStatus, jqXHR) {
+		  console.log(data);
+		  if (data['status'] == 'success') {
+		    $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
+		    this_tourney_entrants_table.ajax.reload();
+		  }
+		  else {
+		    if (data['msg']) {
+		      alert(data['msg'])
+		    }
+		    else {
+		      alert('The server did not report success in response to the update of tourney data.')
+		    }
+		    console.log('non-success data:', data)
+		  }
+		})
+	    }
+	  )
         }
       }
+    ]
+  });
+  var this_tourney_entrants_table = $('#this_tourney_entrants_table').DataTable({
+    dom: 'Bfrtip',
+    select: true,
+    ajax: {
+      url: '/ajax/entrants',
+      data: {
+	tourney_id: function() {return selEntrantsTourney.val()}
+      },
+      dataSrc: 'value'
+    },
+    columns: [
+      {data: 'id'},
+      {data: 'name'},
+      {data: 'note'}
     ]
   });
 });
@@ -126,6 +182,21 @@ $(function() {
 
 <label for="entrants_this_tourney_block"><h2>Entrants in this tourney:</h2></label>
 <div id="entrants_this_tourney_block" class="border">
+  <table id="this_tourney_entrants_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Id</th>
+	<th>Name</th>
+	<th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
+
+<label for="entrants_old_this_tourney_block"><h2>Entrants in this tourney:</h2></label>
+<div id="entrants_old_this_tourney_block" class="border">
   <table id="entrants_table"></table>
   <div>
     <input type="BUTTON" id="add_entrant_button" value="New Entrant">
