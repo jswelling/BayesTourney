@@ -3,9 +3,10 @@
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
 {% from "macros.html" import updown_button_content with context %}
-{% from "macros.html" import jqgrid_boilerplate with context %}
 {% from "macros.html" import sel_tournaments with context %}
 {% from "macros.html" import sel_tournaments_no_all with context %}
+{% from "macros.html" import settings_ajax_interaction_chain with context %}
+{% from "macros.html" import jqgrid_boilerplate with context %}
 
 {% block pagescripts %}
 <script>
@@ -85,7 +86,12 @@ $(function() {
       {data: 'name'},
       {data: 'bouts', searchable: false, orderable: false},
       {data: 'tournaments', searchable: false, orderable: false},
-      {data: 'note'}
+      {data: 'note'},
+      {data: null, className: 'editbutton',
+       render: function(data, type, row, meta) {
+	 return "<button><img src='static/gear.svg'></img></button>";
+       }
+      }
     ],
     buttons: [
       {
@@ -153,6 +159,20 @@ $(function() {
       {data: 'note'}
     ]
   });
+  $("#source_entrants_table tbody").on("click", "button", function(event) {
+    event.stopPropagation();
+    let data = source_entrants_table.row($(this).parents('tr')).data();
+    let player_id = data['id'];
+    function settings_get_fun() { return {'player_id' : player_id}; };
+    function reload_both_tables_fun() {
+      source_entrants_table.ajax.reload();
+      this_tourney_entrants_table.ajax.reload();
+    };
+    {{ settings_ajax_interaction_chain('/ajax/entrants/settings',
+				       'settings_get_fun',
+				       'reload_both_tables_fun',
+				       'this player') }}
+  });
 });
 </script>
 {% endblock %}
@@ -173,6 +193,7 @@ $(function() {
 	<th>Bouts</th>
 	<th>Tournaments</th>
 	<th>Notes</th>
+	<th>Edit</th>
       </tr>
     </thead>
     <tbody>

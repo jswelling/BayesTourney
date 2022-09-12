@@ -169,3 +169,117 @@
     {% endfor %}
   </select>
 {% endmacro %}
+
+{% macro settings_ajax_interaction_chain(endpoint, data_for_get_fun_name, after_save_fun_name, msg_string) %}
+        let data_for_get = {{data_for_get_fun_name}} ();
+	$.ajax({type:'GET',
+		url: "{{ endpoint }}",
+		data: data_for_get
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request for data on {{msg_string}}.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      let this_div = $('<div />');
+	      this_div.html(data['value']['dlg_html']).dialog({
+		buttons: {
+		  "Cancel": function() {
+		    $(this).dialog("close");
+		    this_div.remove();
+		  },
+		  "Save": function() {
+		    let form_data = $('#' + data['value']['form_name']).serializeArray();
+		    for (const [key, value] of Object.entries(data_for_get)) {
+		      form_data.push({'name':key, 'value':value});
+		    }
+		    $(this).dialog("close");
+		    $.ajax({
+		      type:'PUT',
+		      url: "{{ endpoint }}",
+		      data:form_data
+		    })
+		      .fail(function(jqXHR, textStatus, errorThrown) {
+			alert("The server did not respond as expected to the update request for {{msg_string}}.");
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		      })
+		      .done(function(data, textStatus, jqXHR) {
+			if (data['status'] == 'success') {
+			  {{ after_save_fun_name }}();
+			}
+			else if (data['status'] == 'confirm') {
+			  let this_confirm_div = $('<div title="Confirmation Required"/>');
+			  this_confirm_div.html(data['msg']).dialog({
+			    buttons: {
+			      "Cancel": function() {
+				$(this).dialog("close");
+				this_confirm_div.remove();
+			      },
+			      "Confirm": function() {
+				$(this).dialog("close");
+				form_data.push({'name': 'confirm', 'value': 'true'});
+				$.ajax({
+				  type:'PUT',
+				  url: "{{endpoint}}",
+				  data:form_data
+				})
+				  .fail(function(jqXHR, textStatus, errorThrown) {
+				    alert("The server did not respond as expected to the update request for {{msg_string}}.");
+				    console.log('failure jqXHR: ', jqXHR);
+				    console.log('failure textStatus: ', textStatus);
+				    console.log('failure thrown: ', errorThrown)
+				  })
+				  .done(function(data, textStatus, jqXHR) {
+				    if (data['status'] == 'success') {
+				      {{ after_save_fun_name }} ();
+				    }
+				    else {
+				      if (data['msg']) {
+					alert(data['msg'])
+				      }
+				      else {
+					alert("The server did not report success in response to the update of {{msg_string}}.")
+				      }
+				      console.log('non-success data:', data)
+				    }
+				  })
+				  .always(function() {
+				    this_confirm_div.remove();
+				  })
+			      }
+			    }
+			  });
+			}
+			else {
+			  if (data['msg']) {
+			    alert(data['msg'])
+			  }
+			  else {
+			    alert("The server did not report success in response to the update of {{msg_string}}.")
+			  }
+			  console.log('non-success data:', data)
+			}
+		      })
+		      .always(function() {
+			this_div.remove();
+		      })
+		  }
+		}
+	      })
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request for {{msg_string}}.")
+	      }
+	      console.log(data);
+	    }
+	  })
+{% endmacro %}

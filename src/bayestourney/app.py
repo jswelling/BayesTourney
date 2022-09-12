@@ -872,8 +872,8 @@ def ajax_tourneys_settings(**kwargs):
                  and current_user_can_write(tourney, **new_prot_state))
                 or request.values.get('confirm', 'false') == 'true'
                 ):
-                assert key in json_rep, "inconsistent protection keys"
                 for key in prot_keys:
+                    assert key in json_rep, "inconsistent protection keys"
                     if json_rep[key] != new_prot_state[key]:
                         setattr(tourney, key, new_prot_state[key])
                         json_rep[key] = new_prot_state[key]
@@ -895,6 +895,83 @@ def ajax_tourneys_settings(**kwargs):
                 db.commit()
             else:
                 logMessage(f'The tournament {tourney.name} was not changed')
+            return {'status': 'success',
+                    'value': json_rep
+                    }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+def _player_json_rep(db, player):
+    rslt = {'id': player.id,
+            'name': player.name,
+            'note': player.note,
+            }
+    return rslt
+
+
+@bp.route('/ajax/entrants/settings', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_entrants_settings(**kwargs):
+    print('REQUEST VALUES FOLLOW')
+    pprint(request.values)
+    pprint('REQUEST VALUES ABOVE')
+    assert 'player_id' in request.values, 'player_id is a required parameter'
+    player_id = int(request.values['player_id'])
+    db = get_db()
+    player = db.query(LogitPlayer).filter_by(id=player_id).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(player)
+            response_data = _player_json_rep(db, player)
+            response_data.update({
+                'form_name': f'player_settings_dlg_form_{player.id}',
+            })
+            response_data['dlg_html'] = render_template("player_settings_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        elif request.method == 'PUT':
+            check_can_write(player)
+            json_rep = _player_json_rep(db, player)
+            changed = 0
+            #
+            # Permission management skeletonized because perms don't yet apply to players
+            #
+            new_prot_state = {
+            }
+            if ((current_user_can_read(player, **new_prot_state)
+                 and current_user_can_write(player, **new_prot_state))
+                or request.values.get('confirm', 'false') == 'true'
+                ):
+                pass
+            else:
+                return {'status': 'confirm',
+                        'msg': ("This change will make it impossible for you"
+                                " to read or write this tournament. Are you sure?"
+                                )
+                        }
+            #
+            # End skeletonized segment
+            #
+            for key in ['name', 'note']:
+                cur_val = getattr(player, key)
+                val = request.values.get(key, cur_val)
+                if val != cur_val:
+                    setattr(player, key, val)
+                    json_rep[key] = val
+                    changed += 1
+            if changed:
+                db.add(player)
+                db.commit()
+            else:
+                logMessage(f'The player {player.name} was not changed')
             return {'status': 'success',
                     'value': json_rep
                     }
