@@ -33,10 +33,12 @@ from pathlib import Path
 from pprint import pprint
 
 from .database import get_db
-from .models import Tourney, LogitPlayer, Bout, User, Group, TourneyPlayerPair
+from .models import (Tourney, LogitPlayer, Bout, User,
+                     Group, TourneyPlayerPair, DBException)
 from .settings import get_settings, set_settings, SettingsError
 from .permissions import (
     get_readable_tourneys,
+    get_readable_players,
     PermissionException,
     check_can_read, check_can_write, check_can_delete,
     current_user_can_read, current_user_can_write,
@@ -52,9 +54,6 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
 bp = Blueprint('', __name__)
-
-class DBException(Exception):
-    pass
 
 
 @bp.app_errorhandler(PermissionException)
@@ -110,7 +109,7 @@ def insert_entrants_from_df(df):
                             axis=1)
         # Any row with an id of -1 is an unknown player
         for idx, row in df[df['id'] == -1].iterrows():
-            db.add(LogitPlayer(row['name'], row['note']))
+            LogitPlayer.create_unique(db, row['name'], row['note'])
         db.commit()
     else:
         raise DBException('Unknown column pattern for entrants')
@@ -258,6 +257,11 @@ def upload_bouts_file():
     file_fullpath.unlink()
     LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
+
+
+@bp.route("/forms/entrants/create")
+def forms_entrants_create():
+    return render_template("forms_entrants_create.html");
 
 
 @bp.route("/site-map")
@@ -532,10 +536,7 @@ def handleEdit(path):
         elif request.values['oper']=='add':
             name = request.values['name']
             notes = request.values['notes']
-            if db.query(LogitPlayer).filter_by(name=name).count() != 0:
-                raise RuntimeError('There is already an entrant named %s'%name)
-            p = LogitPlayer(name,notes)
-            db.add(p)
+            LogitPlayer.create_unique(db, name, notes)
             db.commit()
             return {}
         elif request.values['oper'] == 'del':
@@ -1028,14 +1029,7 @@ def ajax_entrants(**kwargs):
                     'value': [player.as_dict() for player in tourney.get_players(db)]
                 }
             else:
-                tourneys = get_readable_tourneys(db)
-                tourney_id_list = [tourney.tourneyId for tourney in tourneys]
-                t_p_pairs = (db.query(TourneyPlayerPair)
-                             .filter(TourneyPlayerPair.tourney_id.in_(tourney_id_list))
-                             .all())
-                players = (db.query(LogitPlayer)
-                           .filter(LogitPlayer.id.in_([tpp.player_id for tpp in t_p_pairs]))
-                           .all())
+                players = get_readable_players(db)
                 rslt = {
                     'status': 'success',
                     'value': [player.as_dict() for player in players]
@@ -1056,8 +1050,8 @@ def ajax_entrants(**kwargs):
             tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
             check_can_write(tourney)
             assert 'action' in request.values, 'action is required for PUT requests'
-            assert 'player_id' in request.values, 'player_id is required for PUT requests'
             if request.values['action'] == 'add':
+                assert 'player_id' in request.values, 'player_id is required for PUT "add" requests'
                 player_id = int(request.values['player_id'])
                 player = db.query(LogitPlayer).filter_by(id=player_id).one()
                 tourney.add_player(db, player)
@@ -1067,6 +1061,7 @@ def ajax_entrants(**kwargs):
                     'value': {}
                 }
             elif request.values['action'] == 'delete':
+                assert 'player_id' in request.values, 'player_id is required for PUT "delete" requests'
                 player_id = int(request.values['player_id'])
                 player = db.query(LogitPlayer).filter_by(id=player_id).one()
                 tourney.remove_player(db, player)
@@ -1074,6 +1069,26 @@ def ajax_entrants(**kwargs):
                 return {
                     'status': 'success',
                     'value': {}
+                }
+            elif request.values['action'] == 'create':
+                assert 'player_id' not in request.values, 'player_id is forbidden for PUT "create" requests'
+                assert 'name' in request.values, 'name is required for PUT "create" requests'
+                name = request.values['name']
+                assert 'note' in request.values, 'note is required for PUT "create" requests'
+                note = request.values['note']
+                try:
+                    player = LogitPlayer.create_unique(db, name, note)
+                except DBException as exc:
+                    return {
+                        'status': 'failure',
+                        'msg': f"{exc}"
+                        }
+                db.commit();
+                tourney.add_player(db, player);
+                db.commit();
+                return {
+                    'status': 'success',
+                    'value': { 'player_id': player.id }
                 }
             else:
                 return {

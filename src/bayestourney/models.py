@@ -11,6 +11,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from .database import Base
 
+class DBException(Exception):
+    pass
+
 class User(UserMixin, Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
@@ -167,6 +170,14 @@ class LogitPlayer(Base):
         self.note = note
 
     def __str__(self): return f"<LogitPlayer({self.name})>"
+
+    @classmethod
+    def create_unique(cls, db, name, note):
+        if db.query(LogitPlayer).filter_by(name=name).first() is not None:
+            raise DBException(f"A player with the name '{name}' already exists.")
+        player = LogitPlayer(name, note)
+        db.add(player)
+        return player
 
     def fight(self,otherPlayer):
         raise RuntimeError('since LogitPlayer no longer has a weight,'

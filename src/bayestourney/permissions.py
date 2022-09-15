@@ -128,4 +128,11 @@ def get_readable_tourneys(db) -> Iterable[Tourney]:
                    .all()
                    )
     return tourneyList
-    
+
+
+def get_readable_players(db) -> Iterable[LogitPlayer]:
+    """
+    At the moment, *all* players are readable.
+    """
+    return db.query(LogitPlayer).all()
+
