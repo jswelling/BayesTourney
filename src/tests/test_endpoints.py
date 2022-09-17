@@ -3,6 +3,7 @@ import json
 from pprint import pprint
 from flask import g, session
 from bayestourney.database import get_db
+from bayestourney.models import DBException
 
 def test_list_select_tourney(client, app, auth):
     auth.login()
@@ -246,7 +247,7 @@ def test_edit_entrants_add(client, app, auth):
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
 
-        with pytest.raises(RuntimeError) as e:
+        with pytest.raises(DBException) as e:
             response = client.post(
                 '/edit/entrants',
                 data={'oper': 'add',
