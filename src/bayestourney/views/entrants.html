@@ -2,27 +2,18 @@
 
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
-{% from "macros.html" import updown_button_content with context %}
-{% from "macros.html" import upload_dialog_script with context %}
 {% from "macros.html" import upload_dialog_content with context %}
-{% from "macros.html" import sel_tournaments with context %}
 {% from "macros.html" import sel_tournaments_no_all with context %}
 {% from "macros.html" import settings_ajax_interaction_chain with context %}
 
 {% block pagescripts %}
 <script>
 {{ updown_button_script_preamble('entrants') }}
-{#
-var selEntrantsTourney;
- var lastsel_entrants;
-#}
 $(function() {
   selEntrantsTourney = $('#sel_entrants_tournament');
   selEntrantsTourney.select().change( function() {
     this_tourney_entrants_table.ajax.reload();
   });
-  function bareTourneySelFun() { return selEntrantsTourney.val(); };
-  function tourneySelFun() { return "tourney="+bareTourneySelFun(); };
   function updown_data_dict_fun() {
     let rslt = {"tourney": selEntrantsTourney.val()};
     return rslt;
@@ -268,7 +259,6 @@ $(function() {
   $("#this_tourney_entrants_table tbody").on("click", "button",
 					     {current_table: this_tourney_entrants_table},
 					     entrants_settings_on_click_fun);
-  {{ upload_dialog_script('entrants', 'bareTourneySelFun', 'reload_both_tables_fun') }};
 });
 </script>
 {% endblock %}
@@ -313,34 +303,14 @@ $(function() {
   </table>
 </div>
 
-<label for="entrants_old_this_tourney_block"><h2>Entrants in this tourney:</h2></label>
-<div id="entrants_old_this_tourney_block" class="border">
-  <table id="entrants_table"></table>
-  <div>
-    <input type="BUTTON" id="add_entrant_button" value="New Entrant">
-    <input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
-    <input type="BUTTON" id="reload_entrant_button" value="Reload">
-  </div>
-
-  <div id="download_entrants_div" hidden>
-    <a id="download_entrants_link" href="/download/entrants"></a>
-  </div>
-
-  {{ upload_dialog_content('entrants', 'Upload A Table Of Entrants',
-			   '/upload/entrants',
-			   "Entrants can be uploaded as a .csv or .tsv file in the same format as those downloaded from this page.",
-			   "false") }}
-
-  {{ updown_button_content('entrants', 'Entrants',
-       'Upload A Table Of Entrants',
-       '/upload/entrants', '/ajax/entrants_download',
-       """
-       Entrants can be uploaded as a .csv or .tsv file in the same format as
-       those downloaded from this page.
-       """
-     )
-  }}
+<div id="download_entrants_div" hidden>
+  <a id="download_entrants_link" href="/download/entrants"></a>
 </div>
+
+{{ upload_dialog_content('entrants', 'Upload A Table Of Entrants',
+                         '/upload/entrants',
+                         "Entrants can be uploaded as a .csv or .tsv file in the same format as those downloaded from this page.",
+			 "false") }}
 
 
 {% endblock %}
