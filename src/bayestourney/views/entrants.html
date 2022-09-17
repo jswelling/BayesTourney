@@ -3,6 +3,8 @@
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
 {% from "macros.html" import updown_button_content with context %}
+{% from "macros.html" import upload_dialog_script with context %}
+{% from "macros.html" import upload_dialog_content with context %}
 {% from "macros.html" import sel_tournaments with context %}
 {% from "macros.html" import sel_tournaments_no_all with context %}
 {% from "macros.html" import settings_ajax_interaction_chain with context %}
@@ -19,9 +21,18 @@ $(function() {
   selEntrantsTourney.select().change( function() {
     this_tourney_entrants_table.ajax.reload();
   });
-  function tourneySelFun() { return "tourney="+selEntrantsTourney.val(); };
+  function bareTourneySelFun() { return selEntrantsTourney.val(); };
+  function tourneySelFun() { return "tourney="+bareTourneySelFun(); };
+  function updown_data_dict_fun() {
+    let rslt = {"tourney": selEntrantsTourney.val()};
+    return rslt;
+  }
+  function reload_both_tables_fun() {
+    source_entrants_table.ajax.reload();
+    this_tourney_entrants_table.ajax.reload();
+  };
   {{ updown_button_script('entrants', '/download/entrants',
-			  "tourneySelFun" ) }}
+			  "updown_data_dict_fun", "reload_both_tables_fun" ) }}
   var source_entrants_table = $('#source_entrants_table').DataTable({
     dom: 'Bfrtip',
     select: true,
@@ -227,15 +238,15 @@ $(function() {
       {
         text: 'Upload entrants for this tourney',
         action: function (evt, dt_api, jq_btn, btn_cfg) {
-	  let tourney_id = selEntrantsTourney.val();
-	  alert('Uploading entrants to tourney ' + tourney_id);
+	  $("#upload_entrants_dialog").dialog( "open" );
 	}
       },
       {
         text: 'Download the entrants from this tourney',
         action: function (evt, dt_api, jq_btn, btn_cfg) {
-	  let tourney_id = selEntrantsTourney.val();
-	  alert('Downloading entrants from tourney ' + tourney_id);
+	  let url = "/download/entrants?" + $.param(updown_data_dict_fun());
+	  $('#download_entrants_link').attr('href', url);
+	  $('#download_entrants_link')[0].click();
 	}
       }
     ]
@@ -246,10 +257,6 @@ $(function() {
     let data = event.data['current_table'].row($(this).parents('tr')).data();
     let player_id = data['id'];
     function settings_get_fun() { return {'player_id' : player_id}; };
-    function reload_both_tables_fun() {
-      source_entrants_table.ajax.reload();
-      this_tourney_entrants_table.ajax.reload();
-    };
     {{ settings_ajax_interaction_chain('/ajax/entrants/settings',
 				       'settings_get_fun',
 				       'reload_both_tables_fun',
@@ -261,6 +268,7 @@ $(function() {
   $("#this_tourney_entrants_table tbody").on("click", "button",
 					     {current_table: this_tourney_entrants_table},
 					     entrants_settings_on_click_fun);
+  {{ upload_dialog_script('entrants', 'bareTourneySelFun', 'reload_both_tables_fun') }};
 });
 </script>
 {% endblock %}
@@ -313,6 +321,15 @@ $(function() {
     <input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
     <input type="BUTTON" id="reload_entrant_button" value="Reload">
   </div>
+
+  <div id="download_entrants_div" hidden>
+    <a id="download_entrants_link" href="/download/entrants"></a>
+  </div>
+
+  {{ upload_dialog_content('entrants', 'Upload A Table Of Entrants',
+			   '/upload/entrants',
+			   "Entrants can be uploaded as a .csv or .tsv file in the same format as those downloaded from this page.",
+			   "false") }}
 
   {{ updown_button_content('entrants', 'Entrants',
        'Upload A Table Of Entrants',

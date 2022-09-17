@@ -6,27 +6,27 @@
 {% endif %}
 {% endmacro %}
 
-{% macro upload_dialog_script(key) %}
-  var options = {
-    dataType : 'json',
-    success: function (responseJSON, statusText, xhr, $form) {
-      if (responseJSON["status"] != "success") {
-	if (responseJSON["msg"] == undefined) {
-	  alert("The server reported a problem but did not provide a message");
-	} else {
-	  alert("The server reported a problem: " + responseJSON["msg"]);
-	}
-      }
-      $("#upload_{{ key }}_dialog").dialog("close");
-      $("#{{ key }}_table").trigger('reloadGrid',{ fromServer: true });
-      lastsel_{{ key }}=null;
-    },
-    error: function( response ) {
-      alert(response.statusText + ' : ' + response.responseText);
-    },
-    resetForm: true
-  };
+{% macro upload_dialog_script(key, data_fun_name, on_success_fun_name) %}
   $("#upload_{{ key }}_form").submit(function() {
+    let options = {
+      dataType : 'json',
+      data: {{ data_fun_name }}(),
+      success: function (responseJSON, statusText, xhr, $form) {
+	if (responseJSON["status"] != "success") {
+	  if (responseJSON["msg"] == undefined) {
+	    alert("The server reported a problem but did not provide a message");
+	  } else {
+	    alert("The server reported a problem: " + responseJSON["msg"]);
+	  }
+	}
+	$("#upload_{{ key }}_dialog").dialog("close");
+	{{on_success_fun_name}} ();
+      },
+      error: function( response ) {
+	alert(response.statusText + ' : ' + response.responseText);
+      },
+      resetForm: true
+    };
     $(this).ajaxSubmit(options);
     return false;
   });
@@ -97,16 +97,16 @@
 {% macro updown_button_script_preamble(key) %}
 {% endmacro %}
 
-{% macro updown_button_script(key, download_endpoint, sel_fun_name) %}
+{% macro updown_button_script(key, download_endpoint, data_fun_name, on_success_fun_name) %}
   $("#download_{{ key }}_button").click( function() {
-    var url = "{{ download_endpoint }}?" + {{ sel_fun_name }}();
+    var url = "{{ download_endpoint }}?" + $.param({{ data_fun_name }}());
     $("#download_{{ key }}_link").attr('href', url);
     $("#download_{{ key }}_link")[0].click();
   });
   $("#upload_{{ key }}_button").click( function() {
     $("#upload_{{ key }}_dialog").dialog( "open" );
   });
-  {{ upload_dialog_script(key) }}
+  {{ upload_dialog_script(key, data_fun_name, on_success_fun_name) }}
 {% endmacro %}
 
 {% macro updown_button_content(key, label,

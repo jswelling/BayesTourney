@@ -195,8 +195,11 @@ class LogitPlayer(Base):
             .first()) is None:
             db.add(TourneyPlayerPair(tourney.tourneyId, self.id))
 
-    def as_dict(self):
-        return {'id': self.id, 'name': self.name, 'note': self.note}
+    def as_dict(self, include_id=True):
+        if include_id:
+            return {'id': self.id, 'name': self.name, 'note': self.note}
+        else:
+            return {'name': self.name, 'note': self.note}
 
         
 class TourneyPlayerPair(Base):

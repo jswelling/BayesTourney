@@ -116,6 +116,7 @@ def insert_entrants_from_df(df):
 
 
 @bp.route("/upload/entrants", methods=['POST'])
+@debug_page_wrapper
 @login_required
 def upload_entrants_file():
     """
@@ -150,6 +151,24 @@ def upload_entrants_file():
     except DBException as e:
         LOGGER.info(f'DBException: {e}')
         return {"status":"failure", "msg":str(e)}
+    LOGGER.info('Player creation complete')
+    if 'tourney' in request.values:
+        try:
+            tourney_id = int(request.values['tourney'])
+        except ValueError:
+            LOGGER.info(msg := 'entrants upload tournament id has invalid format')
+            return msg, 400
+        if tourney_id <= 0:
+            LOGGER.info(msg := 'bout upload tournament id is not valid')
+            return msg, 400
+        db = get_db()
+        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+        check_can_write(tourney)
+        for idx, row in df.iterrows():
+            player = db.query(LogitPlayer).filter_by(name=row['name']).one()
+            tourney.add_player(db, player)
+        db.commit()
+        LOGGER.info(f'Added {len(df)} players to the tournament {tourney.name}')
     file_fullpath.unlink()
     LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
@@ -657,37 +676,16 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
     if tourneyId >= 0:
         tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
         check_can_read(tourney)
-        if include_ids:
-            entrantDF = pd.read_sql(
-                f"""
-                select distinct players.id, players.name, players.note
-                from players, bouts
-                where
-                  bouts.tourneyId == {tourneyId}
-                  and (players.id == bouts.leftPlayerId
-                    or players.id == bouts.rightPlayerId)
-                """, engine, coerce_float=True)
-        else:
-            entrantDF = pd.read_sql(
-                f"""
-                select distinct players.name, players.note
-                from players, bouts
-                where
-                  bouts.tourneyId == {tourneyId}
-                  and (players.id == bouts.leftPlayerId
-                    or players.id == bouts.rightPlayerId)
-                """, engine, coerce_float=True)
+        players = tourney.get_players(db)
     else:
-        if include_ids:
-            entrantDF = pd.read_sql(
-                """
-                select id, name, note from players
-                """, engine, coerce_float=True)
-        else:
-            entrantDF = pd.read_sql(
-                """
-                select name, note from players
-                """, engine, coerce_float=True)
+        players = db.query(LogitPlayer).all()
+    if include_ids:
+        dict_list = [player.as_dict() for player in players
+                     if current_user_can_read(player)]
+    else:
+        dict_list = [player.as_dict(include_id=False) for player in players
+                     if current_user_can_read(player)]
+    entrantDF = pd.DataFrame(dict_list)
     return entrantDF
 
 
@@ -699,10 +697,14 @@ def handleEntrantsDownloadReq(**kwargs):
     engine = db.get_bind()
 
     tourneyId = int(request.values.get('tourney', '-1'))
-    with open('/tmp/debug2.txt','w') as f: f.write(f'tourney {tourneyId}\n')
+    if tourneyId > 0:
+        tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
+        tourney_name = tourney.name
+    else:
+        tourney_name = 'ALL_TOURNEYS'
     entrantDF = _get_entrants_dataframe(tourneyId)
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
-    full_path =  Path(session_scratch_dir) / 'entrants.tsv'
+    full_path =  Path(session_scratch_dir) / f'entrants_{tourney_name}.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
     return send_file(full_path, as_attachment=True)
 
@@ -1018,6 +1020,7 @@ def ajax_settings(**kwargs):
 def ajax_entrants(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
     tourney_id = int(request.values['tourney_id'])
+    session['sel_tourney_id'] = tourney_id
     db = get_db()
     try:
         if request.method == 'GET':
