@@ -1,6 +1,7 @@
 import pytest
 from bayestourney.database import get_db
-from bayestourney.models import User, Group, Tourney, LogitPlayer, TourneyPlayerPair
+from bayestourney.models import (User, Group, Tourney, LogitPlayer,
+                                 TourneyPlayerPair, DBException)
 from sqlalchemy.exc import IntegrityError
 
 
@@ -21,6 +22,21 @@ def test_group(app):
             db.add(new_group)
             db.commit()
         assert 'UNIQUE constraint failed' in str(excinfo.value)
+
+
+def test_group_2(app):
+    with app.app_context():
+        db = get_db()
+        group = db.query(Group).filter_by(name='everyone').one()
+        users = group.get_users(db)
+        pre_user_set = set(user.username for user in users)
+        assert all(nm in pre_user_set for nm in ['test', 'other'])
+        group.add_user(db, db.query(User).filter_by(username='admin').one())
+        db.commit()
+        users = group.get_users(db)
+        post_user_set = set(user.username for user in users)
+        change_set = post_user_set - pre_user_set
+        assert change_set == set(['admin'])
 
 
 def test_user_group_pair(app):
@@ -71,4 +87,46 @@ def test_player_tourney_pair(app):
         tourney_list = player.get_tourneys(db)
         tourney_set = set(tourney.tourneyId for tourney in tourney_list)
         assert tourney_set == set([1, 2])
+        player = db.query(LogitPlayer).filter(LogitPlayer.id == 4).one()
+        tourney = db.query(Tourney).filter(Tourney.tourneyId == 3).one()
+        player_list = tourney.get_players(db)
+        assert len(player_list) == 0
+        player.add_tourney(db, tourney)
+        db.commit()
+        player_list = tourney.get_players(db)
+        assert len(player_list) == 1
+        assert player_list[0].name == 'Donna'
+        player.add_tourney(db, tourney)
+        db.commit()
+        player_list = tourney.get_players(db)
+        assert len(player_list) == 1
+        assert player_list[0].name == 'Donna'
 
+
+def test_player(app):
+    with app.app_context():
+        db = get_db()
+        initial_player_name_set = set(player.name for player in
+                                      db.query(LogitPlayer).all())
+        new_player = LogitPlayer.create_unique(db, 'SomeRandomGuy', 'Here is a note')
+        db.commit()
+        new_player_name_set = set(player.name for player in
+                                  db.query(LogitPlayer).all())
+        change_set = new_player_name_set - initial_player_name_set
+        assert len(change_set) == 1
+        assert 'SomeRandomGuy' in change_set
+        initial_player_name_set = new_player_name_set
+        with pytest.raises(DBException) as excinfo:
+            new_player = LogitPlayer.create_unique(db, 'SomeRandomGuy',
+                                                   'Here is a different note')
+            db.commit()
+        assert 'SomeRandomGuy' in str(excinfo.value)
+        new_player_name_set = set(player.name for player in
+                                  db.query(LogitPlayer).all())
+        assert initial_player_name_set == new_player_name_set  # duplicate rejected
+        player = db.query(LogitPlayer).filter_by(name='SomeRandomGuy').one()
+        assert player.as_dict(include_id=False) == {'name': 'SomeRandomGuy',
+                                                    'note': 'Here is a note'}
+        assert player.as_dict(include_id=True) == {'name': 'SomeRandomGuy',
+                                                   'note': 'Here is a note',
+                                                   'id': player.id}

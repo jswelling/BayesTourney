@@ -85,11 +85,11 @@ def debug_page_wrapper(view):
                      f' kwargs {kwargs}'
                      f' params {[(k,request.values[k]) for k in request.values]}'
         )
-        print('session state before view follows:')
-        pprint(session)
+        #print('session state before view follows:')
+        #pprint(session)
         rslt = view(**kwargs)
-        print('session follows:')
-        pprint(session)
+        #print('session follows:')
+        #pprint(session)
         return rslt
     return wrapped_view
 
@@ -159,7 +159,7 @@ def upload_entrants_file():
             LOGGER.info(msg := 'entrants upload tournament id has invalid format')
             return msg, 400
         if tourney_id <= 0:
-            LOGGER.info(msg := 'bout upload tournament id is not valid')
+            LOGGER.info(msg := 'entrants upload tournament id is not valid')
             return msg, 400
         db = get_db()
         tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
@@ -921,9 +921,6 @@ def _player_json_rep(db, player):
 @login_required
 @debug_page_wrapper
 def ajax_entrants_settings(**kwargs):
-    print('REQUEST VALUES FOLLOW')
-    pprint(request.values)
-    pprint('REQUEST VALUES ABOVE')
     assert 'player_id' in request.values, 'player_id is a required parameter'
     player_id = int(request.values['player_id'])
     db = get_db()

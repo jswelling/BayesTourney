@@ -41,6 +41,14 @@ def parse_jqgrid_response_json(some_json):
     return rec_d
 
 
+def parse_ajax_response_json(some_json):
+    assert 'status' in some_json
+    assert some_json['status'] == 'success'
+    assert 'value' in some_json
+    rec_d = {rec['id']: rec for rec in some_json['value']}
+    return rec_d
+
+
 def test_edit_tourneys_edit(client, app, auth):
     auth.login()
     with client:
@@ -680,3 +688,27 @@ def test_ajax_entrants_put(client, app, auth):
         assert after_json['status'] == 'success'
         after_set = set(elt['id'] for elt in after_json['value'])
         assert after_set == before_set
+        response = client.put('/ajax/entrants',
+                              data={'tourney_id': 1,
+                                    'action': 'create',
+                                    'name': 'Some New Guy',
+                                    'note': 'Creating player on the fly'
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.get('/ajax/entrants?tourney_id=1')
+        after_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in after_json
+        assert after_json['status'] == 'success'
+        after_set = set(elt['id'] for elt in after_json['value'])
+        change_set = after_set - before_set
+        assert len(change_set) == 1
+        new_player_id = list(change_set)[0]
+        response = client.get('/ajax/entrants?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        row_dict = {row['id']: row for row in response_json['value']}
+        new_row = row_dict[new_player_id]
+        assert new_row['name'] == 'Some New Guy'
+        assert new_row['note'] == 'Creating player on the fly'
