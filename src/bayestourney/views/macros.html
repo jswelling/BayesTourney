@@ -1,32 +1,32 @@
 {% macro nav_link(endpoint, name) %}
 {% if request.endpoint.endswith(endpoint) %}
-<li class="active"><a href="{{ url_for(endpoint) }}">{{name}}</a></li>
+<li class="nav-item" aria-current="page"><a href="{{ url_for(endpoint) }}" class="nav-link active">{{name}}</a></li>
 {% else %}
-<li><a href="{{ url_for(endpoint) }}">{{name}}</a></li>
+<li class="nav-item"><a href="{{ url_for(endpoint) }}" class="nav-link">{{name}}</a></li>
 {% endif %}
 {% endmacro %}
 
-{% macro upload_dialog_script(key) %}
-  var options = {
-    dataType : 'json',
-    success: function (responseJSON, statusText, xhr, $form) {
-      if (responseJSON["status"] != "success") {
-	if (responseJSON["msg"] == undefined) {
-	  alert("The server reported a problem but did not provide a message");
-	} else {
-	  alert("The server reported a problem: " + responseJSON["msg"]);
-	}
-      }
-      $("#upload_{{ key }}_dialog").dialog("close");
-      $("#{{ key }}_table").trigger('reloadGrid',{ fromServer: true });
-      lastsel_{{ key }}=null;
-    },
-    error: function( response ) {
-      alert(response.statusText + ' : ' + response.responseText);
-    },
-    resetForm: true
-  };
+{% macro upload_dialog_script(key, data_fun_name, on_success_fun_name) %}
   $("#upload_{{ key }}_form").submit(function() {
+    let options = {
+      dataType : 'json',
+      data: {{ data_fun_name }}(),
+      success: function (responseJSON, statusText, xhr, $form) {
+	if (responseJSON["status"] != "success") {
+	  if (responseJSON["msg"] == undefined) {
+	    alert("The server reported a problem but did not provide a message");
+	  } else {
+	    alert("The server reported a problem: " + responseJSON["msg"]);
+	  }
+	}
+	$("#upload_{{ key }}_dialog").dialog("close");
+	{{on_success_fun_name}} ();
+      },
+      error: function( response ) {
+	alert(response.statusText + ' : ' + response.responseText);
+      },
+      resetForm: true
+    };
     $(this).ajaxSubmit(options);
     return false;
   });
@@ -97,16 +97,16 @@
 {% macro updown_button_script_preamble(key) %}
 {% endmacro %}
 
-{% macro updown_button_script(key, download_endpoint, sel_fun_name) %}
+{% macro updown_button_script(key, download_endpoint, data_fun_name, on_success_fun_name) %}
   $("#download_{{ key }}_button").click( function() {
-    var url = "{{ download_endpoint }}?" + {{ sel_fun_name }}();
+    var url = "{{ download_endpoint }}?" + $.param({{ data_fun_name }}());
     $("#download_{{ key }}_link").attr('href', url);
     $("#download_{{ key }}_link")[0].click();
   });
   $("#upload_{{ key }}_button").click( function() {
     $("#upload_{{ key }}_dialog").dialog( "open" );
   });
-  {{ upload_dialog_script(key) }}
+  {{ upload_dialog_script(key, data_fun_name, on_success_fun_name) }}
 {% endmacro %}
 
 {% macro updown_button_content(key, label,
@@ -157,4 +157,129 @@
     >{{name}}</option>
     {% endfor %}
   </select>
+{% endmacro %}
+
+{% macro sel_tournaments_no_all(id) %}
+  <label for="{{ id }}">Which Tournament?</label>
+  <select id="{{ id }}">
+    {% for id, name in tourneyDict | dictsort %}
+    <option value="{{id}}"
+    {% if sel_tourney_id == id %} selected {% endif %}
+    >{{name}}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+
+{% macro settings_ajax_interaction_chain(endpoint, data_for_get_fun_name, after_save_fun_name, msg_string) %}
+        let data_for_get = {{data_for_get_fun_name}} ();
+	$.ajax({type:'GET',
+		url: "{{ endpoint }}",
+		data: data_for_get
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request for data on {{msg_string}}.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      let this_div = $('<div />');
+	      this_div.html(data['value']['dlg_html']).dialog({
+		buttons: {
+		  "Cancel": function() {
+		    $(this).dialog("close");
+		    this_div.remove();
+		  },
+		  "Save": function() {
+		    let form_data = $('#' + data['value']['form_name']).serializeArray();
+		    for (const [key, value] of Object.entries(data_for_get)) {
+		      form_data.push({'name':key, 'value':value});
+		    }
+		    $(this).dialog("close");
+		    $.ajax({
+		      type:'PUT',
+		      url: "{{ endpoint }}",
+		      data:form_data
+		    })
+		      .fail(function(jqXHR, textStatus, errorThrown) {
+			alert("The server did not respond as expected to the update request for {{msg_string}}.");
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		      })
+		      .done(function(data, textStatus, jqXHR) {
+			if (data['status'] == 'success') {
+			  {{ after_save_fun_name }}();
+			}
+			else if (data['status'] == 'confirm') {
+			  let this_confirm_div = $('<div title="Confirmation Required"/>');
+			  this_confirm_div.html(data['msg']).dialog({
+			    buttons: {
+			      "Cancel": function() {
+				$(this).dialog("close");
+				this_confirm_div.remove();
+			      },
+			      "Confirm": function() {
+				$(this).dialog("close");
+				form_data.push({'name': 'confirm', 'value': 'true'});
+				$.ajax({
+				  type:'PUT',
+				  url: "{{endpoint}}",
+				  data:form_data
+				})
+				  .fail(function(jqXHR, textStatus, errorThrown) {
+				    alert("The server did not respond as expected to the update request for {{msg_string}}.");
+				    console.log('failure jqXHR: ', jqXHR);
+				    console.log('failure textStatus: ', textStatus);
+				    console.log('failure thrown: ', errorThrown)
+				  })
+				  .done(function(data, textStatus, jqXHR) {
+				    if (data['status'] == 'success') {
+				      {{ after_save_fun_name }} ();
+				    }
+				    else {
+				      if (data['msg']) {
+					alert(data['msg'])
+				      }
+				      else {
+					alert("The server did not report success in response to the update of {{msg_string}}.")
+				      }
+				      console.log('non-success data:', data)
+				    }
+				  })
+				  .always(function() {
+				    this_confirm_div.remove();
+				  })
+			      }
+			    }
+			  });
+			}
+			else {
+			  if (data['msg']) {
+			    alert(data['msg'])
+			  }
+			  else {
+			    alert("The server did not report success in response to the update of {{msg_string}}.")
+			  }
+			  console.log('non-success data:', data)
+			}
+		      })
+		      .always(function() {
+			this_div.remove();
+		      })
+		  }
+		}
+	      })
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request for {{msg_string}}.")
+	      }
+	      console.log(data);
+	    }
+	  })
 {% endmacro %}

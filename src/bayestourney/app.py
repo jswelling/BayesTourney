@@ -33,10 +33,12 @@ from pathlib import Path
 from pprint import pprint
 
 from .database import get_db
-from .models import Tourney, LogitPlayer, Bout, User, Group
+from .models import (Tourney, LogitPlayer, Bout, User,
+                     Group, TourneyPlayerPair, DBException)
 from .settings import get_settings, set_settings, SettingsError
 from .permissions import (
     get_readable_tourneys,
+    get_readable_players,
     PermissionException,
     check_can_read, check_can_write, check_can_delete,
     current_user_can_read, current_user_can_write,
@@ -52,9 +54,6 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
 bp = Blueprint('', __name__)
-
-class DBException(Exception):
-    pass
 
 
 @bp.app_errorhandler(PermissionException)
@@ -86,11 +85,11 @@ def debug_page_wrapper(view):
                      f' kwargs {kwargs}'
                      f' params {[(k,request.values[k]) for k in request.values]}'
         )
-        print('session state before view follows:')
-        pprint(session)
+        #print('session state before view follows:')
+        #pprint(session)
         rslt = view(**kwargs)
-        print('session follows:')
-        pprint(session)
+        #print('session follows:')
+        #pprint(session)
         return rslt
     return wrapped_view
 
@@ -110,13 +109,14 @@ def insert_entrants_from_df(df):
                             axis=1)
         # Any row with an id of -1 is an unknown player
         for idx, row in df[df['id'] == -1].iterrows():
-            db.add(LogitPlayer(row['name'], row['note']))
+            LogitPlayer.create_unique(db, row['name'], row['note'])
         db.commit()
     else:
         raise DBException('Unknown column pattern for entrants')
 
 
 @bp.route("/upload/entrants", methods=['POST'])
+@debug_page_wrapper
 @login_required
 def upload_entrants_file():
     """
@@ -151,6 +151,24 @@ def upload_entrants_file():
     except DBException as e:
         LOGGER.info(f'DBException: {e}')
         return {"status":"failure", "msg":str(e)}
+    LOGGER.info('Player creation complete')
+    if 'tourney' in request.values:
+        try:
+            tourney_id = int(request.values['tourney'])
+        except ValueError:
+            LOGGER.info(msg := 'entrants upload tournament id has invalid format')
+            return msg, 400
+        if tourney_id <= 0:
+            LOGGER.info(msg := 'entrants upload tournament id is not valid')
+            return msg, 400
+        db = get_db()
+        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+        check_can_write(tourney)
+        for idx, row in df.iterrows():
+            player = db.query(LogitPlayer).filter_by(name=row['name']).one()
+            tourney.add_player(db, player)
+        db.commit()
+        LOGGER.info(f'Added {len(df)} players to the tournament {tourney.name}')
     file_fullpath.unlink()
     LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
@@ -258,6 +276,11 @@ def upload_bouts_file():
     file_fullpath.unlink()
     LOGGER.info('Uploaded file was unlinked')
     return {"status":"success"}
+
+
+@bp.route("/forms/entrants/create")
+def forms_entrants_create():
+    return render_template("forms_entrants_create.html");
 
 
 @bp.route("/site-map")
@@ -532,10 +555,7 @@ def handleEdit(path):
         elif request.values['oper']=='add':
             name = request.values['name']
             notes = request.values['notes']
-            if db.query(LogitPlayer).filter_by(name=name).count() != 0:
-                raise RuntimeError('There is already an entrant named %s'%name)
-            p = LogitPlayer(name,notes)
-            db.add(p)
+            LogitPlayer.create_unique(db, name, notes)
             db.commit()
             return {}
         elif request.values['oper'] == 'del':
@@ -656,37 +676,16 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
     if tourneyId >= 0:
         tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
         check_can_read(tourney)
-        if include_ids:
-            entrantDF = pd.read_sql(
-                f"""
-                select distinct players.id, players.name, players.note
-                from players, bouts
-                where
-                  bouts.tourneyId == {tourneyId}
-                  and (players.id == bouts.leftPlayerId
-                    or players.id == bouts.rightPlayerId)
-                """, engine, coerce_float=True)
-        else:
-            entrantDF = pd.read_sql(
-                f"""
-                select distinct players.name, players.note
-                from players, bouts
-                where
-                  bouts.tourneyId == {tourneyId}
-                  and (players.id == bouts.leftPlayerId
-                    or players.id == bouts.rightPlayerId)
-                """, engine, coerce_float=True)
+        players = tourney.get_players(db)
     else:
-        if include_ids:
-            entrantDF = pd.read_sql(
-                """
-                select id, name, note from players
-                """, engine, coerce_float=True)
-        else:
-            entrantDF = pd.read_sql(
-                """
-                select name, note from players
-                """, engine, coerce_float=True)
+        players = db.query(LogitPlayer).all()
+    if include_ids:
+        dict_list = [player.as_dict() for player in players
+                     if current_user_can_read(player)]
+    else:
+        dict_list = [player.as_dict(include_id=False) for player in players
+                     if current_user_can_read(player)]
+    entrantDF = pd.DataFrame(dict_list)
     return entrantDF
 
 
@@ -698,10 +697,14 @@ def handleEntrantsDownloadReq(**kwargs):
     engine = db.get_bind()
 
     tourneyId = int(request.values.get('tourney', '-1'))
-    with open('/tmp/debug2.txt','w') as f: f.write(f'tourney {tourneyId}\n')
+    if tourneyId > 0:
+        tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
+        tourney_name = tourney.name
+    else:
+        tourney_name = 'ALL_TOURNEYS'
     entrantDF = _get_entrants_dataframe(tourneyId)
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
-    full_path =  Path(session_scratch_dir) / 'entrants.tsv'
+    full_path =  Path(session_scratch_dir) / f'entrants_{tourney_name}.tsv'
     entrantDF.to_csv(full_path, sep='\t', index=False)
     return send_file(full_path, as_attachment=True)
 
@@ -872,8 +875,8 @@ def ajax_tourneys_settings(**kwargs):
                  and current_user_can_write(tourney, **new_prot_state))
                 or request.values.get('confirm', 'false') == 'true'
                 ):
-                assert key in json_rep, "inconsistent protection keys"
                 for key in prot_keys:
+                    assert key in json_rep, "inconsistent protection keys"
                     if json_rep[key] != new_prot_state[key]:
                         setattr(tourney, key, new_prot_state[key])
                         json_rep[key] = new_prot_state[key]
@@ -895,6 +898,80 @@ def ajax_tourneys_settings(**kwargs):
                 db.commit()
             else:
                 logMessage(f'The tournament {tourney.name} was not changed')
+            return {'status': 'success',
+                    'value': json_rep
+                    }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+def _player_json_rep(db, player):
+    rslt = {'id': player.id,
+            'name': player.name,
+            'note': player.note,
+            }
+    return rslt
+
+
+@bp.route('/ajax/entrants/settings', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_entrants_settings(**kwargs):
+    assert 'player_id' in request.values, 'player_id is a required parameter'
+    player_id = int(request.values['player_id'])
+    db = get_db()
+    player = db.query(LogitPlayer).filter_by(id=player_id).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(player)
+            response_data = _player_json_rep(db, player)
+            response_data.update({
+                'form_name': f'player_settings_dlg_form_{player.id}',
+            })
+            response_data['dlg_html'] = render_template("player_settings_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        elif request.method == 'PUT':
+            check_can_write(player)
+            json_rep = _player_json_rep(db, player)
+            changed = 0
+            #
+            # Permission management skeletonized because perms don't yet apply to players
+            #
+            new_prot_state = {
+            }
+            if ((current_user_can_read(player, **new_prot_state)
+                 and current_user_can_write(player, **new_prot_state))
+                or request.values.get('confirm', 'false') == 'true'
+                ):
+                pass
+            else:
+                return {'status': 'confirm',
+                        'msg': ("This change will make it impossible for you"
+                                " to read or write this tournament. Are you sure?"
+                                )
+                        }
+            #
+            # End skeletonized segment
+            #
+            for key in ['name', 'note']:
+                cur_val = getattr(player, key)
+                val = request.values.get(key, cur_val)
+                if val != cur_val:
+                    setattr(player, key, val)
+                    json_rep[key] = val
+                    changed += 1
+            if changed:
+                db.add(player)
+                db.commit()
+            else:
+                logMessage(f'The player {player.name} was not changed')
             return {'status': 'success',
                     'value': json_rep
                     }
@@ -940,20 +1017,41 @@ def ajax_settings(**kwargs):
 def ajax_entrants(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
     tourney_id = int(request.values['tourney_id'])
+    session['sel_tourney_id'] = tourney_id
     db = get_db()
-    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
     try:
         if request.method == 'GET':
-            check_can_read(tourney)
-            return {
-                'status': 'success',
-                'value': [player.as_dict() for player in tourney.get_players(db)]
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                rslt = {
+                    'status': 'success',
+                    'value': [player.as_dict() for player in tourney.get_players(db)]
                 }
+            else:
+                players = get_readable_players(db)
+                rslt = {
+                    'status': 'success',
+                    'value': [player.as_dict() for player in players]
+                }
+            if request.values.get('counts', 'false') == 'true':
+                # Add counts info
+                for row in rslt['value']:
+                    row['bouts'] = (db.query(Bout)
+                                    .filter((Bout.leftPlayerId == row['id'])
+                                             | (Bout.rightPlayerId == row['id']))
+                                    .count())
+                    row['tournaments'] = (db.query(Tourney).join(TourneyPlayerPair)
+                                          .filter(TourneyPlayerPair.player_id == row['id'])
+                                          .count())
+            return rslt
         elif request.method == 'PUT':
+            assert tourney_id > 0, 'invalid tourney id for PUT'
+            tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
             check_can_write(tourney)
             assert 'action' in request.values, 'action is required for PUT requests'
-            assert 'player_id' in request.values, 'player_id is required for PUT requests'
             if request.values['action'] == 'add':
+                assert 'player_id' in request.values, 'player_id is required for PUT "add" requests'
                 player_id = int(request.values['player_id'])
                 player = db.query(LogitPlayer).filter_by(id=player_id).one()
                 tourney.add_player(db, player)
@@ -963,6 +1061,7 @@ def ajax_entrants(**kwargs):
                     'value': {}
                 }
             elif request.values['action'] == 'delete':
+                assert 'player_id' in request.values, 'player_id is required for PUT "delete" requests'
                 player_id = int(request.values['player_id'])
                 player = db.query(LogitPlayer).filter_by(id=player_id).one()
                 tourney.remove_player(db, player)
@@ -970,6 +1069,26 @@ def ajax_entrants(**kwargs):
                 return {
                     'status': 'success',
                     'value': {}
+                }
+            elif request.values['action'] == 'create':
+                assert 'player_id' not in request.values, 'player_id is forbidden for PUT "create" requests'
+                assert 'name' in request.values, 'name is required for PUT "create" requests'
+                name = request.values['name']
+                assert 'note' in request.values, 'note is required for PUT "create" requests'
+                note = request.values['note']
+                try:
+                    player = LogitPlayer.create_unique(db, name, note)
+                except DBException as exc:
+                    return {
+                        'status': 'failure',
+                        'msg': f"{exc}"
+                        }
+                db.commit();
+                tourney.add_player(db, player);
+                db.commit();
+                return {
+                    'status': 'success',
+                    'value': { 'player_id': player.id }
                 }
             else:
                 return {

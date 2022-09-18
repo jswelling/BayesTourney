@@ -16,7 +16,7 @@ def _initialize_session_db():
     default_database_uri = f"sqlite:///{DEFAULT_DATABASE_PATH}"
     dbURI = current_app.config.get('SQLALCHEMY_DATABASE_URI', default_database_uri)
     current_app.logger.info(f'##### DBURI: {dbURI}')
-    engine= create_engine(dbURI, echo=True)
+    engine= create_engine(dbURI, echo=False)
     db_session = scoped_session(sessionmaker(autocommit=False,
                                              autoflush=False,
                                              bind=engine))

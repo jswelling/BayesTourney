@@ -11,6 +11,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from .database import Base
 
+class DBException(Exception):
+    pass
+
 class User(UserMixin, Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
@@ -44,7 +47,11 @@ class User(UserMixin, Base):
                 .all())
 
     def add_group(self, db, group):
-        db.add(UserGroupPair(self.id, group.id))
+        if (db.query(UserGroupPair)
+            .filter(UserGroupPair.user_id == self.id,
+                    UserGroupPair.group_id == group.id)
+            .first()) is None:
+            db.add(UserGroupPair(self.id, group.id))
 
     def remove_group(self, db, group):
         (db.query(UserGroupPair)
@@ -64,6 +71,18 @@ class Group(Base):
 
     def __str__(self):
         return(f'<Group({self.id}, name={self.name})>')
+
+    def get_users(self, db):
+        return (db.query(User).join(UserGroupPair)
+                .filter(UserGroupPair.group_id == self.id)
+                .all())
+
+    def add_user(self, db, user):
+        if (db.query(UserGroupPair)
+            .filter(UserGroupPair.group_id == self.id,
+                    UserGroupPair.user_id == user.id)
+            .first()) is None:
+            db.add(UserGroupPair(user.id, self.id))
 
 
 class UserGroupPair(Base):
@@ -121,7 +140,11 @@ class Tourney(Base):
                                                       self.ownerName, self.groupName)
 
     def add_player(self, db, player):
-        db.add(TourneyPlayerPair(self.tourneyId, player.id))
+        if (db.query(TourneyPlayerPair)
+            .filter(TourneyPlayerPair.tourney_id == self.tourneyId,
+                    TourneyPlayerPair.player_id == player.id)
+            .first()) is None:
+            db.add(TourneyPlayerPair(self.tourneyId, player.id))
 
     def remove_player(self, db, player):
         (db.query(TourneyPlayerPair)
@@ -146,7 +169,15 @@ class LogitPlayer(Base):
         self.name = name
         self.note = note
 
-    def __str__(self): return self.name
+    def __str__(self): return f"<LogitPlayer({self.name})>"
+
+    @classmethod
+    def create_unique(cls, db, name, note):
+        if db.query(LogitPlayer).filter_by(name=name).first() is not None:
+            raise DBException(f"A player with the name '{name}' already exists.")
+        player = LogitPlayer(name, note)
+        db.add(player)
+        return player
 
     def fight(self,otherPlayer):
         raise RuntimeError('since LogitPlayer no longer has a weight,'
@@ -157,8 +188,18 @@ class LogitPlayer(Base):
                 .filter(TourneyPlayerPair.player_id == self.id)
                 .all())
 
-    def as_dict(self):
-        return {'id': self.id, 'name': self.name, 'note': self.note}
+    def add_tourney(self, db, tourney):
+        if (db.query(TourneyPlayerPair)
+            .filter(TourneyPlayerPair.tourney_id == tourney.tourneyId,
+                    TourneyPlayerPair.player_id == self.id)
+            .first()) is None:
+            db.add(TourneyPlayerPair(tourney.tourneyId, self.id))
+
+    def as_dict(self, include_id=True):
+        if include_id:
+            return {'id': self.id, 'name': self.name, 'note': self.note}
+        else:
+            return {'name': self.name, 'note': self.note}
 
         
 class TourneyPlayerPair(Base):
@@ -171,7 +212,7 @@ class TourneyPlayerPair(Base):
     player_id = Column(Integer,
                        ForeignKey('players.id',
                                   name='tourney_player_pair_player_id_constraint'),
-                      nullable=False, index=True)
+                       nullable=False, index=True)
 
     def __init__(self, tourney_id, player_id):
         self.tourney_id = tourney_id

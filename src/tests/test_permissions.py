@@ -1,9 +1,10 @@
 import pytest
 from bayestourney.database import get_db
-from bayestourney.models import User, Group, Tourney
+from bayestourney.models import User, Group, Tourney, LogitPlayer
 from sqlalchemy.exc import IntegrityError
 from bayestourney.permissions import (PermissionException,
                                       get_readable_tourneys,
+                                      get_readable_players,
                                       current_user_can_read,
                                       current_user_can_write,
                                       current_user_can_delete,
@@ -56,6 +57,20 @@ def test_permission_bool_funcs(app, client, auth):
             assert current_user_can_delete(tourney) == delable
 
 
+def test_player_permission_bool_funcs(app, client, auth):
+    auth.login()
+    with client:
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        for name, readable, writeable, delable in [
+                ('Andy', True, True, True),
+                ]:
+            player = db.query(LogitPlayer).filter_by(name=name).one()
+            assert current_user_can_read(player) == readable
+            assert current_user_can_write(player) == writeable
+            assert current_user_can_delete(player) == delable
+
+
 def test_permission_exceptions(app, client, auth):
     auth.login()
     with client:
@@ -93,6 +108,39 @@ def test_permission_exceptions(app, client, auth):
                     assert name in excinfo.value
                     assert 'delete' in excinfo.value
 
+
+def test_player_permission_exceptions(app, client, auth):
+    auth.login()
+    with client:
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        for name, readable, writeable, delable in [
+                ('Andy', True, True, True),
+                ]:
+            player = db.query(LogitPlayer).filter_by(name=name).one()
+            if readable:
+                check_can_read(player)
+            else:
+                with pytest.raises(PermissionException) as excinfo:
+                    check_can_read(player)
+                    assert name in excinfo.value
+                    assert 'read' in excinfo.value
+            if writeable:
+                check_can_write(player)
+            else:
+                with pytest.raises(PermissionException) as excinfo:
+                    check_can_write(player)
+                    assert name in excinfo.value
+                    assert 'write' in excinfo.value
+            if delable:
+                check_can_delete(player)
+            else:
+                with pytest.raises(PermissionException) as excinfo:
+                    check_can_delete(player)
+                    assert name in excinfo.value
+                    assert 'delete' in excinfo.value
+
+
 def test_get_readable_tourneys(app, client, auth):
     auth.login()
     with client:
@@ -101,3 +149,13 @@ def test_get_readable_tourneys(app, client, auth):
         tourney_list = get_readable_tourneys(db)
         for tourney in tourney_list:
             assert current_user_can_read(tourney)
+
+
+def test_get_readable_players(app, client, auth):
+    auth.login()
+    with client:
+        client.get('/')  # forces current_user to have a value
+        db = get_db()
+        player_list = get_readable_players(db)
+        for player in player_list:
+            assert current_user_can_read(player)

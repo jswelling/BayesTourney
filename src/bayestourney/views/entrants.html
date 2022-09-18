@@ -2,102 +2,315 @@
 
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
-{% from "macros.html" import updown_button_content with context %}
-{% from "macros.html" import jqgrid_boilerplate with context %}
-{% from "macros.html" import sel_tournaments with context %}
+{% from "macros.html" import upload_dialog_content with context %}
+{% from "macros.html" import sel_tournaments_no_all with context %}
+{% from "macros.html" import settings_ajax_interaction_chain with context %}
 
 {% block pagescripts %}
 <script>
 {{ updown_button_script_preamble('entrants') }}
-var selEntrantsTourney;
-var lastsel_entrants;
 $(function() {
-  "use strict";
   selEntrantsTourney = $('#sel_entrants_tournament');
   selEntrantsTourney.select().change( function() {
-    $('#entrants_table').trigger('reloadGrid');
+    this_tourney_entrants_table.ajax.reload();
   });
-  function tourneySelFun() { return "tourney="+selEntrantsTourney.val(); };
-  $("#entrants_table").jqGrid({
-    url:'json/entrants',
-    editurl:'edit/entrants',
-    postData: {'tourneyId': function() { return selEntrantsTourney.val() || -1; } },
-    colNames:['Id','Name','Bouts','Tournaments','Notes'],
-    colModel:[
-      {name:'id', index:'id', width:55, sorttype:'integer'},
-      {name:'name', index:'name', width:100, editable:true, edittype:'text'},
-      {name:'bouts', index:'bouts', width:100, editable:false, sorttype:'integer'},
-      {name:'tournaments', index:'tournaments', width:100, editable:false, sorttype:'integer'},
-      {name:'notes', index:'notes', width:100, editable:true, edittype:'textarea'}
-    ],
-    onSelectRow: function(id){ 
-      if(id && id!==lastsel_entrants){
-	$(this).jqGrid('saveRow',lastsel_entrants);
-	$(this).jqGrid('editRow',id,true);
-	lastsel_entrants=id;
-      }
-    },
-    sortname: 'id',
-    caption:"Entrants",
-    {{ jqgrid_boilerplate() }}
-  });
-  $("#add_entrant_button").click( function() {
-    $("#entrants_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
-  });
-  $("#del_entrant_button").click( function() {
-    var row = jQuery("#entrants_table").jqGrid('getRowData',lastsel_entrants);
-    if (row['bouts'] == 0) {
-      $("#entrants_table").jqGrid('delGridRow',lastsel_entrants,
-				  {
-				    afterSubmit: function(response, postdata) {
-				      var jsn = response.responseJSON;
-				      if (jsn['status'] == 'success') {
-					return [true, ""]
-				      }
-				      else {
-					return [false, jsn['msg'] || "bad server response"]
-				      }
-				    },
-				  });
-      lastsel_entrants=null;
-    }
-    else {
-      alert("The entrant " + row['name'] + " could not be deleted because they"
-	    + " are still included in " + row['bouts'] + " bouts.");
-    }
-  });
-  $("#reload_entrant_button").click( function() {
-    $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
-    lastsel_entrants=null;
-  });
+  function updown_data_dict_fun() {
+    let rslt = {"tourney": selEntrantsTourney.val()};
+    return rslt;
+  }
+  function reload_both_tables_fun() {
+    source_entrants_table.ajax.reload();
+    this_tourney_entrants_table.ajax.reload();
+  };
   {{ updown_button_script('entrants', '/download/entrants',
-			  "tourneySelFun" ) }}
-
+			  "updown_data_dict_fun", "reload_both_tables_fun" ) }}
+  var source_entrants_table = $('#source_entrants_table').DataTable({
+    dom: 'Bfrtip',
+    select: true,
+    ajax: {
+      url: '/ajax/entrants?tourney_id=-1&counts=true',
+      dataSrc: 'value'
+    },
+    columns: [
+      {data: 'id'},
+      {data: 'name'},
+      {data: 'bouts', searchable: false, orderable: false},
+      {data: 'tournaments', searchable: false, orderable: false},
+      {data: 'note'},
+      {data: null, className: 'editbutton',
+       render: function(data, type, row, meta) {
+	 return "<button><img src='static/gear.svg'></img></button>";
+       }
+      }
+    ],
+    buttons: [
+      {
+        text: 'Enter selected player in this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  let tourney_id = selEntrantsTourney.val();
+	  source_entrants_table.rows({selected:true}).data().each(
+	    function(row, idx) {
+	      $.ajax({
+		type:'PUT',
+		url:'ajax/entrants',
+		data: {
+		  tourney_id: tourney_id,
+		  action: 'add',
+		  player_id: row['id']
+		}
+	      })
+		.fail(function(jqXHR, textStatus, errorThrown) {
+		  alert('The server did not respond as expected to the update request for this entrant.');
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		  })
+		.done(function(data, textStatus, jqXHR) {
+		  console.log(data);
+		  if (data['status'] == 'success') {
+		    $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
+		    source_entrants_table.ajax.reload();
+		    this_tourney_entrants_table.ajax.reload();
+		  }
+		  else {
+		    if (data['msg']) {
+		      alert(data['msg'])
+		    }
+		    else {
+		      alert('The server did not report success in response to the update of tourney data.')
+		    }
+		    console.log('non-success data:', data)
+		  }
+		})
+	    }
+	  )
+        }
+      },
+      {
+        text: 'Create and add a new player',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  let tourney_id = selEntrantsTourney.val();
+	  $.ajax({
+	    type:'GET',
+	    url:'forms/entrants/create'
+	  })
+	    .fail(function(jqXHR, textStatus, errorThrown) {
+	      alert('The server did not respond as expected to the form request for this entrant.');
+	      console.log('failure jqXHR: ', jqXHR);
+	      console.log('failure textStatus: ', textStatus);
+	      console.log('failure thrown: ', errorThrown)
+	    })
+	    .done(function(data, textStatus, jqXHR) {
+	      let this_div = $('<div />');
+	      this_div.html(data).dialog({
+		buttons: {
+		  "Cancel": function() {
+		    $(this).dialog("close");
+		    this_div.remove();
+		  },
+		  "Save": function() {
+		    let form_data = this_div.find("form").serializeArray();
+		    form_data.push({'name': 'tourney_id', 'value': tourney_id});
+		    form_data.push({'name': 'action', 'value': 'create'});
+		    $(this).dialog("close");
+		    $.ajax({
+		      type: 'PUT',
+		      url: '/ajax/entrants',
+		      data: form_data
+		    })
+		      .fail(function(jqXHR, textStatus, errorThrown) {
+			alert("The server did not respond as expected to the request to create the player.");
+			console.log('failure jqXHR: ', jqXHR);
+			console.log('failure textStatus: ', textStatus);
+			console.log('failure thrown: ', errorThrown)
+		      })
+		      .done(function(data, textStatus, jqXHR) {
+			if (data['status'] == 'success') {
+			  source_entrants_table.ajax.reload();
+			  this_tourney_entrants_table.ajax.reload();
+			}
+			else {
+			  if (data['msg']) {
+			    alert(data['msg'])
+			  }
+			  else {
+			    alert("The server did not report success in response to create the player.")
+			  }
+			  console.log('non-success data:', data);
+			}
+		      })
+		      .always(function() {
+			this_div.remove();
+		      })
+		  }
+		}
+	      });
+	    })
+	}
+      }
+    ]
+  });
+  var this_tourney_entrants_table = $('#this_tourney_entrants_table').DataTable({
+    dom: 'Bfrtip',
+    select: true,
+    ajax: {
+      url: '/ajax/entrants',
+      data: {
+	tourney_id: function() {return selEntrantsTourney.val()}
+      },
+      dataSrc: 'value'
+    },
+    columns: [
+      {data: 'id'},
+      {data: 'name'},
+      {data: 'note'},
+      {data: null, className: 'editbutton',
+       render: function(data, type, row, meta) {
+	 return "<button><img src='static/gear.svg'></img></button>";
+       }
+      }
+    ],
+    buttons: [
+      {
+        text: 'Remove the selected player from the tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  let tourney_id = selEntrantsTourney.val();
+	  this_tourney_entrants_table.rows({selected:true}).data().each(
+	    function(row, idx) {
+	      let confirm_div = $('<div title="Confirmation Required"/>');
+	      (confirm_div.html("Really remove " + row['name']
+				+ " from this tournament?")
+	       .dialog({
+		 buttons: {
+		   "Cancel": function() {
+		     confirm_div.remove();
+		   },
+		   "Confirm": function() {
+		     $(this).dialog("close");
+		     $.ajax({
+		       type:'PUT',
+		       url:'ajax/entrants',
+		       data: {
+			 tourney_id: tourney_id,
+			 action: 'delete',
+			 player_id: row['id']
+		       }
+		     })
+		       .fail(function(jqXHR, textStatus, errorThrown) {
+			 alert('The server did not respond as expected to the delete request for this entrant.');
+			 console.log('failure jqXHR: ', jqXHR);
+			 console.log('failure textStatus: ', textStatus);
+			 console.log('failure thrown: ', errorThrown)
+		       })
+		       .done(function(data, textStatus, jqXHR) {
+			 if (data['status'] == 'success') {
+			   source_entrants_table.ajax.reload();
+			   this_tourney_entrants_table.ajax.reload();
+			 }
+			 else {
+			   if (data['msg']) {
+			     alert(data['msg'])
+			   }
+			   else {
+			     alert('The server did not report success in response to the deletion of tourney data.')
+			   }
+			   console.log('non-success data:', data)
+			 }
+		       })
+		       .always(function() {
+			 confirm_div.remove();
+		       })
+		   }
+		 }  // closes buttons:
+	       }))
+	    })  // closes each()
+	}
+      },
+      {
+        text: 'Upload entrants for this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  $("#upload_entrants_dialog").dialog( "open" );
+	}
+      },
+      {
+        text: 'Download the entrants from this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  let url = "/download/entrants?" + $.param(updown_data_dict_fun());
+	  $('#download_entrants_link').attr('href', url);
+	  $('#download_entrants_link')[0].click();
+	}
+      }
+    ]
+  });
+  function entrants_settings_on_click_fun(event) {
+    event.stopPropagation();
+    //let data = source_entrants_table.row($(this).parents('tr')).data();
+    let data = event.data['current_table'].row($(this).parents('tr')).data();
+    let player_id = data['id'];
+    function settings_get_fun() { return {'player_id' : player_id}; };
+    {{ settings_ajax_interaction_chain('/ajax/entrants/settings',
+				       'settings_get_fun',
+				       'reload_both_tables_fun',
+				       'this player') }}
+  };
+  $("#source_entrants_table tbody").on("click", "button",
+				       {current_table: source_entrants_table},
+				       entrants_settings_on_click_fun);
+  $("#this_tourney_entrants_table tbody").on("click", "button",
+					     {current_table: this_tourney_entrants_table},
+					     entrants_settings_on_click_fun);
 });
 </script>
 {% endblock %}
 
 {% block content %}
-  <h1>Entrants</h1>
+<h1>
+  Add Entrants To
+  {{ sel_tournaments_no_all('sel_entrants_tournament') }}
+</h1>
 
-  {{ sel_tournaments('sel_entrants_tournament') }}
-  <table id="entrants_table"></table>
-  <div>
-    <input type="BUTTON" id="add_entrant_button" value="New Entrant">
-    <input type="BUTTON" id="del_entrant_button" value="Delete Selected Entrant">
-    <input type="BUTTON" id="reload_entrant_button" value="Reload">
-  </div>
+<label for="entrants_select_from_all_block"><h2>Select from all known players:</h2></label>
+<div id="entrants_select_from_all_block" class="border">
+  <table id="source_entrants_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Id</th>
+	<th>Name</th>
+	<th>Bouts</th>
+	<th>Tournaments</th>
+	<th>Notes</th>
+	<th>Edit</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
 
-  {{ updown_button_content('entrants', 'Entrants',
-       'Upload A Table Of Entrants',
-       '/upload/entrants', '/ajax/entrants_download',
-       """
-       Entrants can be uploaded as a .csv or .tsv file in the same format as
-       those downloaded from this page.
-       """
-     )
-  }}
+<label for="entrants_this_tourney_block"><h2>Entrants in this tourney:</h2></label>
+<div id="entrants_this_tourney_block" class="border">
+  <table id="this_tourney_entrants_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Id</th>
+	<th>Name</th>
+	<th>Notes</th>
+	<th>Edit</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
 
+<div id="download_entrants_div" hidden>
+  <a id="download_entrants_link" href="/download/entrants"></a>
+</div>
+
+{{ upload_dialog_content('entrants', 'Upload A Table Of Entrants',
+                         '/upload/entrants',
+                         "Entrants can be uploaded as a .csv or .tsv file in the same format as those downloaded from this page.",
+			 "false") }}
 
 
 {% endblock %}
