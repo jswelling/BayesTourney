@@ -18,7 +18,15 @@ $(function () {
     columns: [
       {data: 'id'},
       {data: 'name'},
-      {data: 'entrants'},
+      {data: 'entrants',
+       render: function(data, type, row, meta) {
+	 console.log('data: ', data);
+	 console.log('row: ', row);
+	 let tourney_id = row['id'];
+	 let num_entrants = data;
+	 return '<a href="entrants?tourney_id=' + tourney_id + '"> ' + num_entrants + ' </a>';
+       }
+      },
       {data: 'bouts'},
       {data: 'note'},
       {data: null, className: 'editbutton',

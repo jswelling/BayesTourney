@@ -333,6 +333,9 @@ def tourneys():
 @login_required
 @debug_page_wrapper
 def entrants():
+    if 'tourney_id' in request.values:
+        tourney_id = int(request.values['tourney_id'])
+        session['sel_tourney_id'] = tourney_id
     tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("entrants.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
@@ -897,6 +900,14 @@ def ajax_tourneys_settings(**kwargs):
                 new_group = db.query(Group).filter_by(name=request.values['group']).one()
                 tourney.group = new_group.id
                 json_rep['group_name'] = new_group.name
+                changed += 1
+            if ('name' in request.values
+                and json_rep['name'] != request.values['name']):
+                json_rep['name'] = tourney.name = request.values['name']
+                changed += 1
+            if ('note' in request.values
+                and json_rep['note'] != request.values['note']):
+                json_rep['note'] = tourney.note = request.values['note']
                 changed += 1
             if changed:
                 db.add(tourney)
