@@ -247,8 +247,10 @@ $(function() {
     let data = event.data['current_table'].row($(this).parents('tr')).data();
     let player_id = data['id'];
     function settings_get_fun() { return {'player_id' : player_id}; };
+    function identity_map(data, jq_form) { return data; }
     {{ settings_ajax_interaction_chain('/ajax/entrants/settings',
 				       'settings_get_fun',
+				       'identity_map',
 				       'reload_both_tables_fun',
 				       'this player') }}
   };

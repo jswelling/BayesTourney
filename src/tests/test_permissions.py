@@ -91,22 +91,22 @@ def test_permission_exceptions(app, client, auth):
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_read(tourney)
-                    assert name in excinfo.value
-                    assert 'read' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'read' in str(excinfo.value)
             if writeable:
                 check_can_write(tourney)
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_write(tourney)
-                    assert name in excinfo.value
-                    assert 'write' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'write' in str(excinfo.value)
             if delable:
                 check_can_delete(tourney)
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_delete(tourney)
-                    assert name in excinfo.value
-                    assert 'delete' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'delete' in str(excinfo.value)
 
 
 def test_player_permission_exceptions(app, client, auth):
@@ -123,22 +123,22 @@ def test_player_permission_exceptions(app, client, auth):
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_read(player)
-                    assert name in excinfo.value
-                    assert 'read' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'read' in str(excinfo.value)
             if writeable:
                 check_can_write(player)
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_write(player)
-                    assert name in excinfo.value
-                    assert 'write' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'write' in str(excinfo.value)
             if delable:
                 check_can_delete(player)
             else:
                 with pytest.raises(PermissionException) as excinfo:
                     check_can_delete(player)
-                    assert name in excinfo.value
-                    assert 'delete' in excinfo.value
+                assert name in str(excinfo.value)
+                assert 'delete' in str(excinfo.value)
 
 
 def test_get_readable_tourneys(app, client, auth):

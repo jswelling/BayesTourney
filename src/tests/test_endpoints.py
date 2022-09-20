@@ -534,7 +534,10 @@ def test_ajax_tourneys_settings_put(client, app, auth):
         assert 'value' in response_json
         values = response_json['value']
         data={'tourney_id': '1',
-              'group': 'everyone'
+              'group': 'everyone',
+              'owner_write': 'false',
+              'owner_read': 'false',
+              'group_read': 'false',
               }
         put_response = client.put('/ajax/tourneys/settings', data=data)
         put_json = json.loads(put_response.data.decode('utf-8'))
@@ -555,6 +558,30 @@ def test_ajax_tourneys_settings_put(client, app, auth):
         assert 'msg' in after_response_json
         after_msg = after_response_json['msg']
         assert 'does not have read access' in after_msg
+
+
+def test_ajax_tourneys_settings_put_2(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        values = response_json['value']
+        data = {'tourney_id': '1',
+                'name': 'tourney new name',
+                'note': 'and new note'
+                }
+        put_response = client.put('/ajax/tourneys/settings', data=data)
+        put_json = json.loads(put_response.data.decode('utf-8'))
+        assert put_json['status'] == 'success'
+        after_response = client.get('/ajax/tourneys/settings?tourney_id=1')
+        after_response_json = json.loads(after_response.data.decode('utf-8'))
+        assert after_response_json['status'] == 'success'
+        assert 'value' in after_response_json
+        after_values = after_response_json['value']
+        assert after_values['name'] == 'tourney new name'
+        assert after_values['note'] == 'and new note'
 
 
 def _htmlify_flags(dct, key_list):
@@ -581,7 +608,6 @@ def test_ajax_tourneys_settings_allflags(client, app, auth):
                       'group_read', 'group_write', 'group_delete',
                       'other_read', 'other_write', 'other_delete']
         flip_data = {key: not before_values[key] for key in prot_flags}
-        _htmlify_flags(flip_data, prot_flags)
         flip_data['tourney_id'] = 1
         response = client.put('/ajax/tourneys/settings', data=flip_data)
         response_json = json.loads(response.data.decode('utf-8'))
@@ -598,7 +624,6 @@ def test_ajax_tourneys_settings_allflags(client, app, auth):
         for key in prot_flags:
             assert flipped_values[key] == (not before_values[key]), f'{key} does not match'
         flip_flip_data = {key: not flipped_values[key] for key in prot_flags}
-        _htmlify_flags(flip_flip_data, prot_flags)
         flip_flip_data['tourney_id'] = 1
         response = client.put('/ajax/tourneys/settings', data=flip_flip_data)
         response_json = json.loads(response.data.decode('utf-8'))
@@ -614,6 +639,80 @@ def test_ajax_tourneys_settings_allflags(client, app, auth):
         flip_flipped_values = response_json['value']
         for key in prot_flags:
             assert flip_flipped_values[key] == (not flipped_values[key]), f'{key}'
+
+
+def test_ajax_tourneys_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/tourneys?counts=true')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        before_tourneys_dict = {row['id']: row for row in response_json['value']}
+        assert 3 not in before_tourneys_dict  # not readable
+        assert 5 not in before_tourneys_dict  # ditto
+        assert before_tourneys_dict[2] == {'bouts': 1,
+                                           'entrants': 2,
+                                           'id': 2,
+                                           'name': 'test_tourney_2',
+                                           'note': 'second test tourney'}
+
+
+def test_ajax_tourneys_put(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/tourneys?counts=true')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        before_tourneys_dict = {row['id']: row for row in response_json['value']}
+        response = client.put('/ajax/tourneys',
+                              data={'action':'create',
+                                    'name':'test_tourney_1',
+                                    'note':'that name was not unique'
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'failure'
+        assert 'msg' in response_json
+        assert 'test_tourney_1' in response_json['msg']
+        assert 'already exists' in response_json['msg']
+        response = client.put('/ajax/tourneys',
+                              data={'action':'create',
+                                    'name':'some unique name',
+                                    'note':'that name was unique'
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.get('/ajax/tourneys?counts=true')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        after_create_dict = {row['id']: row for row in response_json['value']}
+        new_keys = [key for key in after_create_dict if key not in before_tourneys_dict]
+        assert len(new_keys) == 1
+        new_key = new_keys[0]
+        response = client.put('/ajax/tourneys',
+                              data={'action':'delete',
+                                    'tourney_id':new_key
+                                    }
+                              )
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        response = client.get('/ajax/tourneys?counts=true')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        after_delete_dict = {row['id']: row for row in response_json['value']}
+        assert new_key not in after_delete_dict
 
 
 def test_ajax_entrants_get(client, app, auth):
@@ -712,3 +811,41 @@ def test_ajax_entrants_put(client, app, auth):
         new_row = row_dict[new_player_id]
         assert new_row['name'] == 'Some New Guy'
         assert new_row['note'] == 'Creating player on the fly'
+
+
+def test_ajax_entrants_settings_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/entrants/settings?player_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        values = response_json['value']
+        assert values.get('id', 0) == 1
+        assert values.get('name', '') == 'Andy'
+        assert values.get('note', '') == 'test player 1'
+
+
+def test_ajax_entrants_settings_put(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/entrants/settings?player_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert response_json.get('status', '') == 'success'
+        before_values = response_json.get('value', {})
+        for elt in ['id', 'name', 'note']:
+            assert elt in before_values
+        for key in ['name', 'note']:
+            response = client.put('/ajax/entrants/settings',
+                                  data = {'player_id': 1,
+                                          key: f'changed {key}'
+                                          }
+                                  )
+            response_json = json.loads(response.data.decode('utf-8'))
+            assert response_json.get('status', '') == 'success'
+            response = client.get('/ajax/entrants/settings?player_id=1')
+            response_json = json.loads(response.data.decode('utf-8'))
+            values = response_json.get('value', {})
+            new_val = values.get(key, '')
+            assert new_val == f'changed {key}'

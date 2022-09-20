@@ -841,11 +841,6 @@ def _tourney_json_rep(db, tourney):
     return rslt
 
 
-def _checkbox_value_map(map, key):
-    rslt = key in map and map[key] and map[key] == 'on'
-    return rslt
-
-
 @bp.route('/ajax/tourneys/settings', methods=["GET", "PUT"])
 @login_required
 @debug_page_wrapper
@@ -878,13 +873,15 @@ def ajax_tourneys_settings(**kwargs):
                          'group_read', 'group_write', 'group_delete',
                          'other_read', 'other_write', 'other_delete']
             for key in prot_keys:
-                new_prot_state[key] = _checkbox_value_map(request.values, key)
+                if key in request.values:
+                    new_prot_state[key] = (request.values[key] in [True, 'true', 'True'])
+                else:
+                    new_prot_state[key] = json_rep[key]
             if ((current_user_can_read(tourney, **new_prot_state)
                  and current_user_can_write(tourney, **new_prot_state))
                 or request.values.get('confirm', 'false') == 'true'
                 ):
                 for key in prot_keys:
-                    assert key in json_rep, "inconsistent protection keys"
                     if json_rep[key] != new_prot_state[key]:
                         setattr(tourney, key, new_prot_state[key])
                         json_rep[key] = new_prot_state[key]
@@ -907,7 +904,7 @@ def ajax_tourneys_settings(**kwargs):
                 changed += 1
             if ('note' in request.values
                 and json_rep['note'] != request.values['note']):
-                json_rep['note'] = tourney.note = request.values['note']
+                json_rep['note'] = tourney.note = request.values['note'].strip()
                 changed += 1
             if changed:
                 db.add(tourney)

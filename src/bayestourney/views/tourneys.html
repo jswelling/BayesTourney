@@ -20,8 +20,6 @@ $(function () {
       {data: 'name'},
       {data: 'entrants',
        render: function(data, type, row, meta) {
-	 console.log('data: ', data);
-	 console.log('row: ', row);
 	 let tourney_id = row['id'];
 	 let num_entrants = data;
 	 return '<a href="entrants?tourney_id=' + tourney_id + '"> ' + num_entrants + ' </a>';
@@ -156,8 +154,23 @@ $(function () {
     let data = event.data['current_table'].row($(this).parents('tr')).data();
     let tourney_id = data['id'];
     function settings_get_fun() { return {'tourney_id' : tourney_id}; };
+    function checkboxes_to_bool(data, jq_form) {
+      var dct = {};
+      data.forEach(function(elt) {
+	dct[elt['name']] = elt['value'];
+      });
+      jq_form.find('input:checkbox').each(function() {
+	dct[this.name] = this.checked;
+      });
+      var rslt = [];
+      for (const [key, value] of Object.entries(dct)) {
+	rslt.push({'name':key, 'value':value});
+      };
+      return rslt;
+    }
     {{ settings_ajax_interaction_chain('/ajax/tourneys/settings',
 				       'settings_get_fun',
+				       'checkboxes_to_bool',
 				       'reload_tables_fun',
 				       'this tourney') }}
   };
