@@ -2,10 +2,10 @@ from datetime import datetime
 
 from sqlalchemy import (Column, Integer, Float, String, ForeignKey, JSON,
                         DateTime, Boolean)
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Query, column_property
 
-from flask_login import UserMixin
+from flask_login import UserMixin, current_user
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -139,6 +139,22 @@ class Tourney(Base):
         return "<Tourney(%s) owned by %s, group %s>"%(self.name,
                                                       self.ownerName, self.groupName)
 
+    @classmethod
+    def create_unique(cls, db, name, note, owner=None, group=None, permissions=None):
+        if db.query(Tourney).filter_by(name=name).first() is not None:
+            raise DBException(f'A tournament with the name "{name}" already exists.')
+        current_user_group = (db.query(Group)
+                              .filter_by(name=current_user.username)
+                              .one())
+        tourney = Tourney(name,
+                          owner.id if owner else current_user.id,
+                          group.id if group else current_user_group.id,
+                          note,
+                          permissions or {}
+                          )
+        db.add(tourney)
+        return tourney
+
     def add_player(self, db, player):
         if (db.query(TourneyPlayerPair)
             .filter(TourneyPlayerPair.tourney_id == self.tourneyId,
@@ -147,6 +163,12 @@ class Tourney(Base):
             db.add(TourneyPlayerPair(self.tourneyId, player.id))
 
     def remove_player(self, db, player):
+        if (db.query(Bout).filter(Bout.tourneyId == self.tourneyId,
+                                 or_(Bout.leftPlayerId == player.id,
+                                     Bout.rightPlayerId == player.id))
+                                 .first() is not None):
+            raise DBException('Player cannot be deleted because they are'
+                              ' included in bouts in this tournament')
         (db.query(TourneyPlayerPair)
          .filter(TourneyPlayerPair.tourney_id == self.tourneyId,
                  TourneyPlayerPair.player_id == player.id
@@ -157,6 +179,25 @@ class Tourney(Base):
         return (db.query(LogitPlayer).join(TourneyPlayerPair)
                 .filter(TourneyPlayerPair.tourney_id == self.tourneyId)
                 .all())
+
+    def as_dict(self, include_id=True):
+        if include_id:
+            return {'id': self.tourneyId, 'name': self.name, 'note': self.note}
+        else:
+            return {'name': self.name, 'note': self.note}
+
+    def full_delete(self, db):
+        """
+        Completely remove this tourney and all its player and bout records
+        """
+        try:
+            for player in self.get_players(db):
+                self.remove_player(db, player)
+        except DBException as exc:
+            raise DBException('Some players in this tournament still have bouts,'
+                              ' so they cannot be deleted, so the tournament cannot'
+                              ' be deleted.')
+        db.query(Tourney).filter_by(tourneyId=self.tourneyId).delete()
 
 
 class LogitPlayer(Base):

@@ -2,6 +2,14 @@
 <form id={{form_name}}>
   This tournament is owned by {{owner_name}}.
   <fieldset>
+    <label for=tourney_settings_dlg_{{id}}_name>Name</label>
+    <input type=text id="tourney_settings_dlg_{{id}}_name" name="name"
+	   value={{name}}>
+    <br><br>
+    <label for="tourney_settings_dlg_{{id}}_note">Note</label>
+    <textarea id="tourney_settings_dlg_{{id}}_note" name="note" cols=40 rows=5>{{note}}</textarea>
+  </fieldset>
+  <fieldset>
   <label for=tourney_settings_dlg_{{id}}_group_sel>Group</label>
   <select id=tourney_settings_dlg_{{id}}_group_sel name="group">
     {% for groupname in current_user_groups %}

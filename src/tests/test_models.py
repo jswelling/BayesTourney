@@ -130,3 +130,19 @@ def test_player(app):
         assert player.as_dict(include_id=True) == {'name': 'SomeRandomGuy',
                                                    'note': 'Here is a note',
                                                    'id': player.id}
+
+
+def test_tourney(app, client, auth):
+    auth.login()
+    with client:
+        client.get('/')  # forces current_user to have a value
+        with app.app_context():
+            db = get_db();
+            initial_tourney_name_set = set(tourney.name for tourney in
+                                           db.query(Tourney).all())
+            with pytest.raises(DBException) as excinfo:
+                tourney = Tourney.create_unique(db, 'test_tourney_1', 'this should fail')
+            assert 'test_tourney_1' in str(excinfo)
+            assert 'exists' in str(excinfo)
+            tourney = Tourney.create_unique(db, 'some unique name', 'this should not fail')
+            assert 'some unique name' in str(tourney)

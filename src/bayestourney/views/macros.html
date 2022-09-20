@@ -170,7 +170,9 @@
   </select>
 {% endmacro %}
 
-{% macro settings_ajax_interaction_chain(endpoint, data_for_get_fun_name, after_save_fun_name, msg_string) %}
+{% macro settings_ajax_interaction_chain(endpoint, data_for_get_fun_name,
+					 data_for_put_transform_name,
+					 after_save_fun_name, msg_string) %}
         let data_for_get = {{data_for_get_fun_name}} ();
 	$.ajax({type:'GET',
 		url: "{{ endpoint }}",
@@ -192,10 +194,12 @@
 		    this_div.remove();
 		  },
 		  "Save": function() {
-		    let form_data = $('#' + data['value']['form_name']).serializeArray();
+		    let this_form = $('#' + data['value']['form_name']);
+		    let form_data = this_form.serializeArray();
 		    for (const [key, value] of Object.entries(data_for_get)) {
 		      form_data.push({'name':key, 'value':value});
 		    }
+		    form_data = {{ data_for_put_transform_name }} (form_data, this_form);
 		    $(this).dialog("close");
 		    $.ajax({
 		      type:'PUT',

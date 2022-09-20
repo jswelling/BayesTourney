@@ -283,6 +283,11 @@ def forms_entrants_create():
     return render_template("forms_entrants_create.html");
 
 
+@bp.route("/forms/tourneys/create")
+def forms_tourneys_create():
+    return render_template("forms_tourneys_create.html");
+
+
 @bp.route("/site-map")
 def site_map():
     links = []
@@ -328,6 +333,9 @@ def tourneys():
 @login_required
 @debug_page_wrapper
 def entrants():
+    if 'tourney_id' in request.values:
+        tourney_id = int(request.values['tourney_id'])
+        session['sel_tourney_id'] = tourney_id
     tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
     return render_template("entrants.html",
                            sel_tourney_id=session.get('sel_tourney_id', -1),
@@ -833,11 +841,6 @@ def _tourney_json_rep(db, tourney):
     return rslt
 
 
-def _checkbox_value_map(map, key):
-    rslt = key in map and map[key] and map[key] == 'on'
-    return rslt
-
-
 @bp.route('/ajax/tourneys/settings', methods=["GET", "PUT"])
 @login_required
 @debug_page_wrapper
@@ -870,13 +873,15 @@ def ajax_tourneys_settings(**kwargs):
                          'group_read', 'group_write', 'group_delete',
                          'other_read', 'other_write', 'other_delete']
             for key in prot_keys:
-                new_prot_state[key] = _checkbox_value_map(request.values, key)
+                if key in request.values:
+                    new_prot_state[key] = (request.values[key] in [True, 'true', 'True'])
+                else:
+                    new_prot_state[key] = json_rep[key]
             if ((current_user_can_read(tourney, **new_prot_state)
                  and current_user_can_write(tourney, **new_prot_state))
                 or request.values.get('confirm', 'false') == 'true'
                 ):
                 for key in prot_keys:
-                    assert key in json_rep, "inconsistent protection keys"
                     if json_rep[key] != new_prot_state[key]:
                         setattr(tourney, key, new_prot_state[key])
                         json_rep[key] = new_prot_state[key]
@@ -893,6 +898,14 @@ def ajax_tourneys_settings(**kwargs):
                 tourney.group = new_group.id
                 json_rep['group_name'] = new_group.name
                 changed += 1
+            if ('name' in request.values
+                and json_rep['name'] != request.values['name']):
+                json_rep['name'] = tourney.name = request.values['name']
+                changed += 1
+            if ('note' in request.values
+                and json_rep['note'] != request.values['note']):
+                json_rep['note'] = tourney.note = request.values['note'].strip()
+                changed += 1
             if changed:
                 db.add(tourney)
                 db.commit()
@@ -901,6 +914,78 @@ def ajax_tourneys_settings(**kwargs):
             return {'status': 'success',
                     'value': json_rep
                     }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+@bp.route('/ajax/tourneys', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_tourneys(**kwargs):
+    db = get_db()
+    try:
+        if request.method == 'GET':
+            tourneys = get_readable_tourneys(db)
+            rslt = {
+                'status': 'success',
+                'value': [tourney.as_dict() for tourney in tourneys]
+                }
+            if request.values.get('counts', 'false') == 'true':
+                # Add counts info
+                for row in rslt['value']:
+                    row['bouts'] = (db.query(Bout)
+                                    .filter(Bout.tourneyId == row['id'])
+                                    .count())
+                    row['entrants'] = (db.query(TourneyPlayerPair)
+                                          .filter(TourneyPlayerPair.tourney_id == row['id'])
+                                          .count())
+            return rslt
+        elif request.method == 'PUT':
+            assert 'action' in request.values, 'action is required for PUT requests'
+            if request.values['action'] == 'delete':
+                assert 'tourney_id' in request.values, 'tourney_id is required for PUT "delete" requests'
+                tourney_id = int(request.values['tourney_id'])
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_delete(tourney)
+                try:
+                    tourney.full_delete(db)
+                    db.commit()
+                    return {
+                        'status': 'success',
+                        'value': {}
+                    }
+                except DBException as exc:
+                    return {
+                        'status': 'failure',
+                        'msg': f'{exc}'
+                    }
+            elif request.values['action'] == 'create':
+                assert 'tourney_id' not in request.values, 'tourney_id is forbidden for PUT "create" requests'
+                assert 'name' in request.values, 'name is required for PUT "create" requests'
+                name = request.values['name']
+                assert 'note' in request.values, 'note is required for PUT "create" requests'
+                note = request.values['note']
+                try:
+                    tourney = Tourney.create_unique(db, name, note)
+                except DBException as exc:
+                    return {
+                        'status': 'failure',
+                        'msg': f"{exc}"
+                        }
+                db.commit();
+                return {
+                    'status': 'success',
+                    'value': { 'tourney_id': tourney.tourneyId }
+                }
+            else:
+                return {
+                    'status': 'failure',
+                    'msg': f'unknown action "{action}" was requested'
+                }
         else:
             return f"unsupported method {request.method}", 405
     except PermissionException as excinfo:
