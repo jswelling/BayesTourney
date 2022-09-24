@@ -20,7 +20,7 @@ def create_app(test_config=None):
         instance_relative_config=True,
         template_folder='views',
         static_folder=f'{static_folder}',
-        static_url_path='/static/'
+        static_url_path='/'
     )
     instance_path.mkdir(parents=True, exist_ok=True)
     if test_config is None:

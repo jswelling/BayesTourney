@@ -17,7 +17,7 @@ $(function() {
   function updown_data_dict_fun() {
     let rslt = {"tourney": selEntrantsTourney.val()};
     return rslt;
-  }
+  };
   function reload_both_tables_fun() {
     source_entrants_table.ajax.reload();
     this_tourney_entrants_table.ajax.reload();
@@ -39,7 +39,7 @@ $(function() {
       {data: 'note'},
       {data: null, className: 'editbutton',
        render: function(data, type, row, meta) {
-	 return "<button><img src='static/gear.svg'></img></button>";
+	 return "<button><img src='gear.svg'></img></button>";
        }
       }
     ],
@@ -68,7 +68,6 @@ $(function() {
 		.done(function(data, textStatus, jqXHR) {
 		  console.log(data);
 		  if (data['status'] == 'success') {
-		    $("#entrants_table").trigger('reloadGrid',{ fromServer: true });
 		    source_entrants_table.ajax.reload();
 		    this_tourney_entrants_table.ajax.reload();
 		  }
@@ -166,7 +165,7 @@ $(function() {
       {data: 'note'},
       {data: null, className: 'editbutton',
        render: function(data, type, row, meta) {
-	 return "<button><img src='static/gear.svg'></img></button>";
+	 return "<button><img src='gear.svg'></img></button>";
        }
       }
     ],

@@ -62,6 +62,12 @@ def handle_permission_exception(e):
     return f"{e}", 403
 
 
+@bp.app_errorhandler(DBException)
+def handle_db_exception(e):
+    LOGGER.error(f"DBException: {e}")
+    return f"{e}", 403
+
+
 def logMessage(txt):
     LOGGER.info(txt)
 
@@ -175,10 +181,9 @@ def upload_entrants_file():
 
 
 def player_name_to_id(row, key, db):
-    p_list = [p for p in db.query(LogitPlayer).filter_by(name=row[key])]
-    if len(p_list) == 1:
-        return p_list[0].id
-    else:
+    try:
+        return db.query(LogitPlayer).filter_by(name=row[key]).one().id
+    except:
         return -1  # we need to use an int as the signal value for Pandas' sake
 
 
@@ -201,20 +206,33 @@ def insert_bouts_from_df(df, tourney):
         if bad_name_l := [nm for nm in bad_names.unique()]:
             bad_name_str = ', '.join([f'"{nm}"' for nm in bad_name_l])
             raise DBException(f'Unknown or multiply defined player names: {bad_name_str}')
-        else:
-            df = df.drop(columns=['leftPlayerName', 'rightPlayerName', 'tourneyName'])
-            print(df)
-            for idx, row in df.iterrows():
-                print(row)
-                note = row['note'] if 'note' in row else ""
-                new_bout = Bout(int(row['tourneyId']),
-                                int(row['leftWins']), int(row['leftPlayerId']),
-                                int(row['draws']),
-                                int(row['rightPlayerId']), int(row['rightWins']),
-                                note = note)
-                db.add(new_bout)
-                print(new_bout)
-            db.commit()
+        bad_names = []
+        for idx, row in df.iterrows():
+            if (db.query(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.tourney_id == row['tourneyId'],
+                        TourneyPlayerPair.player_id == row['leftPlayerId'])
+                .first()) is None:
+                bad_names.append(row['leftPlayerName'])
+            if (db.query(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.tourney_id == row['tourneyId'],
+                        TourneyPlayerPair.player_id == row['rightPlayerId'])
+                .first()) is None:
+                bad_names.append(row['rightPlayerName'])
+        if bad_names:
+            bad_names = list(set(bad_names))  # remove duplicates
+            raise DBException("The following players were not entered in the tourney"
+                              f" {tourney.name}: {', '.join(bad_names)}.  Do you need"
+                              " to import a table of entrants first?")
+        df = df.drop(columns=['leftPlayerName', 'rightPlayerName', 'tourneyName'])
+        for idx, row in df.iterrows():
+            note = row['note'] if 'note' in row else ""
+            new_bout = Bout(int(row['tourneyId']),
+                            int(row['leftWins']), int(row['leftPlayerId']),
+                            int(row['draws']),
+                            int(row['rightPlayerId']), int(row['rightWins']),
+                            note = note)
+            db.add(new_bout)
+        db.commit()
                          
     else:
         raise DBException('Unknown column pattern for bouts')
@@ -239,18 +257,18 @@ def upload_bouts_file():
     if not allowed_upload_file(file.filename):
         LOGGER.info(msg := 'file type not supported for upload')
         return msg, 400
-    if 'tournament' in request.values:
-        tourney_id_str = request.values['tournament']
+    if 'tourney_id' in request.values:
+        tourney_id_str = request.values['tourney_id']
     else:
-        LOGGER.info(msg := 'bout upload tournament id is missing')
+        LOGGER.info(msg := 'bout upload tourney_id is missing')
         return msg, 400
     try:
         tourney_id = int(tourney_id_str)
     except ValueError:
-        LOGGER.info(msg := 'bout upload tournament id invalid format')
+        LOGGER.info(msg := 'bout upload tourney_id invalid format')
         return msg, 400
     if tourney_id < 0:
-        LOGGER.info(msg := 'bout upload tournament id is not valid')
+        LOGGER.info(msg := 'bout upload tourney_id is not valid')
         return msg, 400
     filename = secure_filename(file.filename)
     LOGGER.info(f'Saving file to {filename}')
@@ -346,10 +364,23 @@ def entrants():
 @login_required
 @debug_page_wrapper
 def bouts():
-    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(get_db())}
+    db = get_db()
+    if 'tourney_id' in request.values:
+        tourney_id = int(request.values['tourney_id'])
+        session['sel_tourney_id'] = tourney_id
+    tourneyDict = {t.tourneyId: t.name for t in get_readable_tourneys(db)}
+    tourney_id = session.get('sel_tourney_id', -1)
+    if tourney_id < 0:
+        players = get_readable_players(db)
+    else:
+        assert tourney_id in tourneyDict, 'current user cannot read this tourney'
+        tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+        players = tourney.get_players(db)
+    playerDict = {player.id: player.name for player in players}
     return render_template("bouts.html",
-                           sel_tourney_id=session.get('sel_tourney_id', -1),
-                           tourneyDict=tourneyDict)
+                           sel_tourney_id=tourney_id,
+                           tourneyDict=tourneyDict,
+                           playerDict=playerDict)
 
 
 @bp.route('/experiment')
@@ -602,66 +633,25 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
     if tourneyId >= 0:
         tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
         check_can_read(tourney)
-        if include_ids:
-            boutDF = pd.read_sql(
-                f"""
-                select tourneys.name as tourneyName, 
-                bouts.leftWins as leftWins, lplayers.name as leftPlayerName,
-                lplayers.id as leftPlayerId,
-                rplayers.name as rightPlayerName, 
-                rplayers.id as rightPlayerId,
-                bouts.rightWins as rightWins, 
-                bouts.draws as draws, bouts.note as note
-                from bouts, tourneys, players as lplayers, players as rplayers 
-                where bouts.leftPlayerId = lplayers.id 
-                and bouts.rightPlayerId = rplayers.id 
-                and tourneys.tourneyId = bouts.tourneyId 
-                and bouts.tourneyId = {tourneyId}
-                """, engine, coerce_float=True)
-        else:
-            boutDF = pd.read_sql(
-                f"""
-                select tourneys.name as tourneyName, 
-                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
-                rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-                bouts.draws as draws, bouts.note as note
-                from bouts, tourneys, players as lplayers, players as rplayers 
-                where bouts.leftPlayerId = lplayers.id 
-                and bouts.rightPlayerId = rplayers.id 
-                and tourneys.tourneyId = bouts.tourneyId 
-                and bouts.tourneyId = {tourneyId}
-                """, engine, coerce_float=True)
+        bouts = tourney.get_bouts(db)
     else:
-        raise RuntimeError('getting bouts from all tourneys is not implemented'
-                           ' because it needs to support accessing only readable'
-                           ' tournaments')
+        tourneys = get_readable_tourneys(db)
+        tourney_id_list = [tourney.tourneyId for tourney in tourneys]
+        bouts = db.query(Bout).filter(Bout.tourneyId.in_(tourney_id_list)).all()
+    dict_list = []
+    for bout in bouts:
+        bout_tourney = db.query(Tourney).filter_by(tourneyId=bout.tourneyId).one();
+        dct = {'tourneyName': bout_tourney.name,
+               'leftWins': bout.leftWins,
+               'leftPlayerName': bout.lName,
+               'draws': bout.draws,
+               'rightPlayerName': bout.rName,
+               'rightWins': bout.rightWins,
+               'note': bout.note}
         if include_ids:
-            boutDF = pd.read_sql(
-                """
-                select tourneys.name as tourneyName, 
-                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
-                lplayers.id as leftPlayerId,
-                rplayers.name as rightPlayerName, 
-                rplayers.id as rightPlayerId,
-                bouts.rightWins as rightWins, 
-                bouts.draws as draws, bouts.note as note
-                from bouts, tourneys, players as lplayers, players as rplayers 
-                where bouts.leftPlayerId = lplayers.id 
-                and bouts.rightPlayerId = rplayers.id 
-                and tourneys.tourneyId = bouts.tourneyId 
-                """, engine, coerce_float=True)
-        else:
-            boutDF = pd.read_sql(
-                """
-                select tourneys.name as tourneyName, 
-                bouts.leftWins as leftWins, lplayers.name as leftPlayerName, 
-                rplayers.name as rightPlayerName, bouts.rightWins as rightWins, 
-                bouts.draws as draws, bouts.note as note
-                from bouts, tourneys, players as lplayers, players as rplayers 
-                where bouts.leftPlayerId = lplayers.id 
-                and bouts.rightPlayerId = rplayers.id 
-                and tourneys.tourneyId = bouts.tourneyId 
-                """, engine, coerce_float=True)
+            dct['bout_id'] = bout.boutId
+        dict_list.append(dct)
+    boutDF = pd.DataFrame(dict_list)
     return boutDF
 
 
@@ -669,11 +659,17 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
 @login_required
 @debug_page_wrapper
 def handleBoutsDownloadReq(**kwargs):
-    tourneyId = int(request.values.get('tourney', '-1'))
+    db = get_db()
+    tourneyId = int(request.values.get('tourney_id', '-1'))
+    if tourneyId > 0:
+        tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
+        tourney_name = tourney.name
+    else:
+        tourney_name = 'ALL_TOURNEYS'
     boutDF = _get_bouts_dataframe(tourneyId)
     
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
-    full_path =  Path(session_scratch_dir) / 'bouts.tsv'
+    full_path =  Path(session_scratch_dir) / f'bouts_{tourney_name}.tsv'
     boutDF.to_csv(full_path, sep='\t', index=False)
     return send_file(full_path, as_attachment=True)
 
@@ -994,14 +990,6 @@ def ajax_tourneys(**kwargs):
                 }
 
 
-def _player_json_rep(db, player):
-    rslt = {'id': player.id,
-            'name': player.name,
-            'note': player.note,
-            }
-    return rslt
-
-
 @bp.route('/ajax/entrants/settings', methods=["GET", "PUT"])
 @login_required
 @debug_page_wrapper
@@ -1013,7 +1001,7 @@ def ajax_entrants_settings(**kwargs):
     try:
         if request.method == 'GET':
             check_can_read(player)
-            response_data = _player_json_rep(db, player)
+            response_data = player.as_dict()
             response_data.update({
                 'form_name': f'player_settings_dlg_form_{player.id}',
             })
@@ -1024,7 +1012,7 @@ def ajax_entrants_settings(**kwargs):
                     }
         elif request.method == 'PUT':
             check_can_write(player)
-            json_rep = _player_json_rep(db, player)
+            json_rep = player.as_dict()
             changed = 0
             #
             # Permission management skeletonized because perms don't yet apply to players
@@ -1179,6 +1167,153 @@ def ajax_entrants(**kwargs):
                 return {
                     'status': 'failure',
                     'msg': f'unknown action "{action}" was requested'
+                }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+@bp.route('/ajax/bouts/settings', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_bouts_settings(**kwargs):
+    assert 'bout_id' in request.values, 'bout_id is a required parameter'
+    bout_id = int(request.values['bout_id'])
+    db = get_db()
+    bout = db.query(Bout).filter_by(boutId=bout_id).one()
+    tourney = db.query(Tourney).filter_by(tourneyId=bout.tourneyId).one()
+    lplayer = db.query(LogitPlayer).filter_by(id=bout.leftPlayerId).one()
+    rplayer = db.query(LogitPlayer).filter_by(id=bout.rightPlayerId).one()
+    try:
+        if request.method == 'GET':
+            check_can_read(tourney)
+            check_can_read(lplayer)
+            check_can_read(rplayer)
+            player_dict = {player.id: player.name for player in tourney.get_players(db)}
+            response_data = bout.as_dict()
+            response_data.update({
+                'form_name': f'bout_settings_dlg_form_{bout.boutId}',
+            })
+            response_data['dlg_html'] = render_template("bout_settings_dlg.html",
+                                                        player_dict=player_dict,
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        elif request.method == 'PUT':
+            check_can_write(tourney)
+            check_can_read(lplayer)
+            check_can_read(rplayer)
+            json_rep = bout.as_dict()
+            changed = 0
+            change_dct = {}
+            for key in json_rep:
+                # The request comes back with player ids in the name slots;
+                # we must map those to the corresponding ids
+                mapped_key = {'lplayer': 'lplayer_id',
+                            'rplayer': 'rplayer_id'}.get(key, key)
+                new_val = request.values.get(key, json_rep[key])
+                if key in ['lwins', 'rwins', 'draws', 'lplayer', 'rplayer']:
+                    new_val = int(new_val)
+                if new_val != json_rep[mapped_key]:
+                    change_dct[mapped_key] = new_val
+            if change_dct:
+                bout.update_from_dict(change_dct)
+                json_rep.update(change_dct)
+                db.add(bout)
+                db.commit()
+                json_rep['lplayer'] = bout.lName
+                json_rep['rplayer'] = bout.rName
+            else:
+                logMessage(f'Bout {bout.boutId} was not changed')
+            return {'status': 'success',
+                    'value': json_rep
+                    }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+@bp.route('/ajax/bouts', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_bouts(**kwargs):
+    db = get_db()
+    try:
+        if request.method == 'GET':
+            assert 'tourney_id' in request.values, 'tourney_id is required for Bout GET requests'
+            tourney_id = int(request.values['tourney_id'])
+            session['sel_tourney_id'] = tourney_id
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                rslt = {
+                    'status': 'success',
+                    'value': [bout.as_dict() for bout in tourney.get_bouts(db)]
+                }
+            else:
+                tourneys = get_readable_tourneys(db)
+                tourney_id_list = [tourney.tourneyId for tourney in tourneys]
+                bouts = (db.query(Bout)
+                         .filter(Bout.tourneyId.in_(tourney_id_list))
+                         .all()
+                         )
+                rslt = {
+                    'status': 'success',
+                    'value': [player.as_dict() for bout in bouts]
+                }
+            return rslt
+        elif request.method == 'PUT':
+            assert 'action' in request.values, 'action is required for PUT requests'
+            if request.values['action'] == 'add':
+                for key in ['tourney_id', 'lplayer', 'rplayer']:
+                    assert key in request.values, f'{key} is required for PUT "add" requests'
+                if not any([key in request.values for key in ['lwins', 'rwins', 'draws',
+                                                              'note']]):
+                    raise AssertionError('At least one of lwins, rwins, draws, or note'
+                                         'is required for PUT "add" requests')
+                tourney_id = int(request.values['tourney_id'])
+                lplayer_id = int(request.values['lplayer'])
+                rplayer_id = int(request.values['rplayer'])
+                lwins = int(request.values.get('lwins', 0))
+                rwins = int(request.values.get('rwins', 0))
+                draws = int(request.values.get('draws', 0))
+                note = request.values.get('note', '')
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_write(tourney)
+                try:
+                    bout = Bout.checked_create(db, tourney_id,lwins, lplayer_id,
+                                               draws,
+                                               rplayer_id, rwins,
+                                               note)
+                except DBException as excinfo:
+                    return {
+                        'status': 'failure',
+                        'msg': f'{excinfo}'
+                        }
+                db.add(bout)
+                db.commit()
+                return {
+                    'status': 'success',
+                    'value': {}
+                }
+            elif request.values['action'] == 'delete':
+                assert 'bout_id' in request.values, 'bout_id is required for PUT "delete" requests'
+                bout_id = int(request.values['bout_id']);
+                bout = db.query(Bout).filter_by(boutId=bout_id).one()
+                tourney = db.query(Tourney).filter_by(tourneyId=bout.tourneyId).one()
+                check_can_write(tourney)
+                db.delete(bout)
+                db.commit()
+                return {
+                    'status': 'success',
+                    'value': {}
                 }
         else:
             return f"unsupported method {request.method}", 405
@@ -1397,7 +1532,3 @@ def handleJSON(path, **kwargs):
     else:
         raise RuntimeError("Request for unknown AJAX element %s"%path)
     return result
-
-
-
-
