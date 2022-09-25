@@ -158,9 +158,9 @@ def upload_entrants_file():
         LOGGER.info(f'DBException: {e}')
         return {"status":"failure", "msg":str(e)}
     LOGGER.info('Player creation complete')
-    if 'tourney' in request.values:
+    if 'tourney_id' in request.values:
         try:
-            tourney_id = int(request.values['tourney'])
+            tourney_id = int(request.values['tourney_id'])
         except ValueError:
             LOGGER.info(msg := 'entrants upload tournament id has invalid format')
             return msg, 400
@@ -650,6 +650,9 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
                'note': bout.note}
         if include_ids:
             dct['bout_id'] = bout.boutId
+            dct['tourney_id'] = bout.tourneyId,
+            dct['leftPlayerId'] = bout.leftPlayerId
+            dct['rightPlayerId'] = bout.rightPlayerId
         dict_list.append(dct)
     boutDF = pd.DataFrame(dict_list)
     return boutDF
@@ -700,7 +703,7 @@ def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
     engine = db.get_bind()
 
-    tourneyId = int(request.values.get('tourney', '-1'))
+    tourneyId = int(request.values.get('tourney_id', '-1'))
     if tourneyId > 0:
         tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
         tourney_name = tourney.name
@@ -1486,6 +1489,7 @@ def handleJSON(path, **kwargs):
 
         boutDF = _get_bouts_dataframe(tourneyId, include_ids=True)
         #print(boutDF.head())
+        #print(boutDF.columns)
 
         leftDF = boutDF[['leftPlayerName', 'leftPlayerId', 'leftWins', 'rightWins',
                          'draws']].copy()

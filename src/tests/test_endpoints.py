@@ -255,14 +255,13 @@ def test_edit_entrants_add(client, app, auth):
         assert before_response.status_code == 200
         before_json = json.loads(before_response.data.decode('utf-8'))
 
-        with pytest.raises(DBException) as e:
-            response = client.post(
-                '/edit/entrants',
-                data={'oper': 'add',
-                      'name': 'Andy',
-                      'notes': 'watch me fail'
-                })
-            assert response.status_code == 400
+        response = client.post(
+            '/edit/entrants',
+            data={'oper': 'add',
+                  'name': 'Andy',
+                  'notes': 'watch me fail'
+                  })
+        assert response.status_code == 403
 
         response = client.post(
             '/edit/entrants',

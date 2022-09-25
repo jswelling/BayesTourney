@@ -55,7 +55,7 @@ def test_upload_entrants_invalid_tourney(auth, client, app):
         data = {}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
-            '/upload/entrants?tourney=-1', data=data, follow_redirects=True,
+            '/upload/entrants?tourney_id=-1', data=data, follow_redirects=True,
             content_type='multipart/form-data'
         )
         assert response.status_code == 400
@@ -68,7 +68,7 @@ def test_upload_entrants_with_tourney(auth, client, app):
         data = {}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
-            '/upload/entrants?tourney=1', data=data, follow_redirects=True,
+            '/upload/entrants?tourney_id=1', data=data, follow_redirects=True,
             content_type='multipart/form-data'
         )
         assert response.status_code == 200
@@ -85,7 +85,7 @@ def test_upload_bouts(auth, client, app):
     auth.login()
     with client:
         before_dict = _get_rec_dict(client, '/json/bouts')
-        data = {'tournament':str(2)}
+        data = {'tourney_id':str(2)}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
             '/upload/entrants', data=data, follow_redirects=True,
