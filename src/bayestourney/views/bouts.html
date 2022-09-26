@@ -2,91 +2,292 @@
 
 {% from "macros.html" import updown_button_script_preamble with context %}
 {% from "macros.html" import updown_button_script with context %}
-{% from "macros.html" import updown_button_content with context %}
-{% from "macros.html" import jqgrid_boilerplate with context %}
-{% from "macros.html" import sel_tournaments with context %}
+{% from "macros.html" import upload_dialog_content with context %}
+{% from "macros.html" import sel_tournaments_no_all with context %}
+{% from "macros.html" import settings_ajax_interaction_chain with context %}
+{% from "macros.html" import sel_bout_player with context %}
 
 {% block pagescripts %}
 <script>
 {{ updown_button_script_preamble('bouts') }}
 var lastsel_bouts;
 var selBoutsTourney;
+var playerDict = {
+  {% for id, name in playerDict | dictsort %}
+  {{ id }} : "{{ name }}",
+  {% endfor %}
+};
 $(function() {
   "use strict";
+  // untangle bad interaction between jquery-ui and bootstrap
+  // ref https://github.com/yiisoft/yii2-jui/issues/73
+  var bootstrapButton = $.fn.button.noConflict(); // return $.fn.button to previously assigned value
+  $.fn.bootstrapBtn = bootstrapButton;            // give $().bootstrapBtn the Bootstrap functionality
+  // end patch for jquery-ui and bootstrap bad interaction
+  function updown_data_dict_fun() {
+    let rslt = {"tourney_id": selBoutsTourney.val()};
+    return rslt;
+  };
+  function reload_tables_fun() {
+    bouts_table.ajax.reload();
+  };
+  function clear_add_bout_fun() {
+    $('#bouts_add_table_lwins_spinner').spinner('value', 0);
+    $('#bouts_add_table_rwins_spinner').spinner('value', 0);
+    $('#bouts_add_table_draws_spinner').spinner('value', 0);
+    $('#bouts_add_table_lplayer').val(-1);
+    $('#bouts_add_table_rplayer').val(-1);
+    $('#bouts_add_table_note').val('');
+  };
   selBoutsTourney = $('#sel_bouts_tournament');
   selBoutsTourney.select().change( function() {
-    $('#bouts_table').trigger('reloadGrid');
-  });
-  function tourneySelFun() { return "tourney="+selBoutsTourney.val(); };
-  jQuery("#bouts_table").jqGrid({
-    url:'json/bouts',
-    editurl:'edit/bouts',
-    postData: {'tourneyId': function() { return selBoutsTourney.val() || -1; } },
-    colNames:['Tourney','Wins', 'Player 1','Draws', 'Player 2','Wins','Notes'],
-    colModel:[
-      {name:'tourney','index':'tourney',width:200, align:'center',
-       editable:true, edittype:'select', editoptions:{dataUrl:'list/select_tourney'}},
-      {name:'lwins',index:'lwins', width:90, align:'right', 
-       editable:true, edittype:'text', editrules: { number:true }},
-      {name:'leftplayer',index:'leftplayer', width:100, align:'left',
-       editable:true, edittype:'select', editoptions:{dataUrl:'list/select_entrant'}},
-      {name:'draws',index:'draws', width:90, align:'left',
-       editable:true, edittype:'text', editrules: { number:true }},
-      {name:'rightplayer',index:'rightplayer', width:100, align:'right',
-       editable:true, edittype:'select', editoptions:{dataUrl:'list/select_entrant'}},
-      {name:'rwins',index:'rwins', width:90, align:'left',
-       editable:true, edittype:'text', editrules: { number:true }},
-      {name:'notes',index:'notes', width:200,
-       editable:true, edittype:'textarea'},
-    ],
-    onSelectRow: function(id){
-      if(id && id!==lastsel_bouts){
-	$(this).jqGrid('saveRow',lastsel_bouts);
-	$(this).jqGrid('editRow',id,true);
-	lastsel_bouts=id;
-      }
-    },
-    sortname: 'leftplayer',
-    caption:"Bouts",
-    {{ jqgrid_boilerplate() }}
-  });
-  $("#add_bout_button").click( function() {
-    jQuery("#bouts_table").jqGrid('editGridRow',"new",{closeAfterAdd:true});
-  });
-  $("#del_bout_button").click( function() {
-    jQuery("#bouts_table").jqGrid('delGridRow',lastsel_bouts,{});
-    lastsel_bouts=null;
-  });
-  $("#reload_bout_button").click( function() {
-    $("#bouts_table").trigger('reloadGrid',{ fromServer: true });
-    lastsel_bouts=null;
+    reload_tables_fun();
+    $.ajax({type: 'GET',
+	    url: "/ajax/entrants",
+	    data: {"tourney_id": selBoutsTourney.val()}
+    })
+      .fail(function(gqXHR, textStatus, errorThrown) {
+	alert("The server did not respond as expected to the request for data on entrants in this tourney.");
+	console.log('failure jqXHR: ', jqXHR);
+	console.log('failure textStatus: ', textStatus);
+	console.log('failure thrown: ', errorThrown)
+      })
+      .done(function(data, textStatus, jqXHR) {
+	if (data['status'] == 'success') {
+	  let new_player_dict = {};
+	  for (const row of data['value']) {
+	    new_player_dict[row['id']] = row['name'];
+	  };
+	  playerDict = new_player_dict;
+	  handle_playerdict_update(new_player_dict);
+	}
+	else {
+	  if (data['msg']) {
+	    alert(data['msg'])
+	  }
+	  else {
+	    alert("The server did not report success in response to request for entrant data.")
+	  }
+	  console.log('non-success data:', data)
+	}
+      });
   });
   {{ updown_button_script('bouts', '/download/bouts',
-			  "tourneySelFun" ) }}
+			  'updown_data_dict_fun', 'reload_tables_fun') }}
+  var bouts_table = $("#bouts_table").DataTable({
+    dom: 'Bfrtip',
+    select: true,
+    ajax: {
+      url: '/ajax/bouts',
+      data: {
+	tourney_id: function() {return selBoutsTourney.val()}
+      },
+      dataSrc: 'value'
+    },
+    columns: [
+      {data: 'lwins'},
+      {data: 'lplayer'},
+      {data: 'draws'},
+      {data: 'rplayer'},
+      {data: 'rwins'},
+      {data: 'note'},
+      {data: null,
+       className: 'editbutton',
+       render: function(data, type, row, meta) {
+	 return "<button><img src='gear.svg'></img></button>";
+       }
+      }
+    ],
+      buttons: [
+	{
+	  text: 'Remove and forget the selected bout',
+	  action: function(evt, dt_api, dq_btn, btn_cfg) {
+	    bouts_table.rows({selected:true}).data().each(
+	      function(row, idx) {
+		$.ajax({
+		  type:'PUT',
+		  url:'ajax/bouts',
+		  data: {
+		    action: 'delete',
+		    bout_id: row['id']
+		  }
+		})
+		  .fail(function(jqXHR, textStatus, errorThrown) {
+		    alert('The server did not respond as expected to the delete request for this bout.');
+		    console.log('failure jqXHR: ', jqXHR);
+		    console.log('failure textStatus: ', textStatus);
+		    console.log('failure thrown: ', errorThrown)
+		  })
+		  .done(function(data, textStatus, jqXHR) {
+		    if (data['status'] == 'success') {
+		      reload_tables_fun();
+		    }
+		    else {
+		      if (data['msg']) {
+			alert(data['msg'])
+		      }
+		      else {
+			alert('The server did not report success in response to the request to delete bout data.')
+		      }
+		      console.log('non-success data:', data)
+		    }
+		  })
+	      });
+	  }
+	},
+      {
+        text: 'Upload bouts for this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  $("#upload_bouts_dialog").dialog( "open" );
+	}
+      },
+      {
+        text: 'Download the bouts from this tourney',
+        action: function (evt, dt_api, jq_btn, btn_cfg) {
+	  let url = "/download/bouts?" + $.param(updown_data_dict_fun());
+	  $('#download_bouts_link').attr('href', url);
+	   $('#download_bouts_link')[0].click();
+	}
+      }
+    ]
+  });
+  function bouts_settings_on_click_fun(event) {
+    event.stopPropagation();
+    let data = event.data['current_table'].row($(this).parents('tr')).data();
+    let bout_id = data['id'];
+    function settings_get_fun() { return {'bout_id' : bout_id}; };
+    function identity_map(data, jq_form) { return data; }
+    {{ settings_ajax_interaction_chain('/ajax/bouts/settings',
+				       'settings_get_fun',
+				       'identity_map',
+				       'reload_tables_fun',
+				       'this bout') }}
+  };
+  $("#bouts_table tbody").on("click", "button",
+			     {current_table: bouts_table},
+			     bouts_settings_on_click_fun);
+  
+  function handle_one_playerdict_update(target, new_player_dict) {
+    $(target).html('<option value=-1>--pick one--</option>\n');
+    for( const [key, value] of Object.entries(new_player_dict)) {
+      $(target).append('<option value="' + key + '">' + value + '</option>\n');
+    }
+  };
+  function handle_playerdict_update(new_player_dict) {
+    $(".playerdict-dependent").each( function() {
+      handle_one_playerdict_update(this, new_player_dict);
+    })
+  }
+  handle_playerdict_update(playerDict);
+  $('.pos-int-spinner').each( function() {
+    $(this).width(30).spinner({decimals:0});
+  });
+  $('#add_bout_button').click(function() {
+    let data={};
+    $('#bouts_add_table_block input,select').each( function() {
+      if (this.name) {
+	data[this.name] = this.value;
+      };
+    });
+    if (data['lplayer'] < 0 || data['rplayer'] < 0) {
+      alert('Pick a valid player.');
+    }
+    else if (data['lplayer'] == data['rplayer']) {
+      alert("The two players must be different- people can't fight themselves.")
+    }
+    else if (data['lwins'] == 0 && data['rwins'] == 0 && data['draws'] == 0) {
+      alert("Someone must have won, or it must have been a draw");
+    }
+    else {
+      data['tourney_id'] = selBoutsTourney.val();
+      data['action'] = 'add';
+      $.ajax({type:'PUT',
+	      url:'/ajax/bouts',
+	      data: data
+	     })
+	.fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request to add the bout.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	})
+	.done(function(data, textStatus, jqXHR) {
+	  if (data['status'] == 'success') {
+	    reload_tables_fun();
+	    clear_add_bout_fun();
+	  }
+	  else {
+	    if (data['msg']) {
+	      alert(data['msg'])
+	    }
+	    else {
+	      alert("The server did not report success in response to the request to add the bout.")
+	    }
+	    console.log(data);
+	  }
+	});
+    }
+      
+  });
 });
 </script>
 {% endblock %}
 
 {% block content %}
-<h1>Bouts</h1>
+<h1>Bouts In The Tourney
+{{ sel_tournaments_no_all('sel_bouts_tournament') }}
+</h1>
 
-{{ sel_tournaments('sel_bouts_tournament') }}
-<table id="bouts_table"></table>
-<!-- <div id="bouts_pager"></div> -->
-<input type="BUTTON" id="add_bout_button" value="New Bout">
-<input type="BUTTON" id="del_bout_button" value="Delete Selected Bout">
-<input type="BUTTON" id="reload_bout_button" value="Reload">
+<label for="bouts_add_table"><h2>Add A Bout:</h2></label>
+<div id="bouts_add_table_block" class="border">
+  <table id="bouts_add_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Wins</th>
+	<th>Player 1</th>
+	<th>Draws</th>
+	<th>Player 2</th>
+	<th>Wins</th>
+	<th>Note</th>
+	<th></th>
+      </tr>
+    </thead>
+    <tr>
+      <td><input id='bouts_add_table_lwins_spinner' value=0 name='lwins' class='pos-int-spinner'></td>
+      <td>{{ sel_bout_player('bouts_add_table_lplayer', 'lplayer') }}</td>
+      <td><input id='bouts_add_table_draws_spinner' value=0 name='draws' class='pos-int-spinner'></td>
+      <td>{{ sel_bout_player('bouts_add_table_rplayer', 'rplayer') }}</td>
+      <td><input id='bouts_add_table_rwins_spinner' value=0 name='rwins' class='pos-int-spinner'></td>
+      <td><input type=text id="bouts_add_table_note" name="note"></td>
+      <td><button id="add_bout_button">Add it!</button></td>
+    </tr>
+  </table>
+</div>
 
-  {{ updown_button_content('bouts', 'Bouts',
-       'Upload A Table Of Bouts',
-       '/upload/bouts', '/ajax/bouts_download',
-       """
-       Bouts can be uploaded as a .csv or .tsv file in the same format as
-       those downloaded from this page.
-       """,
-       'true'
-     )
-  }}
+<label for="bouts_this_tourney_block"><h2>Bouts in this tourney:</h2></label>
+<div id="bouts_this_tourney_block" class="border">
+  <table id="bouts_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Wins</th>
+	<th>Player 1</th>
+	<th>Draws</th>
+	<th>Player 2</th>
+	<th>Wins</th>
+	<th>Note</th>
+	<th>Edit</th>
+      </tr>
+    </thead>
+  </table>
+</div>
 
+<div id="download_bouts_div" hidden>
+  <a id="download_bouts_link" href="/download/bouts"></a>
+</div>
+
+{{ upload_dialog_content('bouts', 'Upload A Table Of Bouts',
+                         '/upload/bouts',
+                         "Bouts can be uploaded as a .csv or .tsv file in the same format as those downloaded from this page.",
+			 "false") }}
 
 {% endblock %}

@@ -21,7 +21,7 @@ def test_download_entrants(auth, client, app, tourney_id, tourney_label):
     with client:
         before_dict = _get_rec_dict(client, f'/json/entrants?tourneyId={tourney_id}')
         response =client.get(
-            '/download/entrants' + f'?tourney={tourney_id}',
+            '/download/entrants' + f'?tourney_id={tourney_id}',
             follow_redirects=True,
         )
         assert response.status_code == 200
@@ -35,13 +35,13 @@ def test_download_entrants(auth, client, app, tourney_id, tourney_label):
 def test_download_bouts(auth, client, app):
     auth.login()
     with client:
-        before_dict = _get_rec_dict(client, '/json/bouts?tourneyId=2')
+        before_dict = _get_rec_dict(client, '/json/bouts?tourney_id=2')
         response =client.get(
-            '/download/bouts' + '?tourney=2',
+            '/download/bouts' + '?tourney_id=2',
             follow_redirects=True,
         )
         assert response.status_code == 200
-        assert response.headers['Content-Disposition'] == 'attachment; filename=bouts.tsv'
+        assert response.headers['Content-Disposition'] == 'attachment; filename=bouts_test_tourney_2.tsv'
         test_df = pd.read_csv(BytesIO(response.data), sep='\t')
         compare_recs = [[rec[0], rec[2], rec[4], rec[6]] for rec in before_dict.values()]
         for idx, row in test_df.iterrows():

@@ -25,11 +25,17 @@ $(function () {
 	 return '<a href="entrants?tourney_id=' + tourney_id + '"> ' + num_entrants + ' </a>';
        }
       },
-      {data: 'bouts'},
+      {data: 'bouts',
+       render: function(data, type, row, meta) {
+	 let tourney_id = row['id'];
+	 let num_bouts = data;
+	 return '<a href="bouts?tourney_id=' + tourney_id + '"> ' + num_bouts + ' </a>';
+       }
+      },
       {data: 'note'},
       {data: null, className: 'editbutton',
        render: function(data, type, row, meta) {
-	 return "<button><img src='static/gear.svg'></img></button>";
+	 return "<button><img src='gear.svg'></img></button>";
        }
       }
     ],

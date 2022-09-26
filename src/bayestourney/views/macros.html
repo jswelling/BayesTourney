@@ -145,8 +145,15 @@
     reloadGridOptions: { fromServer: true, reloadAfterSubmit: true }  
 {% endmacro %}
 
-{% macro sel_tournaments(id) %}
+{% macro sel_bout_player(id, name) %}
+<select id="{{ id }}" name="{{name}}" class="playerdict-dependent">
+</select>
+{% endmacro %}
+
+{% macro sel_tournaments(id, show_label=0) %}
+  {% if show_label %}
   <label for="{{ id }}">Which Tournament?</label>
+  {% endif %}
   <select id="{{ id }}">
     <option value="-1"
     {% if sel_tourney_id == -1 %} selected {% endif %}
@@ -159,8 +166,10 @@
   </select>
 {% endmacro %}
 
-{% macro sel_tournaments_no_all(id) %}
+{% macro sel_tournaments_no_all(id, show_label=0) %}
+  {% if show_label %}  
   <label for="{{ id }}">Which Tournament?</label>
+  {% endif %}
   <select id="{{ id }}">
     {% for id, name in tourneyDict | dictsort %}
     <option value="{{id}}"
@@ -274,7 +283,11 @@
 		      })
 		  }
 		}
-	      })
+	      });
+	      // Formatting operations for the dialog opened above
+	      this_div.find('.pos-int-spinner').each( function() {
+		$(this).width(30).spinner({decimals:0});
+	      });
 	    }
 	    else {
 	      if (data['msg']) {

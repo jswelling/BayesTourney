@@ -180,6 +180,11 @@ class Tourney(Base):
                 .filter(TourneyPlayerPair.tourney_id == self.tourneyId)
                 .all())
 
+    def get_bouts(self, db):
+        return (db.query(Bout)
+                .filter(Bout.tourneyId == self.tourneyId)
+                .all())
+
     def as_dict(self, include_id=True):
         if include_id:
             return {'id': self.tourneyId, 'name': self.name, 'note': self.note}
@@ -292,6 +297,55 @@ class Bout(Base):
                                                                 self.lName, self.leftWins,
                                                                 self.draws,
                                                                 self.rName, self.rightWins)
+    def as_dict(self, include_id=True):
+        if include_id:
+            return {'id': self.boutId, 'tourney_id': self.tourneyId,
+                    'lwins': self.leftWins, 'lplayer': self.lName,
+                    'lplayer_id': self.leftPlayerId,
+                    'draws': self.draws,
+                    'rwins': self.rightWins, 'rplayer': self.rName,
+                    'rplayer_id': self.rightPlayerId,
+                    'note': self.note}
+        else:
+            return {'tourney_id': self.tourneyId,
+                    'lwins': self.leftWins, 'lplayer': self.lName,
+                    'lplayer_id': self.leftPlayerId,
+                    'draws': self.draws,
+                    'rwins': self.rightWins, 'rplayer': self.rName,
+                    'rplayer_id': self.rightPlayerId,
+                    'note': self.note}
+    def update_from_dict(self, dct):
+        """
+        This is useful for reversing the set of name transformations carried out
+        by as_dict()
+        """
+        for key, attrkey in [('tourney_id', 'tourneyId'),
+                             ('lwins', 'leftWins'),
+                             ('draws', 'draws'),
+                             ('rwins', 'rightWins'),
+                             ('lplayer_id', 'leftPlayerId'),
+                             ('rplayer_id', 'rightPlayerId')]:
+            if key in dct:
+                setattr(self, attrkey, int(dct[key]))
+        for key, attrkey in [('note', 'note')]:
+            if key in dct:
+                setattr(self, attrkey, dct[key])
+    @classmethod
+    def checked_create(cls, db, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
+        if not (db.query(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.tourney_id==tourneyId,
+                        TourneyPlayerPair.player_id==leftId)).first():
+            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one();
+            player = db.query(LogitPlayer).filter_by(id=leftId).one();
+            raise DBException(f'{player.name} is not entered in {tourney.name}')
+        elif not (db.query(TourneyPlayerPair)
+                .filter(TourneyPlayerPair.tourney_id==tourneyId,
+                        TourneyPlayerPair.player_id==rightId)).first():
+            tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one();
+            player = db.query(LogitPlayer).filter_by(id=rightId).one();
+            raise DBException(f'{player.name} is not entered in {tourney.name}')
+        else:
+            return Bout(tourneyId, lWins, leftId, draws, rightId, rWins, note)
 
 ###############################
 ## This bit fakes some data

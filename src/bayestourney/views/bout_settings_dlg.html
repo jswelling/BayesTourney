@@ -1,0 +1,34 @@
+<h1>Bout Settings</h1>
+<form id={{form_name}}>
+  <fieldset>
+    <label for=bout_settings_dlg_{{id}}_lwins>Player 1 Wins</label>
+    <input id=bout_settings_dlg_{{id}}_lwins value={{lwins}} name='lwins' class='pos-int-spinner'>
+    <br>
+    <label for=bout_settings_dlg_{{id}}_lplayer>Player 1</label>
+    <select id=bout_settings_dlg_{{id}}_lplayer name='lplayer'>
+      {% for id, name in player_dict | dictsort %}
+      <option value={{id}}
+	      {% if name == lplayer %} selected {% endif %}
+	      >{{name}}</option>
+      {% endfor %}
+    </select>
+    <br>
+    <label for=bout_settings_dlg_{{id}}_draws>Draws</label>
+    <input id=bout_settings_dlg_{{id}})draws value={{draws}} name='draws' class='pos-int-spinner'>
+    <br>
+    <label for=bout_settings_dlg_{{id}}_rplayer>Player 2</label>
+    <select id=bout_settings_dlg_{{id}}_rplayer name='rplayer'>
+      {% for id, name in player_dict | dictsort %}
+      <option value={{id}}
+	      {% if name == rplayer %} selected {% endif %}
+	      >{{name}}</option>
+      {% endfor %}
+    </select>
+    <br>
+    <label for=bout_settings_dlg_{{id}}_rwins>Player 2 Wins</label>
+    <input id=bout_settings_dlg_{{id}}_rwins value={{rwins}} name='rwins' class='pos-int-spinner'>
+    <br>
+    <label for=bout_settings_dlg_{{id}}_note>Note</label>
+    <textarea id="player_settings_dlg_{{id}}_note" name="note" cols=40 rows=5>{{note}}</textarea>
+  </fieldset>
+</form>
