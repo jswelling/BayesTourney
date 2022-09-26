@@ -1218,7 +1218,7 @@ def ajax_bouts_settings(**kwargs):
                 # we must map those to the corresponding ids
                 mapped_key = {'lplayer': 'lplayer_id',
                             'rplayer': 'rplayer_id'}.get(key, key)
-                new_val = request.values.get(key, json_rep[key])
+                new_val = request.values.get(key, json_rep[mapped_key])
                 if key in ['lwins', 'rwins', 'draws', 'lplayer', 'rplayer']:
                     new_val = int(new_val)
                 if new_val != json_rep[mapped_key]:
@@ -1228,10 +1228,10 @@ def ajax_bouts_settings(**kwargs):
                 json_rep.update(change_dct)
                 db.add(bout)
                 db.commit()
-                json_rep['lplayer'] = bout.lName
-                json_rep['rplayer'] = bout.rName
             else:
                 logMessage(f'Bout {bout.boutId} was not changed')
+            json_rep['lplayer'] = bout.lName
+            json_rep['rplayer'] = bout.rName
             return {'status': 'success',
                     'value': json_rep
                     }
@@ -1269,7 +1269,7 @@ def ajax_bouts(**kwargs):
                          )
                 rslt = {
                     'status': 'success',
-                    'value': [player.as_dict() for bout in bouts]
+                    'value': [bout.as_dict() for bout in bouts]
                 }
             return rslt
         elif request.method == 'PUT':

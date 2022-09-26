@@ -319,11 +319,6 @@ class Bout(Base):
         This is useful for reversing the set of name transformations carried out
         by as_dict()
         """
-        # for key, attrkey in [('lplayer', 'leftPlayer'),
-        #                      ('rplayer', 'rightPlayer'),
-        #                      ('note', 'note')]:
-        #     if key in dct:
-        #         setattr(self, attrkey, dct[key])
         for key, attrkey in [('tourney_id', 'tourneyId'),
                              ('lwins', 'leftWins'),
                              ('draws', 'draws'),
@@ -332,17 +327,20 @@ class Bout(Base):
                              ('rplayer_id', 'rightPlayerId')]:
             if key in dct:
                 setattr(self, attrkey, int(dct[key]))
+        for key, attrkey in [('note', 'note')]:
+            if key in dct:
+                setattr(self, attrkey, dct[key])
     @classmethod
     def checked_create(cls, db, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
         if not (db.query(TourneyPlayerPair)
                 .filter(TourneyPlayerPair.tourney_id==tourneyId,
-                        TourneyPlayerPair.player_id==leftId)):
+                        TourneyPlayerPair.player_id==leftId)).first():
             tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one();
             player = db.query(LogitPlayer).filter_by(id=leftId).one();
             raise DBException(f'{player.name} is not entered in {tourney.name}')
         elif not (db.query(TourneyPlayerPair)
                 .filter(TourneyPlayerPair.tourney_id==tourneyId,
-                        TourneyPlayerPair.player_id==rightId)):
+                        TourneyPlayerPair.player_id==rightId)).first():
             tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one();
             player = db.query(LogitPlayer).filter_by(id=rightId).one();
             raise DBException(f'{player.name} is not entered in {tourney.name}')

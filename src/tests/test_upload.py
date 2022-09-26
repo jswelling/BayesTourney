@@ -105,4 +105,3 @@ def test_upload_bouts(auth, client, app):
     for rec in new_recs:
         assert rec in [[2, 'Yorik', 0, 'Zander', 3, ''],
                        [4, 'Zander', 7, 'Yorik', 1, '']]
-        

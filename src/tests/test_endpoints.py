@@ -31,6 +31,7 @@ def test_list_select_entrant(client, app):
 <option value=2>Betty<option>
 <option value=3>Cal<option>
 <option value=4>Donna<option>
+<option value=5>Eli<option>
 </select>
 """
     assert rslt.data.decode('utf-8').strip() == expected.strip()
@@ -848,3 +849,234 @@ def test_ajax_entrants_settings_put(client, app, auth):
             values = response_json.get('value', {})
             new_val = values.get(key, '')
             assert new_val == f'changed {key}'
+
+
+def test_ajax_bouts_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/bouts?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        assert len(response_json['value']) == 3
+        found_it = False
+        for rec in response_json['value']:
+            if rec['lplayer'] == 'Andy' and rec['rplayer'] == 'Betty':
+                check_dct = {
+                    'draws': 2,
+                    'lplayer': 'Andy',
+                    'lplayer_id': 1,
+                    'lwins': 3,
+                    'note': 'tourney 1 set 1',
+                    'rplayer': 'Betty',
+                    'rplayer_id': 2,
+                    'rwins': 5,
+                    'tourney_id': 1
+                }
+                for key, val in check_dct.items():
+                    assert key in rec
+                    assert rec[key] == val
+                found_it = True
+                break
+        assert found_it
+
+
+def test_ajax_bouts_get_all(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/bouts?tourney_id=-1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        assert len(response_json['value']) == 4
+        found_it = False
+        for rec in response_json['value']:
+            if rec['lplayer'] == 'Andy' and rec['rplayer'] == 'Betty':
+                check_dct = {
+                    'draws': 2,
+                    'lplayer': 'Andy',
+                    'lplayer_id': 1,
+                    'lwins': 3,
+                    'note': 'tourney 1 set 1',
+                    'rplayer': 'Betty',
+                    'rplayer_id': 2,
+                    'rwins': 5,
+                    'tourney_id': 1
+                }
+                for key, val in check_dct.items():
+                    assert key in rec
+                    assert rec[key] == val
+                found_it = True
+                break
+        assert found_it
+        found_it = False
+        for rec in response_json['value']:
+            if rec['tourney_id'] != 1:
+                found_it = True
+                break
+        assert found_it
+
+
+def test_ajax_bouts_put(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/bouts?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        assert len(response_json['value']) == 3
+        before_rec_dct = {rec['id']: rec for rec in response_json['value']}
+        response = client.put('/ajax/bouts',
+                              data={
+                                  'action': 'add',
+                                  'tourney_id': 1,
+                                  'lplayer': 3,
+                                  'rplayer': 1,
+                                  'lwins': 1,
+                                  'draws': 2,
+                                  'rwins': 3,
+                                  'note': 'Andy vs Cal'
+                              })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response = client.get('/ajax/bouts?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        assert len(response_json['value']) == 4
+        after_rec_dct = {rec['id']: rec for rec in response_json['value']}
+        extra_id = (set(after_rec_dct.keys()) - set(before_rec_dct.keys())).pop()
+        extra_rec = after_rec_dct[extra_id]
+        assert extra_rec == {'draws': 2,
+                             'id': extra_id,
+                             'lplayer': 'Cal',
+                             'lplayer_id': 3,
+                             'lwins': 1,
+                             'note': 'Andy vs Cal',
+                             'rplayer': 'Andy',
+                             'rplayer_id': 1,
+                             'rwins': 3,
+                             'tourney_id': 1}
+        response = client.put('/ajax/bouts',
+                              data={
+                                  'action': 'delete',
+                                  'tourney_id': 1,
+                                  'bout_id': extra_id
+                              })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response = client.get('/ajax/bouts?tourney_id=1')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        assert len(response_json['value']) == 3
+        after_rec_dct = {rec['id']: rec for rec in response_json['value']}
+        assert after_rec_dct == before_rec_dct
+        response = client.put('/ajax/bouts',
+                              data={
+                                  'action': 'add',
+                                  'tourney_id': 1,
+                                  'lplayer': 5,
+                                  'rplayer': 1,
+                                  'lwins': 1,
+                                  'draws': 2,
+                                  'rwins': 3,
+                                  'note': 'Andy vs Eli 1'
+                              })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'failure'
+        assert 'msg' in response_json
+        assert 'Eli is not entered' in response_json['msg']
+        response = client.put('/ajax/bouts',
+                              data={
+                                  'action': 'add',
+                                  'tourney_id': 1,
+                                  'lplayer': 1,
+                                  'rplayer': 5,
+                                  'lwins': 1,
+                                  'draws': 2,
+                                  'rwins': 3,
+                                  'note': 'Andy vs Eli 2'
+                              })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'failure'
+        assert 'msg' in response_json
+        assert 'Eli is not entered' in response_json['msg']
+
+
+def test_ajax_bouts_settings_get(client, app, auth):
+    auth.login()
+    with client:
+        response = client.get('/ajax/bouts/settings?bout_id=2')
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        val_dict = response_json['value']
+        assert 'dlg_html' in val_dict
+        expected_dict = {
+            'draws': 1,
+            'form_name': 'bout_settings_dlg_form_2',
+            'id': 2,
+            'lplayer': 'Betty',
+            'lplayer_id': 2,
+            'lwins': 2,
+            'note': 'tourney 1 set 2',
+            'rplayer': 'Andy',
+            'rplayer_id': 1,
+            'rwins': 3,
+            'tourney_id': 1
+        }
+        for key, val in expected_dict.items():
+            assert val_dict.get(key, None) == val
+
+
+def _get_values_for_bout(client, bout_id):
+    response = client.get(f'/ajax/bouts/settings?bout_id={bout_id}')
+    response_json = json.loads(response.data.decode('utf-8'))
+    assert 'status' in response_json
+    assert response_json['status'] == 'success'
+    assert 'value' in response_json
+    return response_json['value']
+
+
+def test_ajax_bouts_settings_put(client, app, auth):
+    bout_id = 2
+    auth.login()
+    with client:
+        before_values = _get_values_for_bout(client, bout_id)
+        change_dict = {
+            'draws': 2,
+            'lplayer': 3,
+            'lwins': 3,
+            'note': 'this note is new',
+            'rplayer': 2,
+            'rwins': 5,
+        }
+        for key, new_val in change_dict.items():
+            response = client.put('/ajax/bouts/settings',
+                                  data={
+                                      'bout_id': bout_id,
+                                      key: new_val
+                                  })
+            response_json = json.loads(response.data.decode('utf-8'))
+            assert 'status' in response_json
+            assert response_json['status'] == 'success'
+            response_dict = response_json['value']
+            mapped_key = {'lplayer': 'lplayer_id',
+                          'rplayer': 'rplayer_id'}.get(key, key)
+            assert response_dict[mapped_key] == new_val
+            new_values = _get_values_for_bout(client, bout_id)
+            assert new_values[mapped_key] == new_val
+            before_values = new_values
