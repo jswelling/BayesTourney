@@ -180,43 +180,45 @@
 {% endmacro %}
 
 {% macro dialog_from_ajax(endpoint, data_for_get_fun_name, msg_string) %}
-        let data_for_get = {{data_for_get_fun_name}} ();
-	$.ajax({type:'POST',
-		url: "{{ endpoint }}",
-		data: data_for_get
-	       })
-	  .fail(function(jqXHR, textStatus, errorThrown) {
-	    alert("The server did not respond as expected to the request for data on {{msg_string}}.");
-	    console.log('failure jqXHR: ', jqXHR);
-	    console.log('failure textStatus: ', textStatus);
-	    console.log('failure thrown: ', errorThrown)
-	  })
-	  .done(function(data, textStatus, jqXHR) {
-	    if (data['status'] == 'success') {
-	      let this_div = $('<div />');
-	      this_div.html(data['value']['dlg_html']).dialog({
-		buttons: {
-		  "OK": function() {
-		    $(this).dialog("close");
-		    this_div.remove();
-		  },
-		}
-	      });
-	      // Formatting operations for the dialog opened above
-	      this_div.find('.pos-int-spinner').each( function() {
-		$(this).width(30).spinner({decimals:0});
-	      });
-	    }
-	    else {
-	      if (data['msg']) {
-		alert(data['msg'])
-	      }
-	      else {
-		alert("The server did not report success in response to the request for {{msg_string}}.")
-	      }
-	      console.log(data);
-	    }
-	  })
+  $("#spinner_div").addClass("show-spinner");
+  let data_for_get = {{data_for_get_fun_name}} ();
+  $.ajax({type:'POST',
+	  url: "{{ endpoint }}",
+	  data: data_for_get
+	 })
+  .fail(function(jqXHR, textStatus, errorThrown) {
+    alert("The server did not respond as expected to the request for data on {{msg_string}}.");
+    console.log('failure jqXHR: ', jqXHR);
+    console.log('failure textStatus: ', textStatus);
+    console.log('failure thrown: ', errorThrown)
+  })
+  .done(function(data, textStatus, jqXHR) {
+    $("#spinner_div").removeClass("show-spinner");
+    if (data['status'] == 'success') {
+      let this_div = $('<div />');
+      this_div.html(data['value']['dlg_html']).dialog({
+	buttons: {
+	  "OK": function() {
+	    $(this).dialog("close");
+	    this_div.remove();
+	  },
+	}
+      });
+      // Formatting operations for the dialog opened above
+      this_div.find('.pos-int-spinner').each( function() {
+	$(this).width(30).spinner({decimals:0});
+      });
+    }
+    else {
+      if (data['msg']) {
+	alert(data['msg'])
+      }
+      else {
+	alert("The server did not report success in response to the request for {{msg_string}}.")
+      }
+      console.log(data);
+    }
+  })
 {% endmacro %}
 
 
