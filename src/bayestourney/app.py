@@ -828,6 +828,39 @@ def _horserace_fetch_dataframes(data, **kwargs):
     return playerDF, boutDF, checkbox_dict
 
 
+def _get_include_flag(row, tourney_id):
+    return _get_hr_include(tourney_id,row['id'])
+
+
+@bp.route('/download/horserace')
+@login_required
+@debug_page_wrapper
+def handleBearpitDownloadReq(**kwargs):
+    db = get_db()
+    tourneyId = int(request.values.get('tourney_id', '-1'))
+    if tourneyId > 0:
+        tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
+        check_can_read(tourney)
+        tourney_name = tourney.name
+        bouts = tourney.get_bouts(db)
+    else:
+        tourneys = get_readable_tourneys(db)
+        tourney_name = 'ALL_TOURNEYS'
+        tourney_id_list = [tourney.tourneyId for tourney in tourneys]
+        bouts = (db.query(Bout)
+                 .filter(Bout.tourneyId.in_(tourney_id_list))
+                 .all()
+                 )
+    bearpitDF = _get_bearpit_dataframe(db, bouts)
+    bearpitDF['include'] = bearpitDF.apply(_get_include_flag,
+                                           axis=1, tourney_id=tourneyId)
+
+    session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
+    full_path =  Path(session_scratch_dir) / f'bearpit_{tourney_name}.tsv'
+    bearpitDF.to_csv(full_path, sep='\t', index=False)
+    return send_file(full_path, as_attachment=True)
+
+
 @bp.route('/horserace_go', methods=['POST'])
 @debug_page_wrapper
 @login_required

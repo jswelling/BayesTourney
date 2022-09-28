@@ -2,17 +2,26 @@
 
 {% from "macros.html" import sel_tournaments_no_all with context %}
 {% from "macros.html" import dialog_from_ajax with context %}
+{% from "macros.html" import updown_button_script_preamble with context %}
+{% from "macros.html" import updown_button_script with context %}
 
 {% block pagescripts %}
 
 <script>
 var selTourney;
+{{ updown_button_script_preamble('horserace') }}
 $(function() {
   "use strict";
   selTourney = $('#sel_horserace_tournament');
   selTourney.select().change( function() {
     reload_tables_fun();
   });
+  function updown_data_dict_fun() {
+    let rslt = {"tourney_id": selTourney.val()};
+    return rslt;
+  };
+  {{ updown_button_script('horserace', '/download/horserace',
+			  'updown_data_dict_fun()','reload_tables_fun') }}
   function initialize_checkbox_behavior() {
     $("#bearpit_table").find('input:checkbox.includecb').change(include_cb_change);
   }
@@ -108,7 +117,9 @@ $(function() {
       {
 	text: 'Download this table',
 	action: function(evt, dt_api, dq_btn, btn_cfg) {
-	  alert('click!');
+	  let url = "/download/horserace?" + $.param(updown_data_dict_fun());
+	  $('#download_horserace_link').attr('href', url);
+	  $('#download_horserace_link')[0].click();
 	}
       },
     ]
@@ -135,6 +146,10 @@ $(function() {
       </tr>
     </thead>
   </table>
+</div>
+
+<div id="download_horserace_div" hidden>
+  <a id="download_horserace_link" href="/download/horserace"></a>
 </div>
 
 <div id="spinner_div" class="spinner-modal" role="status">
