@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import pygraphviz as pgv
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
+from matplotlib.figure import Figure
 
 from .settings_constants import ALLOWED_SETTINGS
 
@@ -283,6 +285,21 @@ class ModelFit(object):
             axis.boxplot(self.samp_array, labels=labels, showfliers=False)
         else:
             raise RuntimeError(f'Unknown graph type {graph_type}')
+
+    def gen_horserace_graph_svg(self, graph_yscale, graph_type):
+        valid_graph_yscale = ['linear', 'log']
+        valid_graph_type = ['boxplot', 'violin']
+        assert graph_yscale in valid_graph_yscale, ('graph_yscale must be one'
+                                                    f' of {valid_graph_yscale}')
+        assert graph_type in valid_graph_type, ('graph_type must be one'
+                                                f' of {valid_graph_type}')
+        output = StringIO()
+        plt.figure(figsize=[3,3])
+        fig, axes = plt.subplots(ncols=1, nrows=1)
+        axes.set_yscale(graph_yscale)
+        self.gen_graph(fig, axes, graph_type)
+        FigureCanvas(fig).print_svg(output)
+        return output.getvalue()
 
     def estimate_win_probabilities(self) -> 'WinProbabilities':
         self.win_probabilities = WinProbabilities(self)

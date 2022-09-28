@@ -6,7 +6,6 @@ Created on Jun 4, 2013
 @author: welling
 '''
 
-import base64
 import io
 import time
 import json
@@ -1561,18 +1560,13 @@ def ajax_whoiswinning(**kwargs):
                     playerDF, boutDF,
                     draws_rule=get_settings()['hr_draws_rule']
                 )
-                output = io.StringIO()
-                plt.figure(figsize=[3,3])
-                fig, axes = plt.subplots(ncols=1, nrows=1)
                 graph_yscale_dct = {'hr_graph_yscale_linear': 'linear',
                                     'hr_graph_yscale_log': 'log'}
-                axes.set_yscale(graph_yscale_dct[get_settings()['hr_graph_yscale']])
+                graph_yscale = graph_yscale_dct[get_settings()['hr_graph_yscale']]
                 graph_type_dct = {'hr_graph_style_box': 'boxplot',
                                   'hr_graph_style_violin': 'violin'}
                 graph_type = graph_type_dct[get_settings()['hr_graph_style']]
-                fit_info.gen_graph(fig, axes, graph_type)
-                FigureCanvas(fig).print_svg(output)
-                svg_str = output.getvalue()
+                svg_str = fit_info.gen_horserace_graph_svg(graph_yscale, graph_type)
                 announce_html = fit_info.estimate_win_probabilities().as_html()
 
             except RuntimeError as e:
