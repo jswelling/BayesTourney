@@ -1,53 +1,77 @@
 {% extends 'base.html' %}
 
-{% from "macros.html" import sel_tournaments with context %}
+{% from "macros.html" import sel_tournaments_no_all with context %}
+{% from "macros.html" import dialog_from_ajax with context %}
 
 {% block pagescripts %}
 
 <script>
-  
 var selTourney;
 var goBtn;
-function include_cb_change() {
-  var trimmed_id = this.id.slice(this.id.lastIndexOf("_")+1);
-  var data = {
-    "tourney_id": $("#sel_horserace_tournament").val(),
-    "player_id": trimmed_id,
-    "state": this.checked
-  };
-  $.ajax({type:'PUT',
-	  url:'ajax/horserace/checkbox',
-	  data:data,
-	  //contentType: "application/json; charset=utf-8",
-	  dataType: "json"
-	 })
-    .done(function(data, textStatus, jqXHR) {
-      if (data['status'] != "success") {
-	if (data['msg'] == undefined) {
-	  alert('The server failed to save this update');
-	}
-	else {
-	  alert('The server failed to save this update: ' + data['msg']);
-	}
-	window.location.reload();
-      }
-    })
-    .fail(function(jqXHR, textStatus, errorThrown) {
-      alert('An error occurred: ' + errorThrown);
-      window.location.reload();
-    })
-}
+var boutsGraphBtn;
+var jsonData;
+var checkboxData;
 $(function() {
+  "use strict";
   selTourney = $('#sel_horserace_tournament');
+  selTourney.select().change( function() {
+    reload_tables_fun();
+  });
+  function initialize_checkbox_behavior() {
+    $("#bearpit_table").find('input:checkbox.includecb').change(include_cb_change);
+  }
+  function reload_tables_fun() {
+    var callback = initialize_checkbox_behavior;
+    bearpit_table.ajax.reload(callback);
+  };
+  function wfw_data_fun() {
+    var checkboxData = {};
+    $("#bearpit_table").find('input:checkbox.includecb').each(
+      function() {
+	var id = this.name.slice(this.name.lastIndexOf("_")+1);
+	checkboxData[id] = this.checked;
+      }
+    )
+    var rslt = {
+      tourney_id: function() {return selTourney.val()},
+      checkboxes: JSON.stringify(checkboxData)
+    };
+    return rslt;
+  };
   goBtn = $('#horserace_go_btn');
   boutsGraphBtn = $('#horserace_bouts_graph_btn');
-  selTourney.select().change( function()
-			      {
-				$('#horserace_table').trigger('reloadGrid');
-			      });
+  function include_cb_change() {
+    var trimmed_id = this.id.slice(this.id.lastIndexOf("_")+1);
+    var data = {
+      "tourney_id": $("#sel_horserace_tournament").val(),
+      "player_id": trimmed_id,
+      "state": this.checked
+    };
+    $.ajax({type:'PUT',
+	    url:'ajax/horserace/checkbox',
+	    data:data,
+	    //contentType: "application/json; charset=utf-8",
+	    dataType: "json"
+	   })
+      .done(function(data, textStatus, jqXHR) {
+	if (data['status'] != "success") {
+	  if (data['msg'] == undefined) {
+	    alert('The server failed to save this update');
+	  }
+	  else {
+	    alert('The server failed to save this update: ' + data['msg']);
+	  }
+	  window.location.reload();
+	}
+      })
+      .fail(function(jqXHR, textStatus, errorThrown) {
+	alert('An error occurred: ' + errorThrown);
+	window.location.reload();
+      })
+  }
   goBtn.button().click( function()
 			{
-			  checkboxData = {};
+			  var checkboxData = {};
 			  $('#horserace_table').jqGrid('getRowData')
 			    .forEach(element => {
 			      var thisId = element.id;
@@ -103,9 +127,6 @@ $(function() {
 			      alert('Error: '+jqxhr.responseText);
 			    });
 			});
-})
-$(function() {
-  "use strict";
   jQuery("#horserace_table").jqGrid({
     url:'json/horserace',
     postData:{tourney: function(){return selTourney.val() || -1;}},
@@ -150,14 +171,80 @@ $(function() {
     $("#horserace_table").trigger('reloadGrid',{ fromServer: true });
     lastsel_entrants=null;
   });
+
+  var bearpit_table = $("#bearpit_table").DataTable({
+    dom: 'Bfrtip',
+    ajax: {
+      url: '/ajax/bearpit',
+      data: {
+	tourney_id: function() {return selTourney.val()}
+      },
+      dataSrc: 'value'
+    },
+    "initComplete": function(settings, json) {
+      initialize_checkbox_behavior();
+    },
+    columns: [
+      {data: 'name'},
+      {data: 'wins'},
+      {data: 'losses'},
+      {data: 'draws'},
+      {data: 'bearpit'},
+      {data: null,
+       className: 'includeckb',
+       render: function(data, type, row, meta) {
+	 var word_checked;
+	 var idx = data['id'];
+	 if (data['include']) {word_checked = ' checked '}
+	 else {word_checked = ' '};
+	 return '<input type="checkbox" class="includecb" name="cbx_' + idx + '" id="horserace_checkbox_'+ idx + '"' + word_checked + '>';
+       }
+      }
+    ],
+    buttons: [
+      {
+	text: 'Who fought whom?',
+	action: function(evt, dt_api, dq_btn, btn_cfg) {
+	  {{ dialog_from_ajax('/ajax/wfw', 'wfw_data_fun', 'this data') }}
+	}
+      },
+      {
+	text: 'Who is winning?',
+	action: function(evt, dt_api, dq_btn, btn_cfg) {
+	  {{ dialog_from_ajax('/ajax/whoiswinning', 'wfw_data_fun', 'this data') }}
+	}
+      },
+      {
+	text: 'Download this table',
+	action: function(evt, dt_api, dq_btn, btn_cfg) {
+	  alert('click!');
+	}
+      },
+    ]
+  });
 });
 </script>
 {% endblock %}
 
 {% block content %}
-<h1>Horserace</h1>
+<h1>Horserace- who is winning 
+{{ sel_tournaments_no_all('sel_horserace_tournament') }}
+</h1>
 
-{{ sel_tournaments('sel_horserace_tournament') }}
+<div id="horserace_block" class="border">
+  <table id="bearpit_table" class="table table-striped">
+    <thead>
+      <tr>
+	<th>Name</th>
+	<th>Wins</th>
+	<th>Losses</th>
+	<th>Draws</th>
+	<th>BearPit</th>
+	<th>Include?</th>
+      </tr>
+    </thead>
+  </table>
+</div>
 
 <div>
   <table id="horserace_table"></table>

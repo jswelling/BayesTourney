@@ -629,7 +629,6 @@ def handleEdit(path):
 
 def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFrame:
     db = get_db()
-    engine = db.get_bind()
     if tourneyId >= 0:
         tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
         check_can_read(tourney)
@@ -658,6 +657,66 @@ def _get_bouts_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFr
     return boutDF
 
 
+def _get_bearpit_dataframe(db, bouts):
+    dict_list = []
+    for bout in bouts:
+        bout_tourney = db.query(Tourney).filter_by(tourneyId=bout.tourneyId).one();
+        dct = {'tourneyName': bout_tourney.name,
+               'leftWins': bout.leftWins,
+               'leftPlayerName': bout.lName,
+               'draws': bout.draws,
+               'rightPlayerName': bout.rName,
+               'rightWins': bout.rightWins,
+               'note': bout.note,
+               'bout_id': bout.boutId,
+               'tourney_id': bout.tourneyId,
+               'leftPlayerId': bout.leftPlayerId,
+               'rightPlayerId': bout.rightPlayerId
+               }
+        dict_list.append(dct)
+    if (dict_list):
+        boutDF = pd.DataFrame(dict_list)
+        #print(boutDF.head())
+        #print(boutDF.columns)
+
+        leftDF = boutDF[['leftPlayerName', 'leftPlayerId', 'leftWins', 'rightWins',
+                         'draws']].copy()
+        leftDF['bouts'] = leftDF['leftWins'] + leftDF['rightWins'] + leftDF['draws']
+        leftDF = leftDF.rename(columns={'leftWins': 'wins',
+                                        'rightWins': 'losses',
+                                        'leftPlayerName': 'playerName',
+                                        'leftPlayerId': 'id'})
+
+        rightDF = boutDF[['rightPlayerName', 'rightPlayerId', 'rightWins', 'leftWins',
+                          'draws']].copy()
+        rightDF['bouts'] = rightDF['leftWins'] + rightDF['rightWins'] + rightDF['draws']
+        rightDF = rightDF.rename(columns={'leftWins': 'losses',
+                                          'rightWins': 'wins',
+                                          'rightPlayerName': 'playerName',
+                                          'rightPlayerId': 'id'})
+        rightDF = rightDF[leftDF.columns]
+
+        workDF = pd.concat([leftDF, rightDF])
+        workDF = workDF.groupby(['playerName', 'id']).sum().reset_index()
+
+        bearpit_wt_dct = {  # tuples are weights for (wins, losses, draws)
+            'hr_draws_rule_ignore': (2, 1, 0),
+            'hr_draws_rule_win': (2, 1, 2),
+            'hr_draws_rule_loss': (2, 1, 1)
+        }
+        wt_win, wt_loss, wt_draw = bearpit_wt_dct[get_settings()['hr_draws_rule']]
+        workDF['bearpit'] = (wt_win * workDF['wins'] + wt_loss * workDF['losses']
+                             + wt_draw * workDF['draws'])
+        workDF = workDF.sort_values(by='id', axis='rows')
+    else:
+        workDF = pd.DataFrame(columns=['playerName', 'id',
+                                       'wins', 'losses', 'draws',
+                                       'bouts', 'bearpit'])
+    #print(workDF.head())
+    #print(workDF.columns)
+    return workDF
+
+
 @bp.route('/download/bouts')
 @login_required
 @debug_page_wrapper
@@ -679,7 +738,6 @@ def handleBoutsDownloadReq(**kwargs):
 
 def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.DataFrame:
     db = get_db()
-    engine = db.get_bind()
     if tourneyId >= 0:
         tourney = db.query(Tourney).filter_by(tourneyId=tourneyId).one()
         check_can_read(tourney)
@@ -701,8 +759,6 @@ def _get_entrants_dataframe(tourneyId: int, include_ids: bool = False) -> pd.Dat
 @debug_page_wrapper
 def handleEntrantsDownloadReq(**kwargs):
     db = get_db()
-    engine = db.get_bind()
-
     tourneyId = int(request.values.get('tourney_id', '-1'))
     if tourneyId > 0:
         tourney = db.query(Tourney).filter_by(tourneyId = tourneyId).one()
@@ -719,6 +775,26 @@ def handleEntrantsDownloadReq(**kwargs):
 def _include_fun(row, keycols, checkbox_dict):
     flags = [checkbox_dict.get(row[keycol], False) for keycol in keycols]
     return all(flags)
+
+
+def _horserace_dataframes(db, tourneys, checkboxes):
+    bouts = {}
+    players = {}
+    for tourney in tourneys:
+        check_can_read(tourney)
+        for bout in tourney.get_bouts(db):
+            bouts[bout.boutId] = bout
+        for player in tourney.get_players(db):
+            players[player.id] = player
+    boutDF = pd.DataFrame(bout.as_dict() for bout in bouts.values())
+    playerDF = pd.DataFrame(player.as_dict() for player in players.values())
+    checkbox_dict = {int(k): v for k, v in checkboxes.items()}
+    playerDF = playerDF[playerDF.apply(_include_fun, axis=1,
+                                       keycols=['id'], checkbox_dict=checkbox_dict)]
+    boutDF = boutDF[boutDF.apply(_include_fun, axis=1,
+                                 keycols=['lplayer_id', 'rplayer_id'],
+                                 checkbox_dict=checkbox_dict)]
+    return boutDF, playerDF, checkbox_dict
 
 
 def _horserace_fetch_dataframes(data, **kwargs):
@@ -1093,7 +1169,8 @@ def ajax_settings(**kwargs):
 def ajax_entrants(**kwargs):
     assert 'tourney_id' in request.values, 'tourney_id is a required parameter'
     tourney_id = int(request.values['tourney_id'])
-    session['sel_tourney_id'] = tourney_id
+    if tourney_id > 0:  # only update session tourney for specific requests
+        session['sel_tourney_id'] = tourney_id
     db = get_db()
     try:
         if request.method == 'GET':
@@ -1252,7 +1329,8 @@ def ajax_bouts(**kwargs):
         if request.method == 'GET':
             assert 'tourney_id' in request.values, 'tourney_id is required for Bout GET requests'
             tourney_id = int(request.values['tourney_id'])
-            session['sel_tourney_id'] = tourney_id
+            if tourney_id > 0:  # only update session tourney for specific requests
+                session['sel_tourney_id'] = tourney_id
             if tourney_id > 0:
                 tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
                 check_can_read(tourney)
@@ -1326,6 +1404,165 @@ def ajax_bouts(**kwargs):
                 }
 
 
+@bp.route('/ajax/bearpit', methods=["GET", "PUT"])
+@login_required
+@debug_page_wrapper
+def ajax_bearpit(**kwargs):
+    db = get_db()
+    assert 'tourney_id' in request.values, 'tourney_id is required for Bearpit requests'
+    tourney_id = int(request.values['tourney_id'])
+    try:
+        if request.method == 'GET':
+            if tourney_id > 0:  # only update session tourney for specific requests
+                session['sel_tourney_id'] = tourney_id
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                bouts = tourney.get_bouts(db)
+            else:
+                tourneys = get_readable_tourneys(db)
+                tourney_id_list = [tourney.tourneyId for tourney in tourneys]
+                bouts = (db.query(Bout)
+                         .filter(Bout.tourneyId.in_(tourney_id_list))
+                         .all()
+                         )
+            workDF = _get_bearpit_dataframe(db, bouts)
+            rslt = {
+                'status': 'success',
+                #'value': [bout.as_dict() for bout in bouts]
+                'value': [{'id': row['id'],
+                           'name': row['playerName'],
+                           'wins': row['wins'],
+                           'losses': row['losses'],
+                           'draws': row['draws'],
+                           'bearpit': row['bearpit'],
+                           'include': 1 if _get_hr_include(tourney_id,row['id']) else 0
+                           }
+                          for _, row in workDF.iterrows()]
+            }
+            return rslt
+        elif request.method == 'PUT':
+            assert 'action' in request.values, 'action is required for PUT requests'
+            raise NotImplementedError
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+@bp.route('/ajax/wfw', methods=["POST"])
+@login_required
+@debug_page_wrapper
+def ajax_wfw(**kwargs):
+    db = get_db()
+    assert 'tourney_id' in request.values, 'tourney_id is required for wfw requests'
+    assert 'checkboxes' in request.values, 'checkboxes is required for wfw requests'
+    tourney_id = int(request.values['tourney_id'])
+    try:
+        if request.method == 'POST':
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                tourneys = [tourney]
+                label_str = tourney.name
+            else:
+                tourneys = get_readable_tourneys(db)
+                label_str = f'{len(tourneys)} tournaments'
+            checkbox_dict = json.loads(request.values['checkboxes'])
+            boutDF, playerDF, checkbox_dict = _horserace_dataframes(db, tourneys,
+                                                                    checkbox_dict)
+            try:
+                fit_info = stat_utils.ModelFit.from_raw_bouts(
+                    playerDF, boutDF,
+                    draws_rule=get_settings()['hr_draws_rule']
+                )
+                svg_str = fit_info.gen_bouts_graph_svg()
+            except RuntimeError as e:
+                logMessage('ajax_wfw exception: %s' % str(e))
+                raise
+            response_data = {
+                'image': svg_str,
+                'label_str': label_str
+            }
+            response_data['dlg_html'] = render_template("horserace_who_fought_who_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
+@bp.route('/ajax/whoiswinning', methods=["POST"])
+@login_required
+@debug_page_wrapper
+def ajax_whoiswinning(**kwargs):
+    db = get_db()
+    assert 'tourney_id' in request.values, 'tourney_id is required for wfw requests'
+    assert 'checkboxes' in request.values, 'checkboxes is required for wfw requests'
+    tourney_id = int(request.values['tourney_id'])
+    try:
+        if request.method == 'POST':
+            if tourney_id > 0:
+                tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+                check_can_read(tourney)
+                tourneys = [tourney]
+                label_str = tourney.name
+            else:
+                tourneys = get_readable_tourneys(db)
+                label_str = f'{len(tourneys)} tournaments'
+            checkbox_dict = json.loads(request.values['checkboxes'])
+            boutDF, playerDF, checkbox_dict = _horserace_dataframes(db, tourneys,
+                                                                    checkbox_dict)
+            print(boutDF.head())
+            print(playerDF.head())
+            pprint(checkbox_dict)
+            try:
+                fit_info = stat_utils.ModelFit.from_raw_bouts(
+                    playerDF, boutDF,
+                    draws_rule=get_settings()['hr_draws_rule']
+                )
+                output = io.StringIO()
+                plt.figure(figsize=[3,3])
+                fig, axes = plt.subplots(ncols=1, nrows=1)
+                graph_yscale_dct = {'hr_graph_yscale_linear': 'linear',
+                                    'hr_graph_yscale_log': 'log'}
+                axes.set_yscale(graph_yscale_dct[get_settings()['hr_graph_yscale']])
+                graph_type_dct = {'hr_graph_style_box': 'boxplot',
+                                  'hr_graph_style_violin': 'violin'}
+                graph_type = graph_type_dct[get_settings()['hr_graph_style']]
+                fit_info.gen_graph(fig, axes, graph_type)
+                FigureCanvas(fig).print_svg(output)
+                svg_str = output.getvalue()
+                announce_html = fit_info.estimate_win_probabilities().as_html()
+
+            except RuntimeError as e:
+                logMessage('ajax_whoiswinning exception: %s' % str(e))
+                raise
+            response_data = {
+                'image': svg_str,
+                'label_str': label_str,
+                'announce_html': announce_html
+            }
+            response_data['dlg_html'] = render_template("horserace_who_is_winning_dlg.html",
+                                                        **response_data)
+            return {'status': 'success',
+                    'value': response_data
+                    }
+        else:
+            return f"unsupported method {request.method}", 405
+    except PermissionException as excinfo:
+        return {'status': 'failure',
+                'msg': f"{excinfo}"
+                }
+
+
 def _get_hr_include(tourney_id, player_id):
     """
     All keys in the session must be strings, including the tourney_id and
@@ -1361,6 +1598,8 @@ def handle_horserace_checkbox(**kwargs):
                           else "false")
                 }
     elif request.method == "PUT":
+        print('POINT 1')
+        pprint(request.values)
         try:
             state = request.values['state']
         except ValueError as e:
@@ -1486,40 +1725,24 @@ def handleJSON(path, **kwargs):
         paramList = ['%s:%s'%(str(k),str(v)) for k,v in list(request.values.items())]
         tourneyId = int(request.values['tourney'])
         session['sel_tourney_id'] = tourneyId
+        if tourneyId >= 0:
+            tourney = (db.query(Tourney)
+                       .filter_by(tourneyId=tourneyId)
+                       .one()
+                       )
+            check_can_read(tourney)
+            bouts = tourney.get_bouts(db)
+        else:
+            tourney_list = get_readable_tourneys(db)
+            tourney_id_list = [tourney.tourneyId
+                               for tourney in tourney_list]
+            bouts = (db.query(Bout)
+                     .filter(Bout.tourneyId.in_(tourney_id_list))
+                     .all()
+                     )
 
-        boutDF = _get_bouts_dataframe(tourneyId, include_ids=True)
-        #print(boutDF.head())
-        #print(boutDF.columns)
+        workDF = _get_bearpit_dataframe(db, bouts)
 
-        leftDF = boutDF[['leftPlayerName', 'leftPlayerId', 'leftWins', 'rightWins',
-                         'draws']].copy()
-        leftDF['bouts'] = leftDF['leftWins'] + leftDF['rightWins'] + leftDF['draws']
-        leftDF = leftDF.rename(columns={'leftWins': 'wins',
-                                        'rightWins': 'losses',
-                                        'leftPlayerName': 'playerName',
-                                        'leftPlayerId': 'id'})
-
-        rightDF = boutDF[['rightPlayerName', 'rightPlayerId', 'rightWins', 'leftWins',
-                          'draws']].copy()
-        rightDF['bouts'] = rightDF['leftWins'] + rightDF['rightWins'] + rightDF['draws']
-        rightDF = rightDF.rename(columns={'leftWins': 'losses',
-                                          'rightWins': 'wins',
-                                          'rightPlayerName': 'playerName',
-                                          'rightPlayerId': 'id'})
-        rightDF = rightDF[leftDF.columns]
-
-        workDF = pd.concat([leftDF, rightDF])
-        workDF = workDF.groupby(['playerName', 'id']).sum().reset_index()
-
-        bearpit_wt_dct = {  # tuples are weights for (wins, losses, draws)
-            'hr_draws_rule_ignore': (2, 1, 0),
-            'hr_draws_rule_win': (2, 1, 2),
-            'hr_draws_rule_loss': (2, 1, 1)
-        }
-        wt_win, wt_loss, wt_draw = bearpit_wt_dct[get_settings()['hr_draws_rule']]
-        workDF['bearpit'] = (wt_win * workDF['wins'] + wt_loss * workDF['losses']
-                             + wt_draw * workDF['draws'])
-        workDF = workDF.sort_values(by='id', axis='rows')
         print(workDF)
             
         result = {
