@@ -1080,3 +1080,81 @@ def test_ajax_bouts_settings_put(client, app, auth):
             new_values = _get_values_for_bout(client, bout_id)
             assert new_values[mapped_key] == new_val
             before_values = new_values
+
+
+def test_ajax_whoiswinning_post(client, app, auth):
+    auth.login()
+    with client:
+        cbox_data = json.dumps({
+            1: True,
+            2: False,
+            3: True
+        })
+        response = client.post('/ajax/whoiswinning',
+                               data={
+                                   'tourney_id': 1,
+                                   'checkboxes': cbox_data
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'announce_html' in response_dict
+        assert 'dlg_html' in response_dict
+        assert 'image' in response_dict
+        assert 'label_str' in response_dict
+        assert 'test_tourney_1' in response_dict['label_str']
+        response = client.post('/ajax/whoiswinning',
+                               data={
+                                   'tourney_id': -1,
+                                   'checkboxes': cbox_data
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'announce_html' in response_dict
+        assert 'dlg_html' in response_dict
+        assert 'image' in response_dict
+        assert 'label_str' in response_dict
+        assert '5 tournaments' in response_dict['label_str']
+
+
+def test_ajax_wfw_post(client, app, auth):
+    auth.login()
+    with client:
+        cbox_data = json.dumps({
+            1: True,
+            2: False,
+            3: True
+        })
+        response = client.post('/ajax/wfw',
+                               data={
+                                   'tourney_id': 1,
+                                   'checkboxes': cbox_data
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'dlg_html' in response_dict
+        assert 'image' in response_dict
+        assert 'label_str' in response_dict
+        assert 'test_tourney_1' in response_dict['label_str']
+        response = client.post('/ajax/wfw',
+                               data={
+                                   'tourney_id': -1,
+                                   'checkboxes': cbox_data
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'dlg_html' in response_dict
+        assert 'image' in response_dict
+        assert 'label_str' in response_dict
+        assert '5 tournaments' in response_dict['label_str']
