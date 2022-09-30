@@ -16,13 +16,13 @@ ignored,2,Yorik,Zander,3,0
 ignored,4,Zander,Yorik,1,7
 """
 
-def _get_rec_dict(client, endpoint):
+def get_rec_dict(client, endpoint):
     response = client.get(endpoint)
     assert response.status_code == 200
     return parse_jqgrid_response_json(json.loads(response.data.decode('utf-8')))
 
 
-def _get_ajax_rec_dict(client, endpoint):
+def get_ajax_rec_dict(client, endpoint):
     response = client.get(endpoint)
     assert response.status_code == 200
     return parse_ajax_response_json(json.loads(response.data.decode('utf-8')))
@@ -31,7 +31,7 @@ def _get_ajax_rec_dict(client, endpoint):
 def test_upload_entrants_no_tourney(auth, client, app):
     auth.login()
     with client:
-        before_dict = _get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
+        before_dict = get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
         data = {}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
@@ -39,7 +39,7 @@ def test_upload_entrants_no_tourney(auth, client, app):
             content_type='multipart/form-data'
         )
         assert response.status_code == 200
-        after_dict = _get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
+        after_dict = get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
     new_recs = [rec for id, rec in after_dict.items() if id not in before_dict]
     new_pairs = [(rec['name'], rec['note']) for rec in new_recs]
     assert len(new_pairs) == 2
@@ -51,7 +51,7 @@ def test_upload_entrants_no_tourney(auth, client, app):
 def test_upload_entrants_invalid_tourney(auth, client, app):
     auth.login()
     with client:
-        before_dict = _get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
+        before_dict = get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=-1')
         data = {}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
@@ -64,7 +64,7 @@ def test_upload_entrants_invalid_tourney(auth, client, app):
 def test_upload_entrants_with_tourney(auth, client, app):
     auth.login()
     with client:
-        before_dict = _get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=1')
+        before_dict = get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=1')
         data = {}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
@@ -72,7 +72,7 @@ def test_upload_entrants_with_tourney(auth, client, app):
             content_type='multipart/form-data'
         )
         assert response.status_code == 200
-        after_dict = _get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=1')
+        after_dict = get_ajax_rec_dict(client, '/ajax/entrants?tourney_id=1')
     new_recs = [rec for id, rec in after_dict.items() if id not in before_dict]
     new_pairs = [(rec['name'], rec['note']) for rec in new_recs]
     assert len(new_pairs) == 2
@@ -84,7 +84,7 @@ def test_upload_entrants_with_tourney(auth, client, app):
 def test_upload_bouts(auth, client, app):
     auth.login()
     with client:
-        before_dict = _get_rec_dict(client, '/json/bouts')
+        before_dict = get_rec_dict(client, '/json/bouts')
         data = {'tourney_id':str(2)}
         data['file'] = (BytesIO(ENTRANTS_CSV.encode('utf-8')), 'test.csv')
         response =client.post(
@@ -98,7 +98,7 @@ def test_upload_bouts(auth, client, app):
             content_type='multipart/form-data'
         )
         assert response.status_code == 200
-        after_dict = _get_rec_dict(client, '/json/bouts')
+        after_dict = get_rec_dict(client, '/json/bouts')
     new_recs = [rec for id, rec in after_dict.items() if id not in before_dict]
     new_recs = [rec[1:] for rec in new_recs]  # drop the index number
     assert len(new_recs) == 2
