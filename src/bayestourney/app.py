@@ -1047,7 +1047,6 @@ def ajax_bearpit(**kwargs):
             workDF = _get_bearpit_dataframe(db, bouts)
             rslt = {
                 'status': 'success',
-                #'value': [bout.as_dict() for bout in bouts]
                 'value': [{'id': row['id'],
                            'name': row['playerName'],
                            'wins': row['wins'],

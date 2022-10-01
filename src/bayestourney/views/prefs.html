@@ -3,6 +3,7 @@
 {% block pagescripts %}
 <script>
   $( function() {
+    $( "#settings_accordion" ).accordion();
     $( "input[type='radio']" ).checkboxradio()
       .change(function() {
 	var name = this.name;
@@ -34,55 +35,111 @@
 {% block content %}
 <h1>Settings</h1>
 
-<h2>Account Settings</h2>
-<a href="auth/change_password">Change your password</a>
-<br>
-<a href="auth/change_email">Change your email address</a>
+<div id="settings_accordion">
+  <h2>Account Settings</h2>
+  <div>
+    <a href="auth/change_password">Change your password</a>
+    <br>
+    <a href="auth/change_email">Change your email address</a>
+  </div>
 
-<h2>Horserace Graph Style</h2>
-<fieldset>
-  <legend>Select a graph: </legend>
-  <label for="hr_graph_style_box">Box plot</label>
-  <input type="radio" name="hr_graph_style" id="hr_graph_style_box"
-	 {% if hr_graph_style == "hr_graph_style_box" %} checked {% endif %}
-	 >
-  <br>
-  <label for="hr_graph_style_violin">Violin plot</label>
-  <input type="radio" name="hr_graph_style" id="hr_graph_style_violin"
-	 {% if hr_graph_style == "hr_graph_style_violin" %} checked {% endif %}
-	 >
-</fieldset>
+  <h2>Default Bearpit Scoring</h2>
+  <div>
+    These rules will apply when you first create a tournament.
+    <fieldset>
+      <legend>Wins count as: </legend>
+      <label for="bp_wins_2_pts">2 points</label>
+      <input type="radio" name="bp_wins_rule" id="bp_wins_2_pts"
+	     {% if bp_wins_rule == "bp_wins_2_pts" %} checked {% endif %}
+	     >
+      <br>
+      <label for="bp_wins_1_pts">1 point</label>
+      <input type="radio" name="bp_wins_rule" id="bp_wins_1_pts"
+	     {% if bp_wins_rule == "bp_wins_1_pts" %} checked {% endif %}
+	     >
+    </fieldset>
+    <br>
+    <fieldset>
+      <legend>Draws count as: </legend>
+      <label for="bp_draws_2_pts">2 points</label>
+      <input type="radio" name="bp_draws_rule" id="bp_draws_2_pts"
+	     {% if bp_draws_rule == "bp_draws_2_pts" %} checked {% endif %}
+	     >
+      <br>
+      <label for="bp_draws_1_pts">1 point</label>
+      <input type="radio" name="bp_draws_rule" id="bp_draws_1_pts"
+	     {% if bp_draws_rule == "bp_draws_1_pts" %} checked {% endif %}
+	     >
+      <br>
+      <label for="bp_draws_0_pts">0 point</label>
+      <input type="radio" name="bp_draws_rule" id="bp_draws_0_pts"
+	     {% if bp_draws_rule == "bp_draws_0_pts" %} checked {% endif %}
+	     >
+    </fieldset>
+    <br>
+    <fieldset>
+      <legend>Losses count as: </legend>
+      <label for="bp_losses_1_pts">1 point</label>
+      <input type="radio" name="bp_losses_rule" id="bp_losses_1_pts"
+	     {% if bp_losses_rule == "bp_losses_1_pts" %} checked {% endif %}
+	     >
+      <br>
+      <label for="bp_losses_0_pts">0 point</label>
+      <input type="radio" name="bp_losses_rule" id="bp_losses_0_pts"
+	     {% if bp_losses_rule == "bp_losses_0_pts" %} checked {% endif %}
+	     >
+    </fieldset>
+  </div>
 
-<fieldset>
-  <legend>How should the Y axis of the graph be scaled?: </legend>
-  <label for="hr_graph_yscale_linear">Linear</label>
-  <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_linear"
-	 {% if hr_graph_yscale == "hr_graph_yscale_linear" %} checked {% endif %}
-	 >
-  <br>
-  <label for="hr_graph_yscale_log">Logarithmic</label>
-  <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_log"
-	 {% if hr_graph_yscale == "hr_graph_yscale_log" %} checked {% endif %}
-	 >
-</fieldset>
+  <h2>Default Horserace (Bayes) Scoring</h2>
+  <div>
+    These rules will apply when you first create a tournament.
+    <fieldset>
+      <legend>How to handle draws?</legend>
+      <label for="hr_draws_rule_ignore">Ignore all draws</label>
+      <input type="radio" name="hr_draws_rule" id="hr_draws_rule_ignore"
+	     {% if hr_draws_rule == "hr_draws_rule_ignore" %} checked {% endif %}
+	     >
+      <br>
+      <label for="hr_draws_rule_win">Count as a win for both</label>
+      <input type="radio" name="hr_draws_rule" id="hr_draws_rule_win"
+	     {% if hr_draws_rule == "hr_draws_rule_win" %} checked {% endif %}
+	     >
+      <br>
+      <label for="hr_draws_rule_loss">Count as a loss for both</label>
+      <input type="radio" name="hr_draws_rule" id="hr_draws_rule_loss"
+	     {% if hr_draws_rule == "hr_draws_rule_loss" %} checked {% endif %}
+	     >
+    </fieldset>
+  </div>
 
-<h2>How Draws Are Counted</h2>
-<fieldset>
-  <legend>Select a rule: </legend>
-  <label for="hr_draws_rule_ignore">Ignore draws</label>
-  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_ignore"
-	 {% if hr_draws_rule == "hr_draws_rule_ignore" %} checked {% endif %}
-	 >
-  <br>
-  <label for="hr_draws_rule_loss">Counts as a loss for both</label>
-  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_loss"
-	 {% if hr_draws_rule == "hr_draws_rule_loss" %} checked {% endif %}
-	 >
-  <br>
-  <label for="hr_draws_rule_win">Counts as a win for both</label>
-  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_win"
-	 {% if hr_draws_rule == "hr_draws_rule_win" %} checked {% endif %}
-	 >
-</fieldset>
-
+  <h2>Horserace Graph Style</h2>
+  <div>
+    <fieldset>
+      <legend>Select a graph: </legend>
+      <label for="hr_graph_style_box">Box plot</label>
+      <input type="radio" name="hr_graph_style" id="hr_graph_style_box"
+	     {% if hr_graph_style == "hr_graph_style_box" %} checked {% endif %}
+	     >
+      <br>
+      <label for="hr_graph_style_violin">Violin plot</label>
+      <input type="radio" name="hr_graph_style" id="hr_graph_style_violin"
+	     {% if hr_graph_style == "hr_graph_style_violin" %} checked {% endif %}
+	     >
+    </fieldset>
+    
+    <fieldset>
+      <legend>How should the Y axis of the graph be scaled?: </legend>
+      <label for="hr_graph_yscale_linear">Linear</label>
+      <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_linear"
+	     {% if hr_graph_yscale == "hr_graph_yscale_linear" %} checked {% endif %}
+	     >
+      <br>
+      <label for="hr_graph_yscale_log">Logarithmic</label>
+      <input type="radio" name="hr_graph_yscale" id="hr_graph_yscale_log"
+	     {% if hr_graph_yscale == "hr_graph_yscale_log" %} checked {% endif %}
+	     >
+    </fieldset>
+  </div>
+</div>
 {% endblock %}

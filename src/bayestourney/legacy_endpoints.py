@@ -444,12 +444,14 @@ def _get_bearpit_dataframe(db, bouts):
         workDF = pd.concat([leftDF, rightDF])
         workDF = workDF.groupby(['playerName', 'id']).sum().reset_index()
 
-        bearpit_wt_dct = {  # tuples are weights for (wins, losses, draws)
-            'hr_draws_rule_ignore': (2, 1, 0),
-            'hr_draws_rule_win': (2, 1, 2),
-            'hr_draws_rule_loss': (2, 1, 1)
-        }
-        wt_win, wt_loss, wt_draw = bearpit_wt_dct[get_settings()['hr_draws_rule']]
+        settings_dict = get_settings()
+        wt_win = {'bp_wins_2_pts': 2,
+                  'bp_wins_1_pts': 1}[settings_dict['bp_wins_rule']]
+        wt_draw = {'bp_draws_2_pts': 2,
+                   'bp_draws_1_pts': 1,
+                   'bp_draws_0_pts': 0}[settings_dict['bp_draws_rule']]
+        wt_loss = {'bp_losses_1_pts': 1,
+                   'bp_losses_0_pts': 0}[settings_dict['bp_losses_rule']]
         workDF['bearpit'] = (wt_win * workDF['wins'] + wt_loss * workDF['losses']
                              + wt_draw * workDF['draws'])
         workDF = workDF.sort_values(by='id', axis='rows')
