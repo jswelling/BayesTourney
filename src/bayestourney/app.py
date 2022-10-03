@@ -26,6 +26,7 @@ from .database import get_db
 from .models import (Tourney, LogitPlayer, Bout, User,
                      Group, TourneyPlayerPair, DBException)
 from .settings import get_settings, set_settings, SettingsError
+from .settings_constants import SETTINGS_GROUPS, ALLOWED_SETTINGS
 from .permissions import (
     get_readable_tourneys,
     get_readable_players,
@@ -510,6 +511,7 @@ def handleBearpitDownloadReq(**kwargs):
 def _tourney_json_rep(db, tourney):
     owner = db.query(User).filter_by(id=tourney.owner).one()
     group = db.query(Group).filter_by(id=tourney.group).one()
+    settings = tourney.get_settings(db)
     rslt = {'id': tourney.tourneyId,
             'name': tourney.name,
             'note': tourney.note,
@@ -525,6 +527,8 @@ def _tourney_json_rep(db, tourney):
             'other_write': tourney.other_write,
             'other_delete': tourney.other_delete,
             }
+    for key in SETTINGS_GROUPS['tourney_group']:
+        rslt[key] = settings[key]
     return rslt
 
 
@@ -593,6 +597,12 @@ def ajax_tourneys_settings(**kwargs):
                 and json_rep['note'] != request.values['note']):
                 json_rep['note'] = tourney.note = request.values['note'].strip()
                 changed += 1
+            for elt in request.values:
+                if (elt in SETTINGS_GROUPS['tourney_group']
+                    and json_rep[elt] != request.values[elt]):
+                    tourney.set_settings(db, elt, request.values[elt])
+                    json_rep[elt] = request.values[elt]
+                    changed += 1
             if changed:
                 db.add(tourney)
                 db.commit()
@@ -1137,9 +1147,9 @@ def ajax_whoiswinning(**kwargs):
             checkbox_dict = json.loads(request.values['checkboxes'])
             boutDF, playerDF, checkbox_dict = _horserace_dataframes(db, tourneys,
                                                                     checkbox_dict)
-            print(boutDF.head())
-            print(playerDF.head())
-            pprint(checkbox_dict)
+            #print(boutDF.head())
+            #print(playerDF.head())
+            #pprint(checkbox_dict)
             try:
                 fit_info = stat_utils.ModelFit.from_raw_bouts(
                     playerDF, boutDF,
@@ -1210,8 +1220,6 @@ def handle_horserace_checkbox(**kwargs):
                           else "false")
                 }
     elif request.method == "PUT":
-        print('POINT 1')
-        pprint(request.values)
         try:
             state = request.values['state']
         except ValueError as e:

@@ -331,6 +331,12 @@
 	      this_div.find('.pos-int-spinner').each( function() {
 		$(this).width(30).spinner({decimals:0});
 	      });
+	      this_div.find('input:radio').each( function() {
+		$(this).checkboxradio();
+	      });
+	      this_div.find('.accordion').each( function() {
+		$(this).accordion();
+	      });
 	    }
 	    else {
 	      if (data['msg']) {
@@ -342,4 +348,71 @@
 	      console.log(data);
 	    }
 	  })
+{% endmacro %}
+
+{% macro bearpit_scoring_content() %}
+  <fieldset>
+  <legend>Wins count as: </legend>
+  <label for="bp_wins_2_pts">2 points</label>
+  <input type="radio" name="bp_wins_rule" id="bp_wins_2_pts"
+{% if bp_wins_rule == "bp_wins_2_pts" %} checked {% endif %}
+  >
+  <br>
+  <label for="bp_wins_1_pts">1 point</label>
+  <input type="radio" name="bp_wins_rule" id="bp_wins_1_pts"
+{% if bp_wins_rule == "bp_wins_1_pts" %} checked {% endif %}
+  >
+  </fieldset>
+  <br>
+  <fieldset>
+  <legend>Draws count as: </legend>
+  <label for="bp_draws_2_pts">2 points</label>
+  <input type="radio" name="bp_draws_rule" id="bp_draws_2_pts"
+{% if bp_draws_rule == "bp_draws_2_pts" %} checked {% endif %}
+  >
+  <br>
+  <label for="bp_draws_1_pts">1 point</label>
+  <input type="radio" name="bp_draws_rule" id="bp_draws_1_pts"
+{% if bp_draws_rule == "bp_draws_1_pts" %} checked {% endif %}
+  >
+  <br>
+  <label for="bp_draws_0_pts">0 point</label>
+  <input type="radio" name="bp_draws_rule" id="bp_draws_0_pts"
+{% if bp_draws_rule == "bp_draws_0_pts" %} checked {% endif %}
+  >
+  </fieldset>
+  <br>
+  <fieldset>
+  <legend>Losses count as: </legend>
+  <label for="bp_losses_1_pts">1 point</label>
+  <input type="radio" name="bp_losses_rule" id="bp_losses_1_pts"
+{% if bp_losses_rule == "bp_losses_1_pts" %} checked {% endif %}
+  >
+  <br>
+  <label for="bp_losses_0_pts">0 point</label>
+  <input type="radio" name="bp_losses_rule" id="bp_losses_0_pts"
+{% if bp_losses_rule == "bp_losses_0_pts" %} checked {% endif %}
+  >
+  </fieldset>
+{% endmacro %}
+
+{% macro horserace_scoring_content() %}
+  <fieldset>
+  <legend>How to handle draws?</legend>
+  <label for="hr_draws_rule_ignore">Ignore all draws</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_ignore"
+{% if hr_draws_rule == "hr_draws_rule_ignore" %} checked {% endif %}
+  >
+  <br>
+  <label for="hr_draws_rule_win">Count as a win for both</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_win"
+{% if hr_draws_rule == "hr_draws_rule_win" %} checked {% endif %}
+  >
+  <br>
+  <label for="hr_draws_rule_loss">Count as a loss for both</label>
+  <input type="radio" name="hr_draws_rule" id="hr_draws_rule_loss"
+{% if hr_draws_rule == "hr_draws_rule_loss" %} checked {% endif %}
+  >
+  <br>
+  </fieldset>
 {% endmacro %}

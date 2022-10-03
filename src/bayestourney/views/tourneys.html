@@ -168,6 +168,9 @@ $(function () {
       jq_form.find('input:checkbox').each(function() {
 	dct[this.name] = this.checked;
       });
+      jq_form.find('input:radio').each(function() {
+	if (this.checked) { dct[this.name] = this.id };
+      });
       var rslt = [];
       for (const [key, value] of Object.entries(dct)) {
 	rslt.push({'name':key, 'value':value});

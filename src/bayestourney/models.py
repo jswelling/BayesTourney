@@ -1,4 +1,5 @@
 from datetime import datetime
+from copy import deepcopy
 
 from sqlalchemy import (Column, Integer, Float, String, ForeignKey, JSON,
                         DateTime, Boolean)
@@ -10,6 +11,8 @@ from flask_login import UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from .database import Base
+from .settings import SettingsError, get_settings as get_user_settings
+from .settings_constants import SETTINGS_GROUPS, ALLOWED_SETTINGS
 
 class DBException(Exception):
     pass
@@ -116,6 +119,7 @@ class Tourney(Base):
     other_read = Column(Boolean)
     other_write = Column(Boolean)
     other_delete = Column(Boolean)
+    settings = Column(JSON, nullable=True)
     ownerName = column_property(select([User.username]).where(User.id==owner)
                                 .scalar_subquery())
     groupName = column_property(select([Group.name]).where(Group.id==group)
@@ -203,6 +207,25 @@ class Tourney(Base):
                               ' so they cannot be deleted, so the tournament cannot'
                               ' be deleted.')
         db.query(Tourney).filter_by(tourneyId=self.tourneyId).delete()
+
+    def get_settings(self, db):
+        if self.settings is None:
+            user_settings = get_user_settings()
+            tourney_settings = {}
+            for setting_key in SETTINGS_GROUPS['tourney_group']:
+                tourney_settings[setting_key] = user_settings[setting_key]
+            self.settings = tourney_settings  # copy in defaults
+        return deepcopy(self.settings)
+
+    def set_settings(self, db, key, value):
+        if key not in SETTINGS_GROUPS['tourney_group']:
+            raise SettingsError(f'Invalid setting key {key}')
+        if value not in ALLOWED_SETTINGS[key]:
+            raise SettingsError(f'The value {value} is invalid for setting {key}')
+        settings_copy = deepcopy(self.get_settings(db))
+        settings_copy[key] = value
+        self.settings = settings_copy
+        db.add(self)
 
 
 class LogitPlayer(Base):
