@@ -4,6 +4,7 @@ from pprint import pprint
 from flask import g, session
 from bayestourney.database import get_db
 from bayestourney.models import DBException
+from bayestourney.settings_constants import SETTINGS_GROUPS, ALLOWED_SETTINGS
 
 def test_list_select_tourney(client, app, auth):
     auth.login()
@@ -519,10 +520,26 @@ def test_ajax_tourneys_settings_get(client, app, auth):
         assert values['id'] == 1
         assert values['current_user_groups'] == ['test', 'everyone']
         assert '</form>' in values['dlg_html']
-        assert values['group_name'] == 'test'
-        assert values['name'] == 'test_tourney_1'
-        assert values['note'] == 'first test tourney'
-        assert values['owner_name'] == 'test'
+        for key, val in [('owner_name', 'test'),
+                         ('group_name', 'test'),
+                         ('name', 'test_tourney_1'),
+                         ('note', 'first test tourney'),
+                         ('owner_name', 'test'),
+                         ('owner_delete', True),
+                         ('owner_read', True),
+                         ('owner_write', True),
+                         ('group_read', True),
+                         ('group_write', False),
+                         ('group_delete', False),
+                         ('other_read', False),
+                         ('other_write', False),
+                         ('other_delete', False),
+                         ('bp_draws_rule', 'bp_draws_1_pts'),
+                         ('bp_losses_rule', 'bp_losses_1_pts'),
+                         ('bp_wins_rule', 'bp_wins_2_pts'),
+                         ('hr_draws_rule', 'hr_draws_rule_ignore'),
+                         ]:
+            assert values[key] == val
 
 
 def test_ajax_tourneys_settings_put(client, app, auth):
@@ -582,6 +599,36 @@ def test_ajax_tourneys_settings_put_2(client, app, auth):
         after_values = after_response_json['value']
         assert after_values['name'] == 'tourney new name'
         assert after_values['note'] == 'and new note'
+
+
+def test_ajax_tourneys_settings_put_3(client, app, auth):
+    auth.login()
+    with client:
+        values = _get_values_for_tourney(client, tourney_id=1)
+        no_change_data = {'tourney_id': '1'}
+        for setting_name in SETTINGS_GROUPS['tourney_group']:
+            assert setting_name in values
+            assert values[setting_name] in ALLOWED_SETTINGS[setting_name]
+            no_change_data[setting_name] = values[setting_name]
+        put_response = client.put('/ajax/tourneys/settings', data=no_change_data)
+        put_json = json.loads(put_response.data.decode('utf-8'))
+        assert 'status' in put_json
+        assert put_json['status'] == 'success'
+        assert _get_values_for_tourney(client, tourney_id=1) == values
+        for setting_name in SETTINGS_GROUPS['tourney_group']:
+            targets = [name for name in ALLOWED_SETTINGS[setting_name]
+                       if values[setting_name] != name]
+            targets.append(values[setting_name])
+            for target in targets:
+                data = {'tourney_id': '1',
+                        setting_name: target}
+                put_response = client.put('/ajax/tourneys/settings', data=data)
+                put_json = json.loads(put_response.data.decode('utf-8'))
+                assert 'status' in put_json
+                assert put_json['status'] == 'success'
+                values = _get_values_for_tourney(client, tourney_id=1)
+                assert setting_name in values
+                assert values[setting_name] == target
 
 
 def _htmlify_flags(dct, key_list):
@@ -1044,6 +1091,15 @@ def test_ajax_bouts_settings_get(client, app, auth):
 
 def _get_values_for_bout(client, bout_id):
     response = client.get(f'/ajax/bouts/settings?bout_id={bout_id}')
+    response_json = json.loads(response.data.decode('utf-8'))
+    assert 'status' in response_json
+    assert response_json['status'] == 'success'
+    assert 'value' in response_json
+    return response_json['value']
+
+
+def _get_values_for_tourney(client, tourney_id):
+    response = client.get(f'/ajax/tourneys/settings?tourney_id={tourney_id}')
     response_json = json.loads(response.data.decode('utf-8'))
     assert 'status' in response_json
     assert response_json['status'] == 'success'
