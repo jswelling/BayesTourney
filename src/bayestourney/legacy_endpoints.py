@@ -11,6 +11,7 @@ import time
 import json
 import logging
 import functools
+from collections import defaultdict
 from math import ceil
 from pathlib import Path
 from pprint import pprint
@@ -402,11 +403,14 @@ def _set_hr_include(tourney_id, player_id, flag: bool):
     session['horserace_includes'] = dct
 
 
-def _get_bearpit_dataframe(db, bouts):
+def _get_bearpit_dataframe_one_tourney(db, bouts, tourney_id):
+    assert tourney_id > 0, 'This routine only handles a single tourney at a time'
+    tourney = db.query(Tourney).filter_by(tourneyId=tourney_id).one()
+    settings_dict = tourney.get_settings(db)
     dict_list = []
     for bout in bouts:
-        bout_tourney = db.query(Tourney).filter_by(tourneyId=bout.tourneyId).one()
-        dct = {'tourneyName': bout_tourney.name,
+        assert bout.tourneyId == tourney_id, 'wrong tourney'
+        dct = {'tourneyName': tourney.name,
                'leftWins': bout.leftWins,
                'leftPlayerName': bout.lName,
                'draws': bout.draws,
@@ -462,6 +466,24 @@ def _get_bearpit_dataframe(db, bouts):
     #print(workDF.head())
     #print(workDF.columns)
     return workDF
+
+
+def _get_bearpit_dataframe(db, bouts):
+    bouts_by_tourney = defaultdict(list)
+    for bout in bouts:
+        bouts_by_tourney[bout.tourneyId].append(bout)
+    all_workDF = None
+    for tourney_id in bouts_by_tourney:
+        workDF = _get_bearpit_dataframe_one_tourney(db,
+                                                    bouts_by_tourney[tourney_id],
+                                                    tourney_id)
+        all_workDF = (workDF if all_workDF is None
+                      else pd.concat([all_workDF, workDF], axis=0))
+
+    all_workDF = (all_workDF.groupby(['playerName', 'id']).sum()
+                  .reset_index()
+                  .sort_values(by='id', axis='rows'))
+    return all_workDF
 
 
 @bp.route('/json/<path>')
