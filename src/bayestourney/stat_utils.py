@@ -249,12 +249,31 @@ class ModelFit(object):
     def from_raw_bouts(player_df, raw_bouts_df, draws_rule=None):
         """
         This version of the constructor includes restructuring of the
-        bouts dataframe.
+        bouts dataframe.  All bouts are assumed to have the same draws_rule,
+        so presumably they all come from the same tournament.
 
         If present, draws_rule must be one of the 'hr_draws_rule' settings
         """
         restructured_df = restructure_df(raw_bouts_df, draws_rule=draws_rule)
         return ModelFit(player_df, restructured_df)
+
+    def add_raw_bouts(self, player_df, raw_bouts_df, draws_rule=None):
+        """
+        Add more bouts.  The new bouts are assumed to have the same draws_rule,
+        so presumably they all come from the same tournament.
+
+        If present, draws_rule must be one of the 'hr_draws_rule' settings
+        """
+        restructured_df = restructure_df(raw_bouts_df, draws_rule=draws_rule)
+        self.bouts_df = pd.concat([self.bouts_df, restructured_df], axis=0)
+        self.player_df = (pd.concat([self.player_df, player_df], axis=0)
+                          .drop_duplicates())
+        self.samp_array = None
+        self.win_probabilities = None
+        self.player_id_list = [elt for elt in self.bouts_df['player'].unique()]
+        self.player_name_dict = {row['id']: row['name']
+                                 for idx, row in self.player_df.iterrows()}
+        return self
 
     def gen_samples(self):
         #print(self.player_name_dict)

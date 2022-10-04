@@ -1,63 +1,82 @@
+{% from "macros.html" import bearpit_scoring_content with context %}
+{% from "macros.html" import horserace_scoring_content with context %}
+
 <h1>Settings For {{name}}</h1>
 <form id={{form_name}}>
   This tournament is owned by {{owner_name}}.
-  <fieldset>
-    <label for=tourney_settings_dlg_{{id}}_name>Name</label>
-    <input type=text id="tourney_settings_dlg_{{id}}_name" name="name"
-	   value={{name}}>
-    <br><br>
-    <label for="tourney_settings_dlg_{{id}}_note">Note</label>
-    <textarea id="tourney_settings_dlg_{{id}}_note" name="note" cols=40 rows=5>{{note}}</textarea>
-  </fieldset>
-  <fieldset>
-  <label for=tourney_settings_dlg_{{id}}_group_sel>Group</label>
-  <select id=tourney_settings_dlg_{{id}}_group_sel name="group">
-    {% for groupname in current_user_groups %}
-    <option value={{groupname}} {% if groupname == group_name %} selected {% endif %} >{{groupname}}</option>
-    {% endfor %}
-  </select>
-  </fieldset>
-  <fieldset>
-    <table>
-      <tr>
-	<th></th><th>Read</th><th>Write</th><th>Delete</th>
-      </tr>
-      <tr>
-	<th>Owner</th>
-	<td>
-	  <input type="checkbox" name="owner_read" {% if owner_read %}checked{%endif%} >
-	</td>
-	<td>
-	  <input type="checkbox" name="owner_write" {% if owner_write %}checked{%endif%}>
-	</td>
-	<td>
-	  <input type="checkbox" name="owner_delete" {% if owner_delete %}checked{%endif%}>
-	</td>
-      </tr>
-      <tr>
-	<th>Group</th>
-	<td>
-	  <input type="checkbox" name="group_read" {% if group_read %}checked{%endif%} >
-	</td>
-	<td>
-	  <input type="checkbox" name="group_write" {% if group_write %}checked{%endif%}>
-	</td>
-	<td>
-	  <input type="checkbox" name="group_delete" {% if group_delete %}checked{%endif%}>
-	</td>
-      </tr>
-      <tr>
-	<th>Others</th>
-	<td>
-	  <input type="checkbox" name="other_read" {% if other_read %}checked{%endif%} >
-	</td>
-	<td>
-	  <input type="checkbox" name="other_write" {% if other_write %}checked{%endif%}>
-	</td>
-	<td>
-	  <input type="checkbox" name="other_delete" {% if other_delete %}checked{%endif%}>
-	</td>
-      </tr>
-    </table>
-  </fieldset>
+  <div id="settings_accordion" class="accordion">
+    <h2>Name and Note</h2>
+    <div>
+      <fieldset>
+	<label for=tourney_settings_dlg_{{id}}_name>Name</label>
+	<input type=text id="tourney_settings_dlg_{{id}}_name" name="name"
+	       value={{name}}>
+	<br><br>
+	<label for="tourney_settings_dlg_{{id}}_note">Note</label>
+	<textarea id="tourney_settings_dlg_{{id}}_note" name="note" cols=40 rows=5>{{note}}</textarea>
+      </fieldset>
+      <fieldset>
+	<label for=tourney_settings_dlg_{{id}}_group_sel>Group</label>
+	<select id=tourney_settings_dlg_{{id}}_group_sel name="group">
+	  {% for groupname in current_user_groups %}
+	  <option value={{groupname}} {% if groupname == group_name %} selected {% endif %} >{{groupname}}</option>
+	  {% endfor %}
+	</select>
+      </fieldset>
+    </div>
+    <h2>Access Permissions</h2>
+    <div>
+      <fieldset>
+	<table>
+	  <tr>
+	    <th></th><th>Read</th><th>Write</th><th>Delete</th>
+	  </tr>
+	  <tr>
+	    <th>Owner</th>
+	    <td>
+	      <input type="checkbox" name="owner_read" {% if owner_read %}checked{%endif%} >
+	    </td>
+	    <td>
+	      <input type="checkbox" name="owner_write" {% if owner_write %}checked{%endif%}>
+	    </td>
+	    <td>
+	      <input type="checkbox" name="owner_delete" {% if owner_delete %}checked{%endif%}>
+	    </td>
+	  </tr>
+	  <tr>
+	    <th>Group</th>
+	    <td>
+	      <input type="checkbox" name="group_read" {% if group_read %}checked{%endif%} >
+	    </td>
+	    <td>
+	      <input type="checkbox" name="group_write" {% if group_write %}checked{%endif%}>
+	    </td>
+	    <td>
+	      <input type="checkbox" name="group_delete" {% if group_delete %}checked{%endif%}>
+	    </td>
+	  </tr>
+	  <tr>
+	    <th>Others</th>
+	    <td>
+	      <input type="checkbox" name="other_read" {% if other_read %}checked{%endif%} >
+	    </td>
+	    <td>
+	      <input type="checkbox" name="other_write" {% if other_write %}checked{%endif%}>
+	    </td>
+	    <td>
+	      <input type="checkbox" name="other_delete" {% if other_delete %}checked{%endif%}>
+	    </td>
+	  </tr>
+	</table>
+      </fieldset>
+    </div>
+    <h2>Bearpit Scoring</h2>
+    <div id='bearpit_scoring_block'>
+      {{ bearpit_scoring_content() }}
+    </div>
+    <h2>Horserace (Bayes) Scoring</h2>
+    <div id='horserace_scoring_block'>
+      {{ horserace_scoring_content() }}
+    </div>
+  </div>
 </form>

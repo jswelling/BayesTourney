@@ -26,6 +26,7 @@ from .database import get_db
 from .models import (Tourney, LogitPlayer, Bout, User,
                      Group, TourneyPlayerPair, DBException)
 from .settings import get_settings, set_settings, SettingsError
+from .settings_constants import SETTINGS_GROUPS, ALLOWED_SETTINGS
 from .permissions import (
     get_readable_tourneys,
     get_readable_players,
@@ -454,17 +455,17 @@ def _include_fun(row, keycols, checkbox_dict):
     return all(flags)
 
 
-def _horserace_dataframes(db, tourneys, checkboxes):
-    bouts = {}
-    players = {}
-    for tourney in tourneys:
-        check_can_read(tourney)
-        for bout in tourney.get_bouts(db):
-            bouts[bout.boutId] = bout
-        for player in tourney.get_players(db):
-            players[player.id] = player
-    boutDF = pd.DataFrame(bout.as_dict() for bout in bouts.values())
-    playerDF = pd.DataFrame(player.as_dict() for player in players.values())
+def _horserace_dataframes(db, tourney, checkboxes):
+    bout_dict_list = []
+    player_dict_list = []
+    check_can_read(tourney)
+    tourney_settings = tourney.get_settings(db)
+    for bout in tourney.get_bouts(db):
+        bout_dict_list.append(bout.as_dict())
+    for player in tourney.get_players(db):
+        player_dict_list.append(player.as_dict())
+    boutDF = pd.DataFrame(bout_dict_list)
+    playerDF = pd.DataFrame(player_dict_list)
     checkbox_dict = {int(k): v for k, v in checkboxes.items()}
     playerDF = playerDF[playerDF.apply(_include_fun, axis=1,
                                        keycols=['id'], checkbox_dict=checkbox_dict)]
@@ -510,6 +511,7 @@ def handleBearpitDownloadReq(**kwargs):
 def _tourney_json_rep(db, tourney):
     owner = db.query(User).filter_by(id=tourney.owner).one()
     group = db.query(Group).filter_by(id=tourney.group).one()
+    settings = tourney.get_settings(db)
     rslt = {'id': tourney.tourneyId,
             'name': tourney.name,
             'note': tourney.note,
@@ -525,6 +527,8 @@ def _tourney_json_rep(db, tourney):
             'other_write': tourney.other_write,
             'other_delete': tourney.other_delete,
             }
+    for key in SETTINGS_GROUPS['tourney_group']:
+        rslt[key] = settings[key]
     return rslt
 
 
@@ -593,6 +597,12 @@ def ajax_tourneys_settings(**kwargs):
                 and json_rep['note'] != request.values['note']):
                 json_rep['note'] = tourney.note = request.values['note'].strip()
                 changed += 1
+            for elt in request.values:
+                if (elt in SETTINGS_GROUPS['tourney_group']
+                    and json_rep[elt] != request.values[elt]):
+                    tourney.set_settings(db, elt, request.values[elt])
+                    json_rep[elt] = request.values[elt]
+                    changed += 1
             if changed:
                 db.add(tourney)
                 db.commit()
@@ -1047,7 +1057,6 @@ def ajax_bearpit(**kwargs):
             workDF = _get_bearpit_dataframe(db, bouts)
             rslt = {
                 'status': 'success',
-                #'value': [bout.as_dict() for bout in bouts]
                 'value': [{'id': row['id'],
                            'name': row['playerName'],
                            'wins': row['wins'],
@@ -1089,13 +1098,26 @@ def ajax_wfw(**kwargs):
                 tourneys = get_readable_tourneys(db)
                 label_str = f'{len(tourneys)} tournaments'
             checkbox_dict = json.loads(request.values['checkboxes'])
-            boutDF, playerDF, checkbox_dict = _horserace_dataframes(db, tourneys,
-                                                                    checkbox_dict)
             try:
-                fit_info = stat_utils.ModelFit.from_raw_bouts(
-                    playerDF, boutDF,
-                    draws_rule=get_settings()['hr_draws_rule']
-                )
+                fit_info = None
+                for tourney in tourneys:
+                    boutDF, playerDF, checkbox_dict = _horserace_dataframes(db,
+                                                                            tourney,
+                                                                            checkbox_dict)
+                    draws_rule = tourney.get_settings(db)['hr_draws_rule']
+                    if len(boutDF):
+                        if fit_info is None:
+                            fit_info = stat_utils.ModelFit.from_raw_bouts(
+                                playerDF, boutDF,
+                                draws_rule=draws_rule
+                            )
+                        else:
+                            fit_info = fit_info.add_raw_bouts(
+                                playerDF, boutDF,
+                                draws_rule=draws_rule
+                            )
+                if fit_info is None:
+                    raise RuntimeError('No bouts found!')
                 svg_str = fit_info.gen_bouts_graph_svg()
             except RuntimeError as excinfo:
                 LOGGER.info(f'ajax_wfw exception: {excinfo}')
@@ -1136,16 +1158,26 @@ def ajax_whoiswinning(**kwargs):
                 tourneys = get_readable_tourneys(db)
                 label_str = f'{len(tourneys)} tournaments'
             checkbox_dict = json.loads(request.values['checkboxes'])
-            boutDF, playerDF, checkbox_dict = _horserace_dataframes(db, tourneys,
-                                                                    checkbox_dict)
-            print(boutDF.head())
-            print(playerDF.head())
-            pprint(checkbox_dict)
             try:
-                fit_info = stat_utils.ModelFit.from_raw_bouts(
-                    playerDF, boutDF,
-                    draws_rule=get_settings()['hr_draws_rule']
-                )
+                fit_info = None
+                for tourney in tourneys:
+                    boutDF, playerDF, checkbox_dict = _horserace_dataframes(db,
+                                                                            tourney,
+                                                                            checkbox_dict)
+                    draws_rule = tourney.get_settings(db)['hr_draws_rule']
+                    if len(boutDF):
+                        if fit_info is None:
+                            fit_info = stat_utils.ModelFit.from_raw_bouts(
+                                playerDF, boutDF,
+                                draws_rule=draws_rule
+                            )
+                        else:
+                            fit_info = fit_info.add_raw_bouts(
+                                playerDF, boutDF,
+                                draws_rule=draws_rule
+                            )
+                if fit_info is None:
+                    raise RuntimeError("No bouts found!")
                 graph_yscale_dct = {'hr_graph_yscale_linear': 'linear',
                                     'hr_graph_yscale_log': 'log'}
                 graph_yscale = graph_yscale_dct[get_settings()['hr_graph_yscale']]
@@ -1211,8 +1243,6 @@ def handle_horserace_checkbox(**kwargs):
                           else "false")
                 }
     elif request.method == "PUT":
-        print('POINT 1')
-        pprint(request.values)
         try:
             state = request.values['state']
         except ValueError as e:
