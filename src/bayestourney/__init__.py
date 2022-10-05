@@ -12,17 +12,14 @@ from pprint import pprint
 
 
 def create_app(test_config=None):
-    instance_path = Path(__file__).parent.parent.parent / 'instance'
     static_folder = Path(__file__).parent.parent.parent / 'www' / 'static'
     app = Flask(
         __name__,
-        instance_path=f'{instance_path}',
         instance_relative_config=True,
         template_folder='views',
         static_folder=f'{static_folder}',
         static_url_path='/'
     )
-    instance_path.mkdir(parents=True, exist_ok=True)
     if test_config is None:
         app.config.from_pyfile('config.py')
     else:
