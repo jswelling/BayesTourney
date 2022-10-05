@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 from pathlib import Path
 
-basepath = Path(__file__).parent.parent.resolve()
+basepath = Path(__file__).parent.parent.parent.resolve()
 
 load_dotenv(f"{Path(__file__).parent / '.env'}", verbose=True)
 
