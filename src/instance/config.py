@@ -17,8 +17,12 @@ Path(SESSION_SCRATCH_DIR).mkdir(parents=True, exist_ok=True)
 Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
 
 # SQLAlchemy config
-SQLALCHEMY_DATABASE_URI = (os.environ.get('DATABASE_URL')
-                           or f"sqlite:///{basepath / 'data' / 'mydb.db'}")
+if ('SQLALCHEMY_DATABASE_URI' in os.environ
+    or 'DATABASE_URL' in os.environ):
+    SQLALCHEMY_DATABASE_URI = (os.environ.get('SQLALCHEMY_DATABASE_URI')
+                               or os.environ.get('DATABASE_URL'))
+else:
+    pass  # leave it to the program to decide
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # Email configuration

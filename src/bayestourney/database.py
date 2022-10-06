@@ -7,13 +7,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, column_property, scoped_session
 
-DEFAULT_DATABASE_PATH = Path(__file__).parent.parent.parent / 'data' / 'mydb.db'
-
 Base = declarative_base()
 metadata = Base.metadata
 
 def _initialize_session_db():
-    default_database_uri = f"sqlite:///{DEFAULT_DATABASE_PATH}"
+    if (Path(__file__).parent.parent.parent / 'data').is_dir():
+        default_database_path = Path(__file__).parent.parent.parent / 'data' / 'mydb.db'
+    else:
+        default_database_path = Path(current_app.instance_path) / 'mydb.db'
+    default_database_uri = f"sqlite:///{default_database_path}"
     dbURI = current_app.config.get('SQLALCHEMY_DATABASE_URI', default_database_uri)
     current_app.logger.info(f'##### DBURI: {dbURI}')
     engine= create_engine(dbURI, echo=False)
