@@ -31,6 +31,7 @@
     return false;
   });
   $( "#upload_{{ key }}_dialog" ).dialog({
+    width: 'auto',
     autoOpen: false,
     height: 400,
     width: 350,
@@ -241,6 +242,7 @@
 	    if (data['status'] == 'success') {
 	      let this_div = $('<div />');
 	      this_div.html(data['value']['dlg_html']).dialog({
+		width: 'auto',
 		buttons: {
 		  "Cancel": function() {
 		    $(this).dialog("close");
@@ -272,6 +274,7 @@
 			else if (data['status'] == 'confirm') {
 			  let this_confirm_div = $('<div title="Confirmation Required"/>');
 			  this_confirm_div.html(data['msg']).dialog({
+			    width: 'auto',
 			    buttons: {
 			      "Cancel": function() {
 				$(this).dialog("close");
