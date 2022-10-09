@@ -406,6 +406,7 @@ def handleBoutsDownloadReq(**kwargs):
         tourney_name = tourney.name
     else:
         tourney_name = 'ALL_TOURNEYS'
+    tourney_name = tourney_name.replace('/','_')  # slashes mess up dir path
     boutDF = _get_bouts_dataframe(tourneyId)
 
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
@@ -443,6 +444,7 @@ def handleEntrantsDownloadReq(**kwargs):
         tourney_name = tourney.name
     else:
         tourney_name = 'ALL_TOURNEYS'
+    tourney_name = tourney_name.replace('/','_')  # slashes mess up dir path
     entrantDF = _get_entrants_dataframe(tourneyId)
     session_scratch_dir = current_app.config['SESSION_SCRATCH_DIR']
     full_path =  Path(session_scratch_dir) / f'entrants_{tourney_name}.tsv'
@@ -498,6 +500,7 @@ def handleBearpitDownloadReq(**kwargs):
                  .filter(Bout.tourneyId.in_(tourney_id_list))
                  .all()
                  )
+    tourney_name = tourney_name.replace('/','_')  # slashes mess up dir path
     bearpitDF = _get_bearpit_dataframe(db, bouts)
     bearpitDF['include'] = bearpitDF.apply(_get_include_flag,
                                            axis=1, tourney_id=tourneyId)
