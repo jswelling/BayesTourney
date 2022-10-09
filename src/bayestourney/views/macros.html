@@ -197,6 +197,7 @@
     if (data['status'] == 'success') {
       let this_div = $('<div />');
       this_div.html(data['value']['dlg_html']).dialog({
+	width: 'auto',
 	buttons: {
 	  "OK": function() {
 	    $(this).dialog("close");

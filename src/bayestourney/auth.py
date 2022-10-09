@@ -78,6 +78,12 @@ def register():
             db.add(user_grp)
             db.commit()
             user.add_group(db, user_grp)
+            try:
+                everyone_group = db.query(Group).filter_by(name='everyone').one()
+                user.add_group(db, everyone_group)
+            except NoResultFound:
+                current_app.logger.warning('"everyone" group was not found!')
+                pass
             db.commit()
             token = generate_signed_token(
                 current_app,
