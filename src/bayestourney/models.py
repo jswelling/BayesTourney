@@ -63,6 +63,9 @@ class User(UserMixin, Base):
                  )
          .delete())
 
+    def is_admin(self):
+        return self.admin
+
 
 class Group(Base):
     __tablename__ = 'group'

@@ -1,11 +1,388 @@
 {% extends 'base.html' %}
 
 {% block pagescripts %}
+<script>
+  $( function() {
+    $( "#admin_accordion" ).accordion();
+    // prevent 'enter' key from triggering form submission
+    $('form input').keydown(function (e) {
+      if (e.keyCode == 13) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    // Add group name form behavior
+    $("#add_group_name_button").prop("disabled", true);
+    $("#verify_group_name_free_button").prop("disabled", false);
+    $("#create_group_name").on("input", function () {
+      $("#add_group_name_button").prop("disabled", true);
+      $("#verify_group_name_free_button").prop("disabled", false);
+    });
+    $("#verify_group_name_free_button").click( function() {
+      var test_str = $("#create_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	$.ajax({type:'POST',
+		url:'ajax/admin/check_group_exists',
+		data: $("#add_group_form").serializeArray()
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request to verify this group name.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      if (data['value']['exists'] == false) {
+		$("#add_group_name_button").prop("disabled", false);
+		$(this).prop("disabled", true);
+	      }
+	      else {
+		alert('The group name "' + data['value']['group_name'] + '" already exists.');
+	      }
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request to verify this group name.")
+	      }
+	      console.log(data);
+	    }
+	  })
+      }
+    });
+    $("#add_group_name_button").click( function() {
+      $.ajax({type:'POST',
+	      url:'ajax/admin/add_group',
+	      data: $("#add_group_form").serializeArray()
+	     })
+	.fail(function(jqXHR, textStatus, errorThrown) {
+	  alert("The server did not respond as expected to the request to add this group name.");
+	  console.log('failure jqXHR: ', jqXHR);
+	  console.log('failure textStatus: ', textStatus);
+	  console.log('failure thrown: ', errorThrown)
+	})
+	.done(function(data, textStatus, jqXHR) {
+	  console.log(data);
+	  if (data['status'] == 'success') {
+	    $("#create_group_name").val('');
+	    $("#add_group_name_button").prop("disabled", true);
+	    $("#verify_group_name_free_button").prop("disabled", false);
+	    if (data['value']['created'] == true) {
+	      alert('Created the group "' + data['value']['group_name'] + '".');
+	    }
+	    else {
+	      alert('The group "' + data['value']['group_name'] + '" already existed.');
+	    }
+	  }
+	  else {
+	    if (data['msg']) {
+	      alert(data['msg'])
+	    }
+	    else {
+	      alert("The server did not report success in response to the request to verify this group name.")
+	    }
+	    console.log(data);
+	  }
+	})
+      console.log($("#add_group_form").serializeArray());
+    });
+
+    // Add user to group form behavior
+    $("#autg_add_user_to_group_button").prop("disabled", true);
+    $("#autg_verify_group_name_exists_button").prop("disabled", false);
+    $("#autg_verify_user_name_exists_button").prop("disabled", false);
+    $("#autg_user_name").on("input", function () {
+      $("#autg_add_user_to_group_button").prop("disabled", true);
+      $("#autg_verify_user_name_exists_button").prop("disabled", false);
+    });
+    $("#autg_group_name").on("input", function () {
+      $("#autg_add_user_to_group_button").prop("disabled", true);
+      $("#autg_verify_group_name_exists_button").prop("disabled", false);
+    });
+    $("#autg_verify_user_name_exists_button").click( function() {
+      var test_str = $("#autg_user_name").val();
+      if (test_str.trim().length == 0) {
+	alert("User name cannot be empty.");
+      }
+      else {
+	$.ajax({type:'POST',
+		url:'ajax/admin/check_user_exists',
+		data: $("#add_user_to_group_form").serializeArray()
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request to verify this user name.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      if (data['value']['exists'] == true) {
+		if ($("#autg_verify_group_name_exists_button").prop("disabled")) {
+		  $("#autg_add_user_to_group_button").prop("disabled", false);
+		}
+		$("#autg_verify_user_name_exists_button").prop("disabled", true);
+	      }
+	      else {
+		alert('The user name "' + data['value']['user_name'] + '" does not exist');
+	      }
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request to verify this user name.")
+	      }
+	      console.log(data);
+	    }
+	  })
+      }
+    });
+    $("#autg_verify_group_name_exists_button").click( function() {
+      var test_str = $("#autg_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	$.ajax({type:'POST',
+		url:'ajax/admin/check_group_exists',
+		data: $("#add_user_to_group_form").serializeArray()
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request to verify this group name.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      if (data['value']['exists'] == true) {
+		if ($("#autg_verify_user_name_exists_button").prop("disabled")) {
+		  $("#autg_add_user_to_group_button").prop("disabled", false);
+		}
+		$("#autg_verify_group_name_exists_button").prop("disabled", true);
+	      }
+	      else {
+		alert('The group name "' + data['value']['group_name'] + '" does not exist');
+	      }
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request to verify this group name.")
+	      }
+	      console.log(data);
+	    }
+	  })
+      }
+    });
+    $("#autg_add_user_to_group_button").click( function() {
+      $.ajax({type:'POST',
+	      url:'ajax/admin/add_user_to_group',
+	      data: $("#add_user_to_group_form").serializeArray()
+	     })
+	.fail(function(jqXHR, textStatus, errorThrown) {
+	  alert("The server did not respond as expected to the request to add this user to this group.");
+	  console.log('failure jqXHR: ', jqXHR);
+	  console.log('failure textStatus: ', textStatus);
+	  console.log('failure thrown: ', errorThrown)
+	})
+	.done(function(data, textStatus, jqXHR) {
+	  if (data['status'] == 'success') {
+	    $("#autg_add_user_to_group_button").prop("disabled", true);
+	    $("#autg_user_name").val('');
+	    $("#autg_group_name").val('');
+	    $("#autg_verify_group_name_exists_button").prop("disabled", false);
+	    $("#autg_verify_user_name_exists_button").prop("disabled", false);
+	    if (data['value']['added'] == true) {
+	      alert('The user "'
+		    + data['value']['user_name']
+		    + '" was added to the group "'
+		    + data['value']['group_name']
+		    + '".');
+	    }
+	    else {
+	      alert('The user "'
+		    + data['value']['user_name']
+		    + '" was already a member of the group "'
+		    + data['value']['group_name']
+		    + '".');
+	    }
+	  }
+	  else {
+	    if (data['msg']) {
+	      alert(data['msg'])
+	    }
+	    else {
+	      alert("The server did not report success in response to the request to verify this user name.")
+	    }
+	    console.log(data);
+	  }
+	})
+    });
+
+    // Remove user from group form behavior
+    $("#rufg_remove_user_from_group_button").prop("disabled", true);
+    $("#rufg_group_sel").prop("disabled", true);
+    $("#rufg_user_name").on("input", function () {
+      $("#rufg_remove_user_from_group_button").prop("disabled", true);
+      $("#rufg_verify_user_name_exists_button").prop("disabled", false);
+    });
+    $("#rufg_verify_user_name_exists_button").click( function() {
+      var test_str = $("#rufg_user_name").val();
+      if (test_str.trim().length == 0) {
+	alert("User name cannot be empty.");
+      }
+      else {
+	$.ajax({type:'POST',
+		url:'ajax/admin/get_user_groups',
+		data: $("#remove_user_from_group_form").serializeArray()
+	       })
+	  .fail(function(jqXHR, textStatus, errorThrown) {
+	    alert("The server did not respond as expected to the request for this user's groups.");
+	    console.log('failure jqXHR: ', jqXHR);
+	    console.log('failure textStatus: ', textStatus);
+	    console.log('failure thrown: ', errorThrown)
+	  })
+	  .done(function(data, textStatus, jqXHR) {
+	    if (data['status'] == 'success') {
+	      $("#rufg_verify_user_name_exists_button").prop("disabled", true);
+	      $("#rufg_remove_user_from_group_button").prop("disabled", false);
+	      var this_sel = $("#rufg_group_sel");
+	      this_sel.empty();
+	      data['value']['groups'].forEach(function(item, index) {
+		this_sel.append("<option>" + item + "</option>\n");
+	      });
+	      this_sel.prop("disabled", false);
+	    }
+	    else {
+	      if (data['msg']) {
+		alert(data['msg'])
+	      }
+	      else {
+		alert("The server did not report success in response to the request to verify this user name.")
+	      }
+	      console.log(data);
+	    }
+	  })
+      }
+    });
+    $("#rufg_remove_user_from_group_button").click( function() {
+      $.ajax({type:'POST',
+	      url:'ajax/admin/remove_user_from_group',
+	      data: $("#remove_user_from_group_form").serializeArray()
+	     })
+	.fail(function(jqXHR, textStatus, errorThrown) {
+	  alert("The server did not respond as expected to the request to remove this user from this group.");
+	  console.log('failure jqXHR: ', jqXHR);
+	  console.log('failure textStatus: ', textStatus);
+	  console.log('failure thrown: ', errorThrown)
+	})
+	.done(function(data, textStatus, jqXHR) {
+	  if (data['status'] == 'success') {
+	    $("#rufg_verify_user_name_exists_button").prop("disabled", true);
+	    $("#rufg_remove_user_from_group_button").prop("disabled", true);
+	    if (data['value']['removed'] == true) {
+	      alert('User "' + data['value']['user_name']
+		    + '" was removed from the group "' + data['value']['group_name']
+		    + '".');
+	    }
+	    else {
+	      if (data['value']['cause'] == null) {
+		alert('User "' + data['value']['user_name']
+		      + '" was not removed from the group "' + data['value']['group_name']
+		      + '" but no reason was given.');
+	      }
+	      else {
+		alert('User "' + data['value']['user_name']
+		      + '" was not removed from the group "' + data['value']['group_name']
+		      + '" because "' + data['value']['cause'] + '".');
+	      }
+	    }
+	    $("#rufg_verify_user_name_exists_button").click();
+	  }
+	  else {
+	    if (data['msg']) {
+	      alert(data['msg'])
+	    }
+	    else {
+	      alert("The server did not report success in response to the request to verify this user name.")
+	    }
+	    console.log(data);
+	  }
+	})
+    });
+
+
+
+
+
+
+
+
+  });
+</script>
 {% endblock %}
 
 {% block content %}
 <h1>Admin Functions</h1>
 
-This page will contain administrative functions, visible only to those
-users for whom the 'admin' property is set.
+You can only see this page if your account has the <b>Admin</b> property set.
+<div id="admin_accordion">
+  <h2>Add A Group</h2>
+  <div>
+    <form id="add_group_form">
+      <label for="create_group_name">Group Name</label>
+      <input type=text id="create_group_name" name="group_name">
+      <br><br>
+      <input type=button id="verify_group_name_free_button"
+	 value="Check group name">
+      <input type=button id="add_group_name_button"
+	 value="Add group name">
+    </form>
+  </div>
+  <h2>Add User To Group</h2>
+  <div>
+    <form id="add_user_to_group_form">
+      <label for="autg_user_name">User Name</label>
+      <input type=text id="autg_user_name" name="user_name">
+      <br><br>
+      <label for="autg_group_name">Group Name</label>
+      <input type=text id="autg_group_name" name="group_name">
+      <br><br>
+      <input type=button id="autg_verify_user_name_exists_button"
+	     value="Check user name">
+      <input type=button id="autg_verify_group_name_exists_button"
+	     value="Check group name">
+      <input type=button id="autg_add_user_to_group_button"
+	     value="Add user to group">
+    </form>
+  </div>
+  <h2>Remove User From Group</h2>
+  <div>
+    <form id="remove_user_from_group_form">
+      <label for="rufg_user_name">User Name</label>
+      <input type=text id="rufg_user_name" name="user_name">
+      <br><br>
+      <label for="rufg_group_sel">Group Name</label>
+      <select id="rufg_group_sel" name="group_name">
+	</select>
+      <br><br>
+      <input type=button id="rufg_verify_user_name_exists_button"
+	     value="Check user name">
+      <input type=button id="rufg_remove_user_from_group_button"
+	     value="Remove user from group">
+    </form>
+  </div>
+</div>
 {% endblock %}
