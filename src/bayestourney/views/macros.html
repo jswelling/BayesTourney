@@ -417,3 +417,32 @@
   <br>
   </fieldset>
 {% endmacro %}
+
+{% macro ajax_post_chain(endpoint, err_phrase, data_fun_name, success_fun_name) %}
+$.ajax({type:'POST',
+	url:"{{ endpoint }}",
+	data: {{ data_fun_name }}()
+       })
+  .fail(function(jqXHR, textStatus, errorThrown) {
+    alert("The server did not respond as expected to the request "
+	  + "{{ err_phrase | safe }}.");
+    console.log('failure jqXHR: ', jqXHR);
+    console.log('failure textStatus: ', textStatus);
+    console.log('failure thrown: ', errorThrown)
+  })
+  .done(function(data, textStatus, jqXHR) {
+    if (data['status'] == 'success') {
+      {{ success_fun_name }}( data );
+    }
+    else {
+      if (data['msg']) {
+	alert(data['msg'])
+      }
+      else {
+	alert("The server did not report success in response to the request "
+	      + " {{ err_phrase | safe }}.")
+      }
+      console.log(data);
+    }
+  })
+{% endmacro %}
