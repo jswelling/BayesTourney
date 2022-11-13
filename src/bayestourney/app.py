@@ -1466,3 +1466,58 @@ def ajax_remove_user_from_group(**kwargs):
                 "removed": True,
             }
         }
+
+
+@bp.route('/ajax/admin/remove_group', methods=['POST'])
+@admin_login_required
+def ajax_remove_group(**kwargs):
+    db = get_db()
+    assert 'group_name' in request.values, 'group_name is required for remove_user_from_group requests'
+    group_name = request.values['group_name']
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such group "{group_name}"'
+            }
+
+    if group_name == "everyone":
+        return {
+            "status": "failure",
+            "msg": 'The "everyone" group cannot be deleted.'
+        }
+
+    if db.query(User).filter_by(username=group_name).first() is not None:
+        return {
+            "status": "failure",
+            "msg": (f'The group "{group_name}" cannot be deleted because it is the home'
+                    ' group of the use of the same name.'
+                    )
+        }
+
+    tourneys_this_group = db.query(Tourney).filter_by(group=group.id).all()
+    tourney_names_this_group = [tourney.name for tourney in tourneys_this_group]
+    if tourney_names_this_group:
+        name_list = '"' + '","'.join(tourney_names_this_group) + '"'
+        return {
+            "status": "failure",
+            "msg": (f'This group cannot be deleted because it is associated with the'
+                    f' following tourneys: {name_list}.'
+                    )
+        }
+
+    # Remove this group from all users who have it
+    users_with_this_group = group.get_users(db)
+    for user in users_with_this_group:
+        user.remove_group(db, group)
+    # Remove the group from the group table
+    db.query(Group).filter_by(name=group_name).delete()
+    db.commit()
+    return {
+        "status": "success",
+        "value": {
+            "group_name": group_name,
+            "removed": True,
+        }
+    }

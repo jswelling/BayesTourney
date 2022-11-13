@@ -64,6 +64,52 @@
 			 'data_fun', 'success_fun') }}
     });
 
+    // Remove group name form behavior
+    $("#remove_group_name_button").prop("disabled", true);
+    $("#rg_verify_group_exists_button").prop("disabled", false);
+    $("#remove_group_name").on("input", function () {
+      $("#remove_group_name_button").prop("disabled", true);
+      $("#rg_verify_group_exists_button").prop("disabled", false);
+    });
+    $("#rg_verify_group_exists_button").click( function() {
+      var test_str = $("#remove_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#remove_group_form").serializeArray(); };
+	function success_fun(data) {
+	  if (data['value']['exists'] == true) {
+	    $("#remove_group_name_button").prop("disabled", false);
+	    $("#rg_verify_group_exists_button").prop("disabled", true);
+	  }
+	  else {
+	    alert('The group name "' + data['value']['group_name'] + '" does not exist.');
+	  }
+	};
+	{{ ajax_post_chain('ajax/admin/check_group_exists',
+			   'to verify this group name',
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#remove_group_name_button").click( function() {
+      function data_fun() { return $("#remove_group_form").serializeArray() };
+      function success_fun(data) {
+	$("#remove_group_name").val('');
+	$("#remove_group_name_button").prop("disabled", true);
+	$("#rg_verify_group_exists_button").prop("disabled", false);
+	if (data['value']['removed'] == true) {
+	  alert('Removed the group "' + data['value']['group_name'] + '".');
+	}
+	else {
+	  alert('The group "' + data['value']['group_name'] + '" did not exist.');
+	}
+      };
+      {{ ajax_post_chain('ajax/admin/remove_group',
+			 'to remove this group name',
+			 'data_fun', 'success_fun') }}
+    });
+
     // Add user to group form behavior
     $("#autg_add_user_to_group_button").prop("disabled", true);
     $("#autg_verify_group_name_exists_button").prop("disabled", false);
@@ -241,6 +287,45 @@ You can only see this page if your account has the <b>Admin</b> property set.
 	 value="Check group name">
       <input type=button id="add_group_name_button"
 	 value="Add group name">
+    </form>
+  </div>
+  <h2>Remove A Group</h2>
+  <div>
+    <div class='help-accordion'>
+      <h4>Help</h4>
+      <div>
+	Use this panel to delete an existing group.  Any users who are members of the
+	group will lose that membership.
+	<br>
+	A group can only be deleted if no tournaments are associated with it.  If you
+	try to delete a group with associated tournaments, the error message will give
+	you a list of those tournament names.
+	<br>
+	The "everyone" group cannot be deleted.
+	<br>
+	For every user, there is a group with a matching name acting as that user&#39;s
+	home group.  That group cannot be deleted as long as the user exists.
+	<ol>
+	  <li>Type a group name in the space provided.</li>
+	  <li>
+	    Click <em>Check group name</em> to verify that the group exists. If it does,
+	    the <em>Remove group name</em> button will become active.
+	  </li>
+	  <li>
+	    Click <em>Remove group name</em>.  The group will be deleted if it is possible
+	    to do so.  If there are tournaments which are still associated with the group,
+	    the error message will include their names.  You can change the group
+	    association of each tourney using the tourney settings menu and then try
+	    again to delete it.
+	</ol>
+      </div>
+    </div>
+    <form id="remove_group_form">
+      <label for="remove_group_name">Group Name</label>
+      <input type=text id="remove_group_name" name="group_name">
+      <br><br>
+      <input type=button id="rg_verify_group_exists_button" value="Check group name">
+      <input type=button id="remove_group_name_button" value="Remove group name">
     </form>
   </div>
   <h2>Add User To Group</h2>
