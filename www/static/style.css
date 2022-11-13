@@ -16,3 +16,7 @@
 .show-spinner {
     display: block;
 }
+
+.help-accordion {
+    padding: 4pt;
+}
