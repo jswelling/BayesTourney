@@ -275,11 +275,11 @@ class ModelFit(object):
                                  for idx, row in self.player_df.iterrows()}
         return self
 
-    def gen_samples(self):
+    def gen_samples(self, n_samp=N_SAMP, n_chains=N_CHAINS):
         #print(self.player_name_dict)
         self.win_probabilities = None  # Any old result is about to become invalid
         self.samp_array = metropolis(self.player_id_list, self.bouts_df,
-                                     N_SAMP, N_CHAINS, BURNIN_SWEEPS,
+                                     n_samp, n_chains, BURNIN_SWEEPS,
                                      SWEEPS_PER_SAMP)
     @staticmethod
     def set_axis_style(ax, labels):
@@ -405,7 +405,6 @@ class WinProbabilities(object):
             sio.write(f'<b>{self.model_fit.player_name_dict[id]}</b> has a {chance_str}'
                       ' chance of being in the top 3.<br>')
         return sio.getvalue()
-
     def as_dict(self) -> dict:
         rslt = {}
         id, chance = self.winner
