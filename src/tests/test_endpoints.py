@@ -1,9 +1,6 @@
-import pytest
 import json
 from pprint import pprint
-from flask import g, session
-from bayestourney.database import get_db
-from bayestourney.models import DBException
+import pytest
 from bayestourney.settings_constants import SETTINGS_GROUPS, ALLOWED_SETTINGS
 
 def test_list_select_tourney(client, app, auth):
@@ -1279,7 +1276,7 @@ def test_ajax_admin_add_group_post(client, app, auth):
         response_dict = response_json['value']
         assert 'exists' in response_dict
         assert 'group_name' in response_dict
-        assert response_dict['exists'] == False
+        assert response_dict['exists'] is False
         assert response_dict['group_name'] == group_name
         response = client.post('/ajax/admin/add_group',
                                data={
@@ -1292,7 +1289,7 @@ def test_ajax_admin_add_group_post(client, app, auth):
         response_dict = response_json['value']
         assert 'created' in response_dict
         assert 'group_name' in response_dict
-        assert response_dict['created'] == True
+        assert response_dict['created'] is True
         assert response_dict['group_name'] == group_name
         response = client.post('/ajax/admin/check_group_exists',
                                data={
@@ -1305,7 +1302,7 @@ def test_ajax_admin_add_group_post(client, app, auth):
         response_dict = response_json['value']
         assert 'exists' in response_dict
         assert 'group_name' in response_dict
-        assert response_dict['exists'] == True
+        assert response_dict['exists'] is True
         assert response_dict['group_name'] == group_name
         response = client.post('/ajax/admin/add_group',
                                data={
@@ -1318,7 +1315,7 @@ def test_ajax_admin_add_group_post(client, app, auth):
         response_dict = response_json['value']
         assert 'created' in response_dict
         assert 'group_name' in response_dict
-        assert response_dict['created'] == False
+        assert response_dict['created'] is False
         assert response_dict['group_name'] == group_name
 
 
@@ -1340,14 +1337,13 @@ def test_ajax_admin_remove_group_post(client, app, auth, group_name, works, msg)
                                    "group_name": group_name,
                                })
         response_json = json.loads(response.data.decode('utf-8'))
-        pprint(response_json)
         assert 'status' in response_json
         if works:
             assert response_json['status'] == 'success'
             assert 'value' in response_json
             response_dict = response_json['value']
             assert 'removed' in response_dict
-            assert response_dict['removed'] == True
+            assert response_dict['removed'] is True
             assert 'group_name' in response_dict
             assert response_dict['group_name'] == group_name
             response = client.post('/ajax/admin/check_group_exists',
@@ -1361,7 +1357,7 @@ def test_ajax_admin_remove_group_post(client, app, auth, group_name, works, msg)
             response_dict = response_json['value']
             assert 'exists' in response_dict
             assert 'group_name' in response_dict
-            assert response_dict['exists'] == False
+            assert response_dict['exists'] is False
             assert response_dict['group_name'] == group_name
         else:
             assert response_json['status'] == 'failure'
@@ -1382,7 +1378,6 @@ def test_ajax_admin_get_user_groups_post(client, app, auth, user_name, works, gr
                                    "user_name": user_name,
                                })
         response_json = json.loads(response.data.decode('utf-8'))
-        pprint(response_json)
         assert 'status' in response_json
         if works:
             assert response_json['status'] == 'success'
@@ -1424,7 +1419,6 @@ def test_ajax_admin_add_user_to_group_post(client, app, auth, user_name, group_n
                                })
         response_json = json.loads(response.data.decode('utf-8'))
         assert 'status' in response_json
-        pprint(response_json)
         if works:
             assert response_json['status'] == 'success'
             assert 'value' in response_json
@@ -1476,7 +1470,6 @@ def test_ajax_admin_remove_user_from_group_post(client, app, auth, user_name, gr
                                })
         response_json = json.loads(response.data.decode('utf-8'))
         assert 'status' in response_json
-        pprint(response_json)
         if works:
             assert response_json['status'] == 'success'
             assert 'value' in response_json

@@ -1265,14 +1265,13 @@ def ajax_check_user_exists(**kwargs):
     user_name = request.values['user_name']
     try:
         user = db.query(User).filter_by(username=user_name).one()
-        if user:
-            return {
-                "status": "success",
-                "value": {
-                    "user_name": user.username,
-                    "exists": True
-                }
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user.username,
+                "exists": True
             }
+        }
     except NoResultFound:
         return {
             "status": "success",
@@ -1291,14 +1290,13 @@ def ajax_check_group_exists(**kwargs):
     group_name = request.values['group_name']
     try:
         group = db.query(Group).filter_by(name=group_name).one()
-        if group:
-            return {
-                "status": "success",
-                "value": {
-                    "group_name": group.name,
-                    "exists": True
-                }
+        return {
+            "status": "success",
+            "value": {
+                "group_name": group.name,
+                "exists": True
             }
+        }
     except NoResultFound:
         return {
             "status": "success",
@@ -1400,14 +1398,13 @@ def ajax_get_user_groups(**kwargs):
     user_name = request.values['user_name']
     try:
         user = db.query(User).filter_by(username=user_name).one()
-        if user:
-            return {
-                "status": "success",
-                "value": {
-                    "user_name": user.username,
-                    "groups": [group.name for group in user.get_groups(db)]
-                }
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user.username,
+                "groups": [group.name for group in user.get_groups(db)]
             }
+        }
     except NoResultFound:
         return {
             "status": "failure",

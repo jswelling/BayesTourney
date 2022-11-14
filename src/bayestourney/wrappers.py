@@ -20,7 +20,7 @@ def debug_wrapper(view):
         return rslt
     return wrapped_view
 
-    
+
 def debug_page_wrapper(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
@@ -36,11 +36,11 @@ def debug_page_wrapper(view):
         return rslt
     return wrapped_view
 
-    
+
 def admin_login_required(view):
     """
     Require that the current user have Admin privilege before calling the wrapped
-    view.  If not, 
+    view.  If not,
     """
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
