@@ -1,10 +1,10 @@
 from datetime import datetime
 from copy import deepcopy
 
-from sqlalchemy import (Column, Integer, Float, String, ForeignKey, JSON,
+from sqlalchemy import (Column, Integer, String, ForeignKey, JSON,
                         DateTime, Boolean)
 from sqlalchemy import select, or_
-from sqlalchemy.orm import Query, column_property
+from sqlalchemy.orm import column_property
 
 from flask_login import UserMixin, current_user
 
@@ -62,6 +62,9 @@ class User(UserMixin, Base):
                  UserGroupPair.group_id == group.id
                  )
          .delete())
+
+    def is_admin(self):
+        return self.admin
 
 
 class Group(Base):

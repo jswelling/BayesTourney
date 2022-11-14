@@ -21,7 +21,7 @@ from werkzeug.routing import BuildError
 from sqlalchemy.exc import NoResultFound
 import pandas as pd
 
-from .wrappers import debug_wrapper, debug_page_wrapper
+from .wrappers import debug_wrapper, debug_page_wrapper, admin_login_required
 from .database import get_db
 from .models import (Tourney, LogitPlayer, Bout, User,
                      Group, TourneyPlayerPair, DBException)
@@ -1234,7 +1234,7 @@ def _set_hr_include(tourney_id, player_id, flag: bool):
 
 @bp.route('/ajax/horserace/checkbox', methods=["GET", "PUT"])
 @debug_wrapper
-def handle_horserace_checkbox(**kwargs):
+def ajax_horserace_checkbox(**kwargs):
     try:
         tourney_id = int(request.values['tourney_id'])
         player_id = int(request.values['player_id'])
@@ -1258,3 +1258,266 @@ def handle_horserace_checkbox(**kwargs):
                 }
     else:
         return f"unsupported method {request.method}", 405
+
+
+@bp.route('/ajax/admin/check_user_exists', methods=['POST'])
+@admin_login_required
+def ajax_check_user_exists(**kwargs):
+    db = get_db()
+    assert 'user_name' in request.values, 'user_name is required for check_user_exists requests'
+    user_name = request.values['user_name']
+    try:
+        user = db.query(User).filter_by(username=user_name).one()
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user.username,
+                "exists": True
+            }
+        }
+    except NoResultFound:
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user_name,
+                "exists": False
+                }
+            }
+
+
+@bp.route('/ajax/admin/check_group_exists', methods=['POST'])
+@admin_login_required
+def ajax_check_group_exists(**kwargs):
+    db = get_db()
+    assert 'group_name' in request.values, 'group_name is required for check_group_exists requests'
+    group_name = request.values['group_name']
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+        return {
+            "status": "success",
+            "value": {
+                "group_name": group.name,
+                "exists": True
+            }
+        }
+    except NoResultFound:
+        return {
+            "status": "success",
+            "value": {
+                "group_name": group_name,
+                "exists": False
+                }
+            }
+
+
+@bp.route('/ajax/admin/add_group', methods=['POST'])
+@debug_wrapper
+@admin_login_required
+def ajax_add_group(**kwargs):
+    db = get_db()
+    assert 'group_name' in request.values, 'group_name is required for add_group requests'
+    group_name = request.values['group_name']
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+        return {
+            "status": "success",
+            "value": {
+                "group_name": group.name,
+                "created": False
+            }
+        }
+    except NoResultFound:
+        db.add(Group(group_name))
+        db.commit()
+        return {
+            "status": "success",
+            "value": {
+                "group_name": group_name,
+                "created": True
+                }
+            }
+
+
+@bp.route('/ajax/admin/add_user_to_group', methods=['POST'])
+@debug_wrapper
+@admin_login_required
+def ajax_add_user_to_group(**kwargs):
+    db = get_db()
+    assert 'user_name' in request.values, 'user_name is required for add_user_to_group requests'
+    assert 'group_name' in request.values, 'group_name is required for add_user_to_group requests'
+    user_name = request.values['user_name']
+    group_name = request.values['group_name']
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such group "{group_name}"',
+            "value": {
+                "user_name": user_name,
+                "group_name": group_name,
+                "added": False
+            }
+        }
+    try:
+        user = db.query(User).filter_by(username=user_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such user "{user_name}"',
+            "value": {
+                "user_name": user_name,
+                "group_name": group_name,
+                "added": False
+            }
+        }
+    if group in user.get_groups(db):
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user_name,
+                "group_name": group_name,
+                "added": False
+            }
+        }
+    else:
+        user.add_group(db, group)
+        db.commit()
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user_name,
+                "group_name": group_name,
+                "added": True
+            }
+        }
+    
+
+@bp.route('/ajax/admin/get_user_groups', methods=['POST'])
+@admin_login_required
+def ajax_get_user_groups(**kwargs):
+    db = get_db()
+    assert 'user_name' in request.values, 'user_name is required for get_user_groups requests'
+    user_name = request.values['user_name']
+    try:
+        user = db.query(User).filter_by(username=user_name).one()
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user.username,
+                "groups": [group.name for group in user.get_groups(db)]
+            }
+        }
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such user "{user_name}"'
+            }
+
+
+@bp.route('/ajax/admin/remove_user_from_group', methods=['POST'])
+@admin_login_required
+def ajax_remove_user_from_group(**kwargs):
+    db = get_db()
+    assert 'user_name' in request.values, 'user_name is required for remove_user_from_group requests'
+    user_name = request.values['user_name']
+    assert 'group_name' in request.values, 'group_name is required for remove_user_from_group requests'
+    group_name = request.values['group_name']
+    try:
+        user = db.query(User).filter_by(username=user_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such user "{user_name}"'
+            }
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such group "{group_name}"'
+            }
+    assert user and group
+    if group_name == "everyone":
+        return {
+            "status": "failure",
+            "msg": (f'Everyone should be in the group "{group_name}"'
+                    f' so "{user_name}" was not removed.')
+        }
+    elif group_name == user_name:
+        return {
+            "status": "failure",
+            "msg": ('Everyone should be in their personal group'
+                    f' so "{user_name}" was not removed from group "{group_name}".')
+        }
+    elif group not in user.get_groups(db):
+        return {
+            "status": "failure",
+            "msg": f'"{user_name}" is not a member of the group "{group_name}"',
+        }
+    else:
+        user.remove_group(db, group)
+        db.commit()
+        return {
+            "status": "success",
+            "value": {
+                "user_name": user_name,
+                "group_name": group_name,
+                "removed": True,
+            }
+        }
+
+
+@bp.route('/ajax/admin/remove_group', methods=['POST'])
+@admin_login_required
+def ajax_remove_group(**kwargs):
+    db = get_db()
+    assert 'group_name' in request.values, 'group_name is required for remove_user_from_group requests'
+    group_name = request.values['group_name']
+    try:
+        group = db.query(Group).filter_by(name=group_name).one()
+    except NoResultFound:
+        return {
+            "status": "failure",
+            "msg": f'No such group "{group_name}"'
+            }
+
+    if group_name == "everyone":
+        return {
+            "status": "failure",
+            "msg": 'The "everyone" group cannot be deleted.'
+        }
+
+    if db.query(User).filter_by(username=group_name).first() is not None:
+        return {
+            "status": "failure",
+            "msg": (f'The group "{group_name}" cannot be deleted because it is the home'
+                    ' group of the user of the same name.'
+                    )
+        }
+
+    tourneys_this_group = db.query(Tourney).filter_by(group=group.id).all()
+    tourney_names_this_group = [tourney.name for tourney in tourneys_this_group]
+    if tourney_names_this_group:
+        name_list = '"' + '","'.join(tourney_names_this_group) + '"'
+        return {
+            "status": "failure",
+            "msg": (f'This group cannot be deleted because it is associated with the'
+                    f' following tourneys: {name_list}.'
+                    )
+        }
+
+    # Remove this group from all users who have it
+    users_with_this_group = group.get_users(db)
+    for user in users_with_this_group:
+        user.remove_group(db, group)
+    # Remove the group from the group table
+    db.query(Group).filter_by(name=group_name).delete()
+    db.commit()
+    return {
+        "status": "success",
+        "value": {
+            "group_name": group_name,
+            "removed": True,
+        }
+    }

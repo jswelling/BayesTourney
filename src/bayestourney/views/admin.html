@@ -1,11 +1,402 @@
 {% extends 'base.html' %}
 
+{% from "macros.html" import ajax_post_chain with context %}
+
 {% block pagescripts %}
+<script>
+  $( function() {
+    $( ".help-accordion" ).accordion({"collapsible": true,
+				      "heightStyle": "content",
+				      "active": false
+				     });
+    $( "#admin_accordion" ).accordion();
+    // prevent 'enter' key from triggering form submission
+    $('form input').keydown(function (e) {
+      if (e.keyCode == 13) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    // Add group name form behavior
+    $("#add_group_name_button").prop("disabled", true);
+    $("#verify_group_name_free_button").prop("disabled", false);
+    $("#create_group_name").on("input", function () {
+      $("#add_group_name_button").prop("disabled", true);
+      $("#verify_group_name_free_button").prop("disabled", false);
+    });
+    $("#verify_group_name_free_button").click( function() {
+      var test_str = $("#create_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#add_group_form").serializeArray(); };
+	function success_fun(data) {
+	  if (data['value']['exists'] == false) {
+	    $("#add_group_name_button").prop("disabled", false);
+	    $(this).prop("disabled", true);
+	  }
+	  else {
+	    alert('The group name "' + data['value']['group_name'] + '" already exists.');
+	  }
+	};
+	{{ ajax_post_chain('ajax/admin/check_group_exists',
+			   'to verify this group name',
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#add_group_name_button").click( function() {
+      function data_fun() { return $("#add_group_form").serializeArray() };
+      function success_fun(data) {
+	$("#create_group_name").val('');
+	$("#add_group_name_button").prop("disabled", true);
+	$("#verify_group_name_free_button").prop("disabled", false);
+	if (data['value']['created'] == true) {
+	  alert('Created the group "' + data['value']['group_name'] + '".');
+	}
+	else {
+	  alert('The group "' + data['value']['group_name'] + '" already existed.');
+	}
+      };
+      {{ ajax_post_chain('ajax/admin/add_group',
+			 'to add this group name',
+			 'data_fun', 'success_fun') }}
+    });
+
+    // Remove group name form behavior
+    $("#remove_group_name_button").prop("disabled", true);
+    $("#rg_verify_group_exists_button").prop("disabled", false);
+    $("#remove_group_name").on("input", function () {
+      $("#remove_group_name_button").prop("disabled", true);
+      $("#rg_verify_group_exists_button").prop("disabled", false);
+    });
+    $("#rg_verify_group_exists_button").click( function() {
+      var test_str = $("#remove_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#remove_group_form").serializeArray(); };
+	function success_fun(data) {
+	  if (data['value']['exists'] == true) {
+	    $("#remove_group_name_button").prop("disabled", false);
+	    $("#rg_verify_group_exists_button").prop("disabled", true);
+	  }
+	  else {
+	    alert('The group name "' + data['value']['group_name'] + '" does not exist.');
+	  }
+	};
+	{{ ajax_post_chain('ajax/admin/check_group_exists',
+			   'to verify this group name',
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#remove_group_name_button").click( function() {
+      function data_fun() { return $("#remove_group_form").serializeArray() };
+      function success_fun(data) {
+	$("#remove_group_name").val('');
+	$("#remove_group_name_button").prop("disabled", true);
+	$("#rg_verify_group_exists_button").prop("disabled", false);
+	if (data['value']['removed'] == true) {
+	  alert('Removed the group "' + data['value']['group_name'] + '".');
+	}
+	else {
+	  alert('The group "' + data['value']['group_name'] + '" did not exist.');
+	}
+      };
+      {{ ajax_post_chain('ajax/admin/remove_group',
+			 'to remove this group name',
+			 'data_fun', 'success_fun') }}
+    });
+
+    // Add user to group form behavior
+    $("#autg_add_user_to_group_button").prop("disabled", true);
+    $("#autg_verify_group_name_exists_button").prop("disabled", false);
+    $("#autg_verify_user_name_exists_button").prop("disabled", false);
+    $("#autg_user_name").on("input", function () {
+      $("#autg_add_user_to_group_button").prop("disabled", true);
+      $("#autg_verify_user_name_exists_button").prop("disabled", false);
+    });
+    $("#autg_group_name").on("input", function () {
+      $("#autg_add_user_to_group_button").prop("disabled", true);
+      $("#autg_verify_group_name_exists_button").prop("disabled", false);
+    });
+    $("#autg_verify_user_name_exists_button").click( function() {
+      var test_str = $("#autg_user_name").val();
+      if (test_str.trim().length == 0) {
+	alert("User name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#add_user_to_group_form").serializeArray(); };
+	function success_fun(data) {
+	  if (data['value']['exists'] == true) {
+	    if ($("#autg_verify_group_name_exists_button").prop("disabled")) {
+	      $("#autg_add_user_to_group_button").prop("disabled", false);
+	    }
+	    $("#autg_verify_user_name_exists_button").prop("disabled", true);
+	  }
+	  else {
+	    alert('The user name "' + data['value']['user_name'] + '" does not exist');
+	  }
+	};
+	{{ ajax_post_chain('ajax/admin/check_user_exists',
+			   'to verify this user name',
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#autg_verify_group_name_exists_button").click( function() {
+      var test_str = $("#autg_group_name").val();
+      if (test_str.trim().length == 0) {
+	alert("Group name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#add_user_to_group_form").serializeArray(); };
+	function success_fun(data) {
+	  if (data['value']['exists'] == true) {
+	    if ($("#autg_verify_user_name_exists_button").prop("disabled")) {
+	      $("#autg_add_user_to_group_button").prop("disabled", false);
+	    }
+	    $("#autg_verify_group_name_exists_button").prop("disabled", true);
+	  }
+	  else {
+	    alert('The group name "' + data['value']['group_name'] + '" does not exist');
+	  }
+	};
+	{{ ajax_post_chain('ajax/admin/check_group_exists',
+			   'to verify this group name',
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#autg_add_user_to_group_button").click( function() {
+      function data_fun() { return $("#add_user_to_group_form").serializeArray(); };
+      function success_fun(data) {
+	$("#autg_add_user_to_group_button").prop("disabled", true);
+	$("#autg_user_name").val('');
+	$("#autg_group_name").val('');
+	$("#autg_verify_group_name_exists_button").prop("disabled", false);
+	$("#autg_verify_user_name_exists_button").prop("disabled", false);
+	if (data['value']['added'] == true) {
+	  alert('The user "'
+		+ data['value']['user_name']
+		+ '" was added to the group "'
+		+ data['value']['group_name']
+		+ '".');
+	}
+	else {
+	  alert('The user "'
+		+ data['value']['user_name']
+		+ '" was already a member of the group "'
+		+ data['value']['group_name']
+		+ '".');
+	}
+      };
+      {{ ajax_post_chain('ajax/admin/add_user_to_group',
+			 'to add this user to this group',
+			 'data_fun', 'success_fun') }}
+    });
+
+    // Remove user from group form behavior
+    $("#rufg_remove_user_from_group_button").prop("disabled", true);
+    $("#rufg_group_sel").prop("disabled", true);
+    $("#rufg_user_name").on("input", function () {
+      $("#rufg_remove_user_from_group_button").prop("disabled", true);
+      $("#rufg_verify_user_name_exists_button").prop("disabled", false);
+    });
+    $("#rufg_verify_user_name_exists_button").click( function() {
+      var test_str = $("#rufg_user_name").val();
+      if (test_str.trim().length == 0) {
+	alert("User name cannot be empty.");
+      }
+      else {
+	function data_fun() { return $("#remove_user_from_group_form").serializeArray(); };
+	function success_fun(data) {
+	  $("#rufg_verify_user_name_exists_button").prop("disabled", true);
+	  $("#rufg_remove_user_from_group_button").prop("disabled", false);
+	  var this_sel = $("#rufg_group_sel");
+	  this_sel.empty();
+	  data['value']['groups'].forEach(function(item, index) {
+	    this_sel.append("<option>" + item + "</option>\n");
+	  });
+	  this_sel.prop("disabled", false);
+	};
+	{{ ajax_post_chain('ajax/admin/get_user_groups',
+			   "for this user's groups",
+			   'data_fun', 'success_fun') }}
+      }
+    });
+    $("#rufg_remove_user_from_group_button").click( function() {
+      function data_fun() { return $("#remove_user_from_group_form").serializeArray(); };
+      function success_fun(data) {
+	$("#rufg_verify_user_name_exists_button").prop("disabled", true);
+	$("#rufg_remove_user_from_group_button").prop("disabled", true);
+	if (data['value']['removed'] == true) {
+	  alert('User "' + data['value']['user_name']
+		+ '" was removed from the group "' + data['value']['group_name']
+		+ '".');
+	}
+	else {
+	  if (data['value']['cause'] == null) {
+	    alert('User "' + data['value']['user_name']
+		  + '" was not removed from the group "' + data['value']['group_name']
+		  + '" but no reason was given.');
+	  }
+	  else {
+	    alert('User "' + data['value']['user_name']
+		  + '" was not removed from the group "' + data['value']['group_name']
+		  + '" because "' + data['value']['cause'] + '".');
+	  }
+	}
+	$("#rufg_verify_user_name_exists_button").click();
+      };
+      {{ ajax_post_chain('ajax/admin/remove_user_from_group',
+			 'to remove this user from this group',
+			 'data_fun', 'success_fun') }}
+    });
+  });
+</script>
 {% endblock %}
 
 {% block content %}
 <h1>Admin Functions</h1>
 
-This page will contain administrative functions, visible only to those
-users for whom the 'admin' property is set.
+You can only see this page if your account has the <b>Admin</b> property set.
+<div id="admin_accordion">
+  <h2>Add A Group</h2>
+  <div>
+    <div class='help-accordion'>
+      <h4>Help</h4>
+      <div>
+	Use this panel to create a new group.
+	<ol>
+	  <li>Type a group name in the space provided.</li>
+	  <li>
+	    Click <em>Check group name</em> to verify that a group by that name does not
+	    already exist.
+	  </li>
+	  <li>If there is no such group, the <em>Add group name</em> button will become clickable.</li>
+	  <li>Click <em>Add group name</em>. Viola!  Your new group exists.
+	</ol>
+      </div>
+    </div>
+    <form id="add_group_form">
+      <label for="create_group_name">Group Name</label>
+      <input type=text id="create_group_name" name="group_name">
+      <br><br>
+      <input type=button id="verify_group_name_free_button"
+	 value="Check group name">
+      <input type=button id="add_group_name_button"
+	 value="Add group name">
+    </form>
+  </div>
+  <h2>Remove A Group</h2>
+  <div>
+    <div class='help-accordion'>
+      <h4>Help</h4>
+      <div>
+	Use this panel to delete an existing group.  Any users who are members of the
+	group will lose that membership.
+	<br>
+	A group can only be deleted if no tournaments are associated with it.  If you
+	try to delete a group with associated tournaments, the error message will give
+	you a list of those tournament names.
+	<br>
+	The "everyone" group cannot be deleted.
+	<br>
+	For every user, there is a group with a matching name acting as that user&#39;s
+	home group.  That group cannot be deleted as long as the user exists.
+	<ol>
+	  <li>Type a group name in the space provided.</li>
+	  <li>
+	    Click <em>Check group name</em> to verify that the group exists. If it does,
+	    the <em>Remove group name</em> button will become active.
+	  </li>
+	  <li>
+	    Click <em>Remove group name</em>.  The group will be deleted if it is possible
+	    to do so.  If there are tournaments which are still associated with the group,
+	    the error message will include their names.  You can change the group
+	    association of each tourney using the tourney settings menu and then try
+	    again to delete it.
+	</ol>
+      </div>
+    </div>
+    <form id="remove_group_form">
+      <label for="remove_group_name">Group Name</label>
+      <input type=text id="remove_group_name" name="group_name">
+      <br><br>
+      <input type=button id="rg_verify_group_exists_button" value="Check group name">
+      <input type=button id="remove_group_name_button" value="Remove group name">
+    </form>
+  </div>
+  <h2>Add User To Group</h2>
+  <div>
+    <div class='help-accordion'>
+      <h4>Help</h4>
+      <div>
+	Use this panel to add a user to a group.
+	<ol>
+	  <li>Type a user name and a group name in the spaces provided.</li>
+	  <li>Click <em>Check user name</em> to verify that a user by that name exists.</li>
+	  <li>Click <em>Check group name</em> to verify that a group by that name exists.</li>
+	  <li>
+	    If both the user and group exist, the <em>Add user to group</em> button will become clickable.
+	  </li>
+	  <li>
+	    Click <em>Add user to group</em>. If the user was not already a member of the group,
+	    they are now.
+	  </li>
+	</ol>
+      </div>
+    </div>
+    <form id="add_user_to_group_form">
+      <label for="autg_user_name">User Name</label>
+      <input type=text id="autg_user_name" name="user_name">
+      <br><br>
+      <label for="autg_group_name">Group Name</label>
+      <input type=text id="autg_group_name" name="group_name">
+      <br><br>
+      <input type=button id="autg_verify_user_name_exists_button"
+	     value="Check user name">
+      <input type=button id="autg_verify_group_name_exists_button"
+	     value="Check group name">
+      <input type=button id="autg_add_user_to_group_button"
+	     value="Add user to group">
+    </form>
+  </div>
+  <h2>Remove User From Group</h2>
+  <div>
+    <div class='help-accordion'>
+      <h4>Help</h4>
+      <div>
+	Use this panel to remove a user from a group.
+	<ol>
+	  <li>Type a user name in the space provided.</li>
+	  <li>
+	    Click <em>Check user name</em>.  This will verify that the user exists, and
+	    fill the <em>Group Name</em> selector menu with the user&#39;s groups.
+	  </li>
+	  <li>Select the group from which you want to remove the user.</li>
+	  <li>
+	    Click <em>Remove user from group</em>. The user will cease to be a member of
+	    the group, and the <em>Group Name</em> selector will update to include only
+	    the remaining groups.
+	  </li>
+	</ol>
+      </div>
+    </div>
+    <form id="remove_user_from_group_form">
+      <label for="rufg_user_name">User Name</label>
+      <input type=text id="rufg_user_name" name="user_name">
+      <br><br>
+      <label for="rufg_group_sel">Group Name</label>
+      <select id="rufg_group_sel" name="group_name">
+	</select>
+      <br><br>
+      <input type=button id="rufg_verify_user_name_exists_button"
+	     value="Check user name">
+      <input type=button id="rufg_remove_user_from_group_button"
+	     value="Remove user from group">
+    </form>
+  </div>
+</div>
 {% endblock %}
