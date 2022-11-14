@@ -1214,3 +1214,288 @@ def test_ajax_wfw_post(client, app, auth):
         assert 'image' in response_dict
         assert 'label_str' in response_dict
         assert '5 tournaments' in response_dict['label_str']
+
+
+@pytest.mark.parametrize(('user_name', 'exists'),
+                         (('other', True),
+                          ('foo', False),
+                          )
+                         )
+def test_ajax_admin_check_user_exists_post(client, app, auth,
+                                           user_name, exists):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.post('/ajax/admin/check_user_exists',
+                               data={
+                                   "user_name": user_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'exists' in response_dict
+        assert 'user_name' in response_dict
+        assert response_dict['exists'] == exists
+        assert response_dict['user_name'] == user_name
+
+
+@pytest.mark.parametrize(('group_name', 'exists'),
+                         (('grouptwo', True),
+                          ('fakegroup', False),
+                          )
+                         )
+def test_ajax_admin_check_group_exists_post(client, app, auth,
+                                            group_name, exists):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.post('/ajax/admin/check_group_exists',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'exists' in response_dict
+        assert 'group_name' in response_dict
+        assert response_dict['exists'] == exists
+        assert response_dict['group_name'] == group_name
+
+        
+def test_ajax_admin_add_group_post(client, app, auth):
+    group_name = "new group"
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.post('/ajax/admin/check_group_exists',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'exists' in response_dict
+        assert 'group_name' in response_dict
+        assert response_dict['exists'] == False
+        assert response_dict['group_name'] == group_name
+        response = client.post('/ajax/admin/add_group',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'created' in response_dict
+        assert 'group_name' in response_dict
+        assert response_dict['created'] == True
+        assert response_dict['group_name'] == group_name
+        response = client.post('/ajax/admin/check_group_exists',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'exists' in response_dict
+        assert 'group_name' in response_dict
+        assert response_dict['exists'] == True
+        assert response_dict['group_name'] == group_name
+        response = client.post('/ajax/admin/add_group',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        assert response_json['status'] == 'success'
+        assert 'value' in response_json
+        response_dict = response_json['value']
+        assert 'created' in response_dict
+        assert 'group_name' in response_dict
+        assert response_dict['created'] == False
+        assert response_dict['group_name'] == group_name
+
+
+@pytest.mark.parametrize(('group_name', 'works', 'msg'),
+                         (('nosuchgroup', False, 'No such group'),
+                          ('everyone', False, 'The "everyone" group cannot'),
+                          ('other', False, 'The group "other" cannot be deleted because it is'),
+                          ('groupone', False, ('This group cannot be deleted because it is'
+                                               ' associated with the following'
+                                               ' tourneys: "test_tourney_8".')),
+                          ('grouptwo', True, ''),
+                          )
+                         )
+def test_ajax_admin_remove_group_post(client, app, auth, group_name, works, msg):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.post('/ajax/admin/remove_group',
+                               data={
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        pprint(response_json)
+        assert 'status' in response_json
+        if works:
+            assert response_json['status'] == 'success'
+            assert 'value' in response_json
+            response_dict = response_json['value']
+            assert 'removed' in response_dict
+            assert response_dict['removed'] == True
+            assert 'group_name' in response_dict
+            assert response_dict['group_name'] == group_name
+            response = client.post('/ajax/admin/check_group_exists',
+                                   data={
+                                       "group_name": group_name,
+                                   })
+            response_json = json.loads(response.data.decode('utf-8'))
+            assert 'status' in response_json
+            assert response_json['status'] == 'success'
+            assert 'value' in response_json
+            response_dict = response_json['value']
+            assert 'exists' in response_dict
+            assert 'group_name' in response_dict
+            assert response_dict['exists'] == False
+            assert response_dict['group_name'] == group_name
+        else:
+            assert response_json['status'] == 'failure'
+            assert 'msg' in response_json
+            assert response_json['msg'].startswith(msg)
+
+
+@pytest.mark.parametrize(('user_name', 'works', 'group_names'),
+                         (('nosuchuser', False, []),
+                          ('other', True, ['other', 'everyone', 'grouptwo']),
+                          )
+                         )
+def test_ajax_admin_get_user_groups_post(client, app, auth, user_name, works, group_names):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        response = client.post('/ajax/admin/get_user_groups',
+                               data={
+                                   "user_name": user_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        pprint(response_json)
+        assert 'status' in response_json
+        if works:
+            assert response_json['status'] == 'success'
+            assert 'value' in response_json
+            response_dict = response_json['value']
+            assert 'user_name' in response_dict
+            assert response_dict['user_name'] == user_name
+            assert 'groups' in response_dict
+            assert set(response_dict['groups']) == set(group_names)
+        else:
+            assert response_json['status'] == 'failure'
+            assert 'msg' in response_json
+            assert response_json['msg'] == f'No such user "{user_name}"'
+
+
+@pytest.mark.parametrize(('user_name', 'group_name', 'works', 'msg'),
+                         (('nosuchuser', 'groupone', False, 'No such user'),
+                          ('other', 'nosuchgroup', False, 'No such group'),
+                          ('other', 'groupone', True, ''),
+                          ('other', 'grouptwo', True, ''),
+                          )
+                         )
+def test_ajax_admin_add_user_to_group_post(client, app, auth, user_name, group_name, works, msg):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        if works:
+            response = client.post('/ajax/admin/get_user_groups',
+                                   data={
+                                       "user_name": user_name,
+                                   })
+            response_json = json.loads(response.data.decode('utf-8'))
+            before_set = set(response_json['value']['groups'])
+        else:
+            before_set = set([])
+        response = client.post('/ajax/admin/add_user_to_group',
+                               data={
+                                   "user_name": user_name,
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        pprint(response_json)
+        if works:
+            assert response_json['status'] == 'success'
+            assert 'value' in response_json
+            response_dict = response_json['value']
+            assert 'user_name' in response_dict
+            assert response_dict['user_name'] == user_name
+            assert 'group_name' in response_dict
+            assert response_dict['group_name'] == group_name
+            assert 'added' in response_dict
+            assert response_dict['added'] == (group_name not in before_set)
+            response = client.post('/ajax/admin/get_user_groups',
+                                   data={
+                                       "user_name": user_name,
+                                   })
+            response_json = json.loads(response.data.decode('utf-8'))
+            after_set = set(response_json['value']['groups'])
+            assert group_name in after_set
+        else:
+            assert response_json['status'] == 'failure'
+            assert 'msg' in response_json
+            assert response_json['msg'].startswith(msg)
+
+
+@pytest.mark.parametrize(('user_name', 'group_name', 'works', 'msg'),
+                         (('nosuchuser', 'groupone', False, 'No such user'),
+                          ('other', 'nosuchgroup', False, 'No such group'),
+                          ('other', 'everyone', False, 'Everyone should be in the group "everyone"'),
+                          ('other', 'other', False, 'Everyone should be in their personal group'),
+                          ('other', 'groupone', False, '"other" is not a member'),
+                          ('other', 'grouptwo', True, ''),
+                          )
+                         )
+def test_ajax_admin_remove_user_from_group_post(client, app, auth, user_name, group_name, works, msg):
+    auth.login(email='admin@foo.bar', password='AAA') # admin login
+    with client:
+        if works:
+            response = client.post('/ajax/admin/get_user_groups',
+                                   data={
+                                       "user_name": user_name,
+                                   })
+            response_json = json.loads(response.data.decode('utf-8'))
+            before_set = set(response_json['value']['groups'])
+        else:
+            before_set = set([])
+        response = client.post('/ajax/admin/remove_user_from_group',
+                               data={
+                                   "user_name": user_name,
+                                   "group_name": group_name,
+                               })
+        response_json = json.loads(response.data.decode('utf-8'))
+        assert 'status' in response_json
+        pprint(response_json)
+        if works:
+            assert response_json['status'] == 'success'
+            assert 'value' in response_json
+            response_dict = response_json['value']
+            assert 'user_name' in response_dict
+            assert response_dict['user_name'] == user_name
+            assert 'group_name' in response_dict
+            assert response_dict['group_name'] == group_name
+            assert 'removed' in response_dict
+            assert response_dict['removed'] == (group_name in before_set)
+            response = client.post('/ajax/admin/get_user_groups',
+                                   data={
+                                       "user_name": user_name,
+                                   })
+            response_json = json.loads(response.data.decode('utf-8'))
+            after_set = set(response_json['value']['groups'])
+            assert group_name not in after_set
+        else:
+            assert response_json['status'] == 'failure'
+            assert 'msg' in response_json
+            assert response_json['msg'].startswith(msg)
+

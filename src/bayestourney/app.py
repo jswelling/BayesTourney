@@ -1351,7 +1351,7 @@ def ajax_add_user_to_group(**kwargs):
     except NoResultFound:
         return {
             "status": "failure",
-            "msg": 'No such group "{group_name}"',
+            "msg": f'No such group "{group_name}"',
             "value": {
                 "user_name": user_name,
                 "group_name": group_name,
@@ -1363,7 +1363,7 @@ def ajax_add_user_to_group(**kwargs):
     except NoResultFound:
         return {
             "status": "failure",
-            "msg": 'No such user "{user_name}"',
+            "msg": f'No such user "{user_name}"',
             "value": {
                 "user_name": user_name,
                 "group_name": group_name,
@@ -1492,7 +1492,7 @@ def ajax_remove_group(**kwargs):
         return {
             "status": "failure",
             "msg": (f'The group "{group_name}" cannot be deleted because it is the home'
-                    ' group of the use of the same name.'
+                    ' group of the user of the same name.'
                     )
         }
 
