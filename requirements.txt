@@ -5,7 +5,7 @@ Flask-mail==0.9.1
 Flask-migrate==3.1.0
 pandas==1.2.4
 SQLAlchemy @ file:///tmp/build/80754af9/sqlalchemy_1620708155358/work
-Werkzeug==2.0.1
+Werkzeug==2.2.3
 python-dotenv
 pygraphviz
 matplotlib
