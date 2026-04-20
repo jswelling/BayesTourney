@@ -21,4 +21,6 @@ USER flaskuser
 
 EXPOSE 5000
 
+WORKDIR /app/src
+
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "bayestourney:create_app()"]
