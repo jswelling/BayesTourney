@@ -123,9 +123,9 @@ class Tourney(Base):
     other_write = Column(Boolean)
     other_delete = Column(Boolean)
     settings = Column(JSON, nullable=True)
-    ownerName = column_property(select([User.username]).where(User.id==owner)
+    ownerName = column_property(select(User.username).where(User.id==owner)
                                 .scalar_subquery())
-    groupName = column_property(select([Group.name]).where(Group.id==group)
+    groupName = column_property(select(Group.name).where(Group.id==group)
                                 .scalar_subquery())
     
     def __init__(self, name, owner, group, note='', permissions={}):
@@ -304,11 +304,11 @@ class Bout(Base):
     rightWins = Column(Integer)
     draws = Column(Integer)
     note = Column(String)
-    lName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==leftPlayerId)
+    lName = column_property(select(LogitPlayer.name).where(LogitPlayer.id==leftPlayerId)
                             .scalar_subquery())
-    rName = column_property(select([LogitPlayer.name]).where(LogitPlayer.id==rightPlayerId)
+    rName = column_property(select(LogitPlayer.name).where(LogitPlayer.id==rightPlayerId)
                             .scalar_subquery())
-    tourneyName = column_property(select([Tourney.name]).where(Tourney.tourneyId==tourneyId)
+    tourneyName = column_property(select(Tourney.name).where(Tourney.tourneyId==tourneyId)
                                   .scalar_subquery())
     def __init__(self, tourneyId, lWins,leftId, draws, rightId, rWins, note=""):
         self.tourneyId = tourneyId
