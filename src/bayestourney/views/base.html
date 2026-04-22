@@ -72,10 +72,10 @@
           </button>
           <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
             <ul class="nav navbar-nav me-auto mb-2 mb-lg-0">
-              {{ nav_link('tourneys_fun', 'Tournaments') }}
-              {{ nav_link('entrants_fun', 'Entrants') }}
-              {{ nav_link('bouts_fun', 'Bouts') }}
-              {{ nav_link('horserace_fun', 'Horserace') }}
+              {{ nav_link('app.tourneys_fun', 'Tournaments') }}
+              {{ nav_link('app.entrants_fun', 'Entrants') }}
+              {{ nav_link('app.bouts_fun', 'Bouts') }}
+              {{ nav_link('app.horserace_fun', 'Horserace') }}
             </ul>
             {#
             <form class="d-flex">
@@ -85,15 +85,15 @@
             #}
             <ul class="nav navbar-nav ms-auto mb-2 mb-lg-0">
               {% if current_user['admin'] %}
-              {{ nav_link('admin_page', 'Admin') }}
+              {{ nav_link('app.admin_page', 'Admin') }}
               {% endif %}
-              {{ nav_link('settings', 'Settings') }}
-              {{ nav_link('help_fun', 'Help') }}
+              {{ nav_link('app.settings', 'Settings') }}
+              {{ nav_link('app.help_fun', 'Help') }}
               <li class="nav-item dropdown">
                 <a href="#" class="nav-link dropdown-toggle" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   Misc <b class="caret"></b></a>
                 <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                  <li><a class="dropdown-item" href="{{url_for('site_map')}}">Site Map</a></li>
+                  <li><a class="dropdown-item" href="{{url_for('app.site_map')}}">Site Map</a></li>
                   {#
                   <li><a class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="#">Another action</a></li>

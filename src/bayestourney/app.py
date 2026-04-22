@@ -46,7 +46,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
 
-bp = Blueprint('', __name__)
+bp = Blueprint('app', __name__)
 bp.register_blueprint(legacy_bp)
 
 
@@ -297,7 +297,7 @@ def admin_page():
 @bp.route('/')
 @login_required
 def index():
-    return redirect(url_for('tourneys_fun'))
+    return redirect(url_for('app.tourneys_fun'))
 
 
 @bp.route('/tourneys')

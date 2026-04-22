@@ -1,11 +1,11 @@
-Flask==2.0.1
-Flask-SQLAlchemy==2.5.1
-Flask-Login==0.6.1
+Flask>=2.0.1
+Flask-SQLAlchemy>=2.0.0
+Flask-Login>=0.6.0
 Flask-mail==0.9.1
 Flask-migrate==3.1.0
-pandas==1.2.4
-SQLAlchemy
-Werkzeug==2.0.1
+pandas
+SQLAlchemy>=2.0.0
+Werkzeug
 python-dotenv
 pygraphviz
 matplotlib

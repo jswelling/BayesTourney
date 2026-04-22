@@ -156,7 +156,7 @@ def calc_p_ratio(idx, player, old_wts, new_wts, samples_df):
     tot = (np.outer(log_w_ratio, sub_df_mtx[:, wins_col])
            + np.einsum('ij,j -> ij', p1, p2))
     #print(f'p1: {p1}  p2: {p2}  tot: {tot}')
-    rslt = np.exp(np.sum(tot, axis=1))
+    rslt = np.exp(np.sum(tot, axis=1).astype(np.float64))
     #print(f'result: {rslt}')
     return rslt
 
